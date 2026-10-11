@@ -18,7 +18,7 @@ export interface ZcodeWrappedEntry {
     readonly upstream: string;
 }
 
-export const ZCODE_PLUGIN_HEADER = "x-bili-plugin";
+export const ZCODE_PLUGIN_HEADER = "x-sophialin-plugin";
 export const ZCODE_AGENT_VALUE = "zcode";
 export const ZCODE_BIGMODEL_ANTHROPIC_UPSTREAM = "https://open.bigmodel.cn/api/anthropic";
 
@@ -51,7 +51,7 @@ const ZCODE_NEW_CREATE_IDS: readonly string[] = [
     "account:bigmodel-start-plan",
 ];
 
-const WRAPPED_URL_RE = /^https?:\/\/[^/]+\/bili\/(https?:\/\/.+)$/;
+const WRAPPED_URL_RE = /^https?:\/\/[^/]+\/sophialin\/(https?:\/\/.+)$/;
 
 export function resolveZcodeDataDir(env: NodeJS.ProcessEnv = process.env): string {
     return zcodeDataRoot(env);
@@ -101,8 +101,8 @@ export function defaultZcodeRoutePolicy(): ZcodeRoutePolicy {
 /** #1621: the v3.14+ personal-store generation ships ClientRequestSigningV4
  *  for coding-plan accounts. Its handshake builder rejects non-https origins
  *  (allowInsecureHttp is never passed anywhere in zcode) and derives the
- *  handshake path from origin alone, dropping any /bili/ prefix — so a
- *  /bili/-wrapped baseUrl fails at model creation ("Client signing handshake
+ *  handshake path from origin alone, dropping any /sophialin/ prefix — so a
+ *  /sophialin/-wrapped baseUrl fails at model creation ("Client signing handshake
  *  requires HTTPS."). Under route:"all" those accounts are skipped per-entry
  *  (every other provider still routes); under route:"plans" the plan targets
  *  ARE the signing accounts, so nothing is routable and the whole store is
@@ -112,7 +112,7 @@ export function zcodeSigningBlocksRouting(kind: ZcodeStoreKind, policy: ZcodeRou
 }
 
 /** #809 parity with the in-process natives: a loopback proxy target is never
- *  re-proxied — wrapping it would stack bili onto itself or onto the user's
+ *  re-proxied — wrapping it would stack sophialin onto itself or onto the user's
  *  own local relay. */
 function isLoopbackHttpUrl(url: string): boolean {
     let parsed: URL;
@@ -171,7 +171,7 @@ function parseRoot(text: string, label: string): Record<string, unknown> {
     return root;
 }
 
-/** Strip a previous /bili/ wrapper (any origin/port) and validate the result
+/** Strip a previous /sophialin/ wrapper (any origin/port) and validate the result
  *  is an http(s) URL. Returns undefined for values we must not touch. */
 function unwrapBaseUrl(value: unknown): string | undefined {
     if (typeof value !== "string") return undefined;
@@ -251,7 +251,7 @@ function applyLegacy(text: string, origin: string, policy: ZcodeRoutePolicy): Zc
         for (const { id, options } of selection.routed) {
             const upstream = unwrapBaseUrl(options.baseURL);
             if (upstream === undefined) continue; // filtered above; keeps TS honest
-            options.baseURL = `${origin}/bili/${upstream}`;
+            options.baseURL = `${origin}/sophialin/${upstream}`;
             wrapped.push({ id, upstream });
         }
         skipped.push(...selection.skipped);
@@ -259,7 +259,7 @@ function applyLegacy(text: string, origin: string, policy: ZcodeRoutePolicy): Zc
     }
     for (const { id, options } of legacyPlanEntries(root, true)) {
         const upstream = unwrapBaseUrl(options.baseURL) ?? ZCODE_BIGMODEL_ANTHROPIC_UPSTREAM;
-        options.baseURL = `${origin}/bili/${upstream}`;
+        options.baseURL = `${origin}/sophialin/${upstream}`;
         wrapped.push({ id, upstream });
     }
     return { text: serialize(root), wrapped, skipped };
@@ -359,7 +359,7 @@ function applyNew(text: string, origin: string, policy: ZcodeRoutePolicy): Zcode
         for (const { id, api } of newStoreRulesForAll(root, policy).routed) {
             const upstream = unwrapBaseUrl(api.baseUrl);
             if (upstream === undefined) continue; // filtered above; keeps TS honest
-            api.baseUrl = `${origin}/bili/${upstream}`;
+            api.baseUrl = `${origin}/sophialin/${upstream}`;
             wrapped.push({ id, upstream });
         }
         skipped.push(...newStoreRulesForAll(root, policy).skipped);
@@ -367,7 +367,7 @@ function applyNew(text: string, origin: string, policy: ZcodeRoutePolicy): Zcode
     }
     for (const { id, api } of newPlanRules(root, true)) {
         const upstream = unwrapBaseUrl(api.baseUrl) ?? ZCODE_BIGMODEL_ANTHROPIC_UPSTREAM;
-        api.baseUrl = `${origin}/bili/${upstream}`;
+        api.baseUrl = `${origin}/sophialin/${upstream}`;
         wrapped.push({ id, upstream });
     }
     return { text: serialize(root), wrapped, skipped };
@@ -472,7 +472,7 @@ export function unrouteZcodeText(text: string, kind: ZcodeStoreKind): { text: st
 }
 
 /** Read-only inspection for status reporting: which store exists and which
- *  entries currently route through a bili origin. */
+ *  entries currently route through a sophialin origin. */
 export function inspectZcodeRouting(dataDir: string, env: NodeJS.ProcessEnv = process.env): { kind: ZcodeStoreKind; file: string; wrapped: ZcodeWrappedEntry[] } | undefined {
     const { kind, file } = detectZcodeStore(dataDir, env);
     let text: string;
@@ -517,8 +517,8 @@ export function inspectZcodeRouting(dataDir: string, env: NodeJS.ProcessEnv = pr
     return { kind, file, wrapped };
 }
 
-/** #1623: the origin bili currently routes through, read back from the
- *  managed /bili/ wrappers — undefined when no entry carries one (direct).
+/** #1623: the origin sophialin currently routes through, read back from the
+ *  managed /sophialin/ wrappers — undefined when no entry carries one (direct).
  *  Drift repair and exit handoff use it to decide whether the shared store
  *  points at a live instance, a dead one, or at us. */
 export function detectCurrentZcodeOrigin(dataDir: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
@@ -552,7 +552,7 @@ export function detectCurrentZcodeOrigin(dataDir: string, env: NodeJS.ProcessEnv
         }
     }
     for (const url of urls) {
-        if (WRAPPED_URL_RE.test(url)) return url.slice(0, url.indexOf("/bili/"));
+        if (WRAPPED_URL_RE.test(url)) return url.slice(0, url.indexOf("/sophialin/"));
     }
     return undefined;
 }

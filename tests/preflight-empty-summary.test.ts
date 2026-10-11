@@ -5,11 +5,11 @@ import test from "node:test";
 
 process.env.NODE_ENV = "test";
 // Fail fast on 4xx retries so the stream-learn path exercises immediately.
-process.env.BILI_REPLAY_RETRY_MAX = "1";
+process.env.SOPHIALIN_REPLAY_RETRY_MAX = "1";
 // Zero backoff so #1767's transient-retry legs (truncation is now retried) run instantly.
-process.env.BILI_REPLAY_RETRY_BASE_MS = "0";
+process.env.SOPHIALIN_REPLAY_RETRY_BASE_MS = "0";
 // Short dead-end cooldown so the expiry leg of the #726 test stays fast.
-process.env.BILI_PREFLIGHT_DEAD_END_COOLDOWN_MS = "400";
+process.env.SOPHIALIN_PREFLIGHT_DEAD_END_COOLDOWN_MS = "400";
 
 import { defaultConfig } from "acp-kernel";
 import { startServer, type ProxyOptions } from "../src/server.ts";
@@ -160,7 +160,7 @@ function startProxy(upstreamPort: number, models: Record<string, { context: numb
 }
 
 async function driveResponses(proxyPort: number, upstreamPort: number, session: string, model: string, input: unknown): Promise<Response> {
-    return await fetch(`http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/responses`, {
+    return await fetch(`http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/responses`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-acp-session": session },
         body: JSON.stringify({ model, stream: true, input }),

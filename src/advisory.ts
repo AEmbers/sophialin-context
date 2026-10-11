@@ -9,11 +9,11 @@
  * force-installs the entry's `target` version through the updater's full
  * safety chain (update.ts#forceInstallVersion) and surfaces the entry's
  * `reason` as a warning: prominent log line (deduped per process per id),
- * web UI banner, and /__bili/status field.
+ * web UI banner, and /__sophialin/status field.
  *
  * Fail-open everywhere: an unreachable or malformed advisory source must
  * never degrade a working proxy — model traffic is never blocked by this
- * mechanism. Trust domain: the document comes from the same registry bili
+ * mechanism. Trust domain: the document comes from the same registry sophialin
  * already auto-installs tarballs from; no new trust boundary.
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -87,7 +87,7 @@ export function _resetAdvisoryWatcherForTest(): void {
 }
 
 /** Default source: the npm companion package's `latest` doc on the SAME
- *  configured registry as the updater (BILI_UPDATE_REGISTRY aware via
+ *  configured registry as the updater (SOPHIALIN_UPDATE_REGISTRY aware via
  *  registryUrlFor) — GFW/proxy users reach it through the exact egress path
  *  the tarball download already uses. An explicit override wins verbatim. */
 export function resolveAdvisoryUrl(configured: string | undefined): string {
@@ -104,9 +104,9 @@ export function parseAdvisoryDoc(raw: unknown): { entries: AdvisoryEntry[]; erro
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
         return { entries: [], error: "document is not a JSON object" };
     }
-    const payload = (raw as Record<string, unknown>).billionContextAdvisories;
+    const payload = (raw as Record<string, unknown>).sophialinContextAdvisories;
     if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
-        return { entries: [], error: "missing billionContextAdvisories object" };
+        return { entries: [], error: "missing sophialinContextAdvisories object" };
     }
     const p = payload as Record<string, unknown>;
     if (p.schema !== SUPPORTED_SCHEMA) {
@@ -180,7 +180,7 @@ export type AdvisoryWatcherOptions = {
      *  readable — same rule as the self-updater. */
     currentVersion: string;
     /** Override for the advisory document URL (config `advisoryUrl` / env
-     *  BILI_ADVISORY_URL). Absent = npm companion package on the configured
+     *  SOPHIALIN_ADVISORY_URL). Absent = npm companion package on the configured
      *  registry. */
     advisoryUrl?: string;
     resolveProxy?: (url: string) => string | undefined;

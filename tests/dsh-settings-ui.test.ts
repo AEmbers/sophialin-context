@@ -31,7 +31,7 @@ async function withEnv<T>(env: Record<string, string | undefined>, fn: () => Pro
 
 function startManifestProxy(): Promise<{ origin: string; close: () => void }> {
     const server = http.createServer((req, res) => {
-        if ((req.url ?? "").startsWith("/__bili/plugin/manifest")) {
+        if ((req.url ?? "").startsWith("/__sophialin/plugin/manifest")) {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ version: "0.1.166", tools: { anthropic: [] } }));
             return;
@@ -64,9 +64,9 @@ function uiCtx(listeners: InjectListener[]) {
 
 test("#1590: webserver/index-inject publishes __BILI__ while an origin is known (attach mode)", async () => {
     const proxy = await startManifestProxy();
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dsh-ui-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-dsh-ui-"));
     try {
-        await withEnv({ DSH_HOME: home, BILLION_CONTEXT_PROXY: proxy.origin }, async () => {
+        await withEnv({ DSH_HOME: home, SOPHIALIN_CONTEXT_PROXY: proxy.origin }, async () => {
             _resetRegisterForTest(proxy.origin);
             const listeners: InjectListener[] = [];
             apply(uiCtx(listeners));
@@ -84,9 +84,9 @@ test("#1590: webserver/index-inject publishes __BILI__ while an origin is known 
 });
 
 test("#1590: index-inject stays silent when no origin is known yet (spawn mode)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dsh-ui-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-dsh-ui-"));
     try {
-        await withEnv({ DSH_HOME: home, BILLION_CONTEXT_PROXY: undefined }, async () => {
+        await withEnv({ DSH_HOME: home, SOPHIALIN_CONTEXT_PROXY: undefined }, async () => {
             _resetRegisterForTest(undefined);
             const listeners: InjectListener[] = [];
             apply(uiCtx(listeners));
@@ -128,7 +128,7 @@ function findButton(node: unknown): ElementNode | undefined {
     return undefined;
 }
 
-test("#1590: client bundle registers the settings.section entry bili (wrapper id, require purity, both render branches)", async () => {
+test("#1590: client bundle registers the settings.section entry sophialin (wrapper id, require purity, both render branches)", async () => {
     const { build } = await import("esbuild");
     // Reuse tsup.config.ts as the single source of truth for the wrapper
     // banner/footer and externals so the test cannot drift from the shipped
@@ -164,7 +164,7 @@ test("#1590: client bundle registers the settings.section entry bili (wrapper id
     vm.runInContext(code, sandbox, { filename: "dsh-native-client.bundle.js" });
     assert.equal(registrations.length, 1);
     // Must equal the loader entry name the scanner keys its graph row by.
-    assert.equal(registrations[0].id, "billion-context");
+    assert.equal(registrations[0].id, "sophialin-context");
 
     const calls: ElementNode[] = [];
     const requireStub = (spec: string): unknown => {
@@ -214,18 +214,18 @@ test("#1590: client bundle registers the settings.section entry bili (wrapper id
         for (const eff of effects) eff();
         assert.equal(slot, "settings.section");
         provide!();
-        assert.ok(options !== undefined && component !== undefined && dicts["bili"] !== undefined);
-        return { options: options!, component: component!, zh: dicts["bili"].zh, en: dicts["bili"].en };
+        assert.ok(options !== undefined && component !== undefined && dicts["sophialin"] !== undefined);
+        return { options: options!, component: component!, zh: dicts["sophialin"].zh, en: dicts["sophialin"].en };
     };
 
     sandbox.__BILI__ = { origin: "http://127.0.0.1:8787" };
     const withOrigin = runApply();
     assert.equal(withOrigin.options.name, "settings.section");
-    assert.equal(withOrigin.options.id, "bili");
+    assert.equal(withOrigin.options.id, "sophialin");
     assert.equal(withOrigin.options.order, 100);
-    assert.equal(withOrigin.options.locale, "bili");
+    assert.equal(withOrigin.options.locale, "sophialin");
     assert.equal(typeof withOrigin.options.label, "function");
-    assert.equal((withOrigin.options.label as () => string)(), "bili设置");
+    assert.equal((withOrigin.options.label as () => string)(), "sophialin设置");
     assert.deepEqual(Object.keys(withOrigin.zh).sort(), Object.keys(withOrigin.en).sort());
     calls.length = 0;
     const tree = withOrigin.component() as ElementNode;
@@ -239,7 +239,7 @@ test("#1590: client bundle registers the settings.section entry bili (wrapper id
     const opened: string[] = [];
     sandbox.open = (url: string) => opened.push(url);
     (button.props!.onClick as () => void)();
-    assert.deepEqual(opened, ["http://127.0.0.1:8787/__bili/"]);
+    assert.deepEqual(opened, ["http://127.0.0.1:8787/__sophialin/"]);
 
     delete sandbox.__BILI__;
     const degraded = runApply();

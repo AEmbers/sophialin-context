@@ -71,8 +71,8 @@ test("logDumpFailure: first failure logs, repeat suppressed, re-logs after windo
 });
 
 // #1290: unrecognized paths were only visible as 3 transient stderr warns —
-// expose the per-path counts so /__bili/stats and the /acp report can surface them.
-test("getUnrecognizedPathStats: exposes per-path counts for /__bili/stats (#1290)", () => {
+// expose the per-path counts so /__sophialin/stats and the /acp report can surface them.
+test("getUnrecognizedPathStats: exposes per-path counts for /__sophialin/stats (#1290)", () => {
     const url = "https://cc-stats-1290.example/alpha/generate?x=1";
     const key = maskUrlsInText(url.split("?")[0]);
     const before = getUnrecognizedPathStats();

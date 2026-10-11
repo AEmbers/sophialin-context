@@ -38,12 +38,12 @@ interface Harness {
 async function startProxy(upstream: http.Server): Promise<Harness> {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-fix806mb-${process.pid}-${Date.now()}`);
-    const biliConfig = path.join(root, "billion-context.json");
+    const root = path.join(tmpdir(), `sophialin-fix806mb-${process.pid}-${Date.now()}`);
+    const sophialinConfig = path.join(root, "sophialin-context.json");
     mkdirSync(root, { recursive: true });
-    writeFileSync(biliConfig, "{}", "utf8");
-    const previous = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    writeFileSync(sophialinConfig, "{}", "utf8");
+    const previous = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const upstreamPort = (upstream.address() as { port: number }).port;
     const opts: ProxyOptions = {
         port: 0,
@@ -73,7 +73,7 @@ async function startProxy(upstream: http.Server): Promise<Harness> {
         port,
         stop: async () => { await close(proxy); },
         cleanup: () => {
-            if (previous === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = previous;
+            if (previous === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = previous;
             rmrf(root);
         },
     };
@@ -182,7 +182,7 @@ test("unparseable body stays on the raw-forward path — upstream rejects it its
             headers: { "content-type": "application/json" },
             body: "not-json",
         });
-        assert.equal(res.status, 200, "garbage body must be forwarded verbatim, not rejected by bili");
+        assert.equal(res.status, 200, "garbage body must be forwarded verbatim, not rejected by sophialin");
         assert.equal(seen.length, 1);
         assert.equal(seen[0].body, "not-json");
     } finally {

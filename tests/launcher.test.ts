@@ -131,17 +131,17 @@ import { _setForTest as registrySetForTest, _resetForTest as registryResetForTes
 // ensureProxyRunning coordinates across processes via <state>/proxy-starting (#707)
 // — point the state dir at a throwaway so these tests never touch the real one.
 const prevXdgState = process.env.XDG_STATE_HOME;
-process.env.XDG_STATE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "bili-launcher-state-"));
-// A host harness that launches bili (omp, codex, claude) exports its client binary,
+process.env.XDG_STATE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-launcher-state-"));
+// A host harness that launches sophialin (omp, codex, claude) exports its client binary,
 // its proxy URL and its CA into every child process. Inherited here they change what
-// runLaunch launches, because BILI_CLIENT_BIN outranks `client: "pi"`
+// runLaunch launches, because SOPHIALIN_CLIENT_BIN outranks `client: "pi"`
 // (src/launcher.ts:2190), so the injected spawnImpl never matches the fake client and
 // never fires the `exit` this file waits on, hanging the test with no timer or socket
 // left to trace; and they change what the assertions read back from the launched env,
-// where trae then sees NODE_EXTRA_CA_CERTS and kimi sees BILLION_CONTEXT_PROXY.
+// where trae then sees NODE_EXTRA_CA_CERTS and kimi sees SOPHIALIN_CONTEXT_PROXY.
 const inheritedLaunchVars = [
-    "BILI_CLIENT_BIN",
-    "BILLION_CONTEXT_PROXY",
+    "SOPHIALIN_CLIENT_BIN",
+    "SOPHIALIN_CONTEXT_PROXY",
     "NODE_EXTRA_CA_CERTS",
     "SSL_CERT_FILE",
     "HTTPS_PROXY",
@@ -202,18 +202,18 @@ test("piTestArgs: prepends --no-extensions for pi-test, leaves other clients unc
 
 test("proxyOrigin / healthUrl", () => {
     assert.equal(proxyOrigin("127.0.0.1", 8787), "http://127.0.0.1:8787");
-    assert.equal(healthUrl("http://127.0.0.1:8787"), "http://127.0.0.1:8787/__bili/health");
+    assert.equal(healthUrl("http://127.0.0.1:8787"), "http://127.0.0.1:8787/__sophialin/health");
 });
 
 test("wrapUpstream: prepends proxy prefix", () => {
     const o = "http://127.0.0.1:8787";
-    assert.equal(wrapUpstream(o, "https://api.anthropic.com"), `${o}/bili/https://api.anthropic.com`);
+    assert.equal(wrapUpstream(o, "https://api.anthropic.com"), `${o}/sophialin/https://api.anthropic.com`);
 });
 
 test("wrapUpstream: strips trailing slashes on upstream", () => {
     const o = "http://127.0.0.1:8787";
-    assert.equal(wrapUpstream(o, "https://api.openai.com/v1/"), `${o}/bili/https://api.openai.com/v1`);
-    assert.equal(wrapUpstream(o, "https://api.openai.com/v1///"), `${o}/bili/https://api.openai.com/v1`);
+    assert.equal(wrapUpstream(o, "https://api.openai.com/v1/"), `${o}/sophialin/https://api.openai.com/v1`);
+    assert.equal(wrapUpstream(o, "https://api.openai.com/v1///"), `${o}/sophialin/https://api.openai.com/v1`);
 });
 
 test("wrapUpstream: idempotent (no double-wrap for same origin)", () => {
@@ -222,9 +222,9 @@ test("wrapUpstream: idempotent (no double-wrap for same origin)", () => {
     assert.equal(wrapUpstream(o, once), once);
 });
 
-test("unwrapUpstream: recovers real upstream from a /bili/ wrap", () => {
-    assert.equal(unwrapUpstream("http://127.0.0.1:8787/bili/https://api.example.com/v1"), "https://api.example.com/v1");
-    assert.equal(unwrapUpstream("http://127.0.0.1:9000/bili/http://x.example/y/z"), "http://x.example/y/z");
+test("unwrapUpstream: recovers real upstream from a /sophialin/ wrap", () => {
+    assert.equal(unwrapUpstream("http://127.0.0.1:8787/sophialin/https://api.example.com/v1"), "https://api.example.com/v1");
+    assert.equal(unwrapUpstream("http://127.0.0.1:9000/sophialin/http://x.example/y/z"), "http://x.example/y/z");
 });
 
 test("unwrapUpstream: returns non-wrapped url as-is", () => {
@@ -236,7 +236,7 @@ test("buildPiEnv: sets HTTPS_PROXY + NODE_EXTRA_CA_CERTS, preserves baseEnv", ()
     const env = buildPiEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { PATH: "/usr/bin", ANTHROPIC_API_KEY: "sk-x" });
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.NODE_EXTRA_CA_CERTS, "/tmp/ca.pem");
-    assert.equal(env.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    assert.equal(env.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.PATH, "/usr/bin");
     assert.equal(env.ANTHROPIC_API_KEY, "sk-x");
 });
@@ -245,7 +245,7 @@ test("buildCodexEnv: sets HTTPS_PROXY + SSL_CERT_FILE, preserves baseEnv", () =>
     const env = buildCodexEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { PATH: "/usr/bin", OPENAI_API_KEY: "sk-x" });
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.SSL_CERT_FILE, "/tmp/ca.pem");
-    assert.equal(env.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    assert.equal(env.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.PATH, "/usr/bin");
     assert.equal(env.OPENAI_API_KEY, "sk-x");
     assert.equal(env.NODE_EXTRA_CA_CERTS, undefined);
@@ -255,19 +255,19 @@ test("buildClaudeEnv: sets HTTPS_PROXY + NODE_EXTRA_CA_CERTS, preserves baseEnv"
     const env = buildClaudeEnv("http://127.0.0.1:8787", "/tmp/ca.pem", [], [], { PATH: "/usr/bin", ANTHROPIC_API_KEY: "sk-x" });
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.NODE_EXTRA_CA_CERTS, "/tmp/ca.pem");
-    assert.equal(env.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    assert.equal(env.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.PATH, "/usr/bin");
     assert.equal(env.ANTHROPIC_API_KEY, "sk-x");
     assert.equal(env.SSL_CERT_FILE, undefined);
 });
 
-test("extractDomains: https hostnames only, unwraps /bili/, dedupes, drops http/unparseable", () => {
+test("extractDomains: https hostnames only, unwraps /sophialin/, dedupes, drops http/unparseable", () => {
     assert.deepEqual(
         extractDomains([
             "https://api.anthropic.com",
             "https://open.bigmodel.cn/api/coding/paas/v4",
             "http://localhost:1234",
-            "http://127.0.0.1:8787/bili/https://api.openai.com/v1",
+            "http://127.0.0.1:8787/sophialin/https://api.openai.com/v1",
             "https://api.anthropic.com",
             "not-a-url",
             "",
@@ -281,18 +281,18 @@ test("extractDomains: empty / all-invalid input → []", () => {
     assert.deepEqual(extractDomains(["", "ftp://x.example", "http://only.http/v1"]), []);
 });
 
-test("discoverDomains: claude → [] (claude rides /bili/ rewrites, not cert MITM)", () => {
+test("discoverDomains: claude → [] (claude rides /sophialin/ rewrites, not cert MITM)", () => {
     assert.deepEqual(discoverDomains("claude", {}), []);
 });
 
-test("discoverDomains: pi → https hostnames from providers (http dropped, /bili/ unwrapped)", () => {
+test("discoverDomains: pi → https hostnames from providers (http dropped, /sophialin/ unwrapped)", () => {
     const config: ClientConfig = {
         pi: {
             providers: {
                 zhipu: { baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4" },
                 bailian: { baseUrl: "https://coding.dashscope.aliyuncs.com/apps/anthropic" },
                 local: { baseUrl: "http://127.0.0.1:18081" },
-                wrapped: { baseUrl: "http://127.0.0.1:8787/bili/https://api.openai.com/v1" },
+                wrapped: { baseUrl: "http://127.0.0.1:8787/sophialin/https://api.openai.com/v1" },
             },
         },
     };
@@ -324,37 +324,37 @@ test("discoverDomains: empty config → [] for pi/codex", () => {
 test("resolveCaCertPath: honors XDG_DATA_HOME", () => {
     assert.equal(
         resolveCaCertPath({ XDG_DATA_HOME: "/custom/data" }),
-        path.join("/custom/data", "billion-context", "ca", "root-ca.pem"),
+        path.join("/custom/data", "sophialin-context", "ca", "root-ca.pem"),
     );
 });
 
 test("resolveCaCertPath: falls back to ~/.local/share", () => {
     assert.equal(
         resolveCaCertPath({}),
-        path.join(os.homedir(), ".local", "share", "billion-context", "ca", "root-ca.pem"),
+        path.join(os.homedir(), ".local", "share", "sophialin-context", "ca", "root-ca.pem"),
     );
 });
 
 test("parseCodexToml: reads model_provider + each provider base_url (skips non-string values)", () => {
     const toml = `
-model_provider = "bili-relay"
+model_provider = "sophialin-relay"
 model = "gpt-5"
 
-[model_providers.bili-relay]
-name = "bili-relay"
-base_url = "http://127.0.0.1:8787/bili/https://api.example.com/v1"
+[model_providers.sophialin-relay]
+name = "sophialin-relay"
+base_url = "http://127.0.0.1:8787/sophialin/https://api.example.com/v1"
 wire_api = "responses"
 requires_openai_auth = false
 
-[model_providers.bili-openai]
-base_url = "http://127.0.0.1:8787/bili/https://api.openai.com/v1"
+[model_providers.sophialin-openai]
+base_url = "http://127.0.0.1:8787/sophialin/https://api.openai.com/v1"
 
 tools.web_search = false
 `;
     const cfg = parseCodexToml(toml);
-    assert.equal(cfg.modelProvider, "bili-relay");
-    assert.equal(cfg.providers["bili-relay"].baseUrl, "http://127.0.0.1:8787/bili/https://api.example.com/v1");
-    assert.equal(cfg.providers["bili-openai"].baseUrl, "http://127.0.0.1:8787/bili/https://api.openai.com/v1");
+    assert.equal(cfg.modelProvider, "sophialin-relay");
+    assert.equal(cfg.providers["sophialin-relay"].baseUrl, "http://127.0.0.1:8787/sophialin/https://api.example.com/v1");
+    assert.equal(cfg.providers["sophialin-openai"].baseUrl, "http://127.0.0.1:8787/sophialin/https://api.openai.com/v1");
 });
 
 test("findFreePort: returns preferred when it is free", async () => {
@@ -399,7 +399,7 @@ import { selfPackageRoot, ompPluginLoadedFrom } from "../src/plugin-install.js";
 import { piPluginInstalled } from "../src/launcher.ts";
 
 test("runLaunch pi: native -e plugin injected only when not installed", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-pie-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-pie-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     const prevPiBin = process.env.PI_BIN;
@@ -475,7 +475,7 @@ test("runLaunch pi: native -e plugin injected only when not installed", async ()
         assert.deepEqual(exitCalls, [0, 0]);
 
         // legacy billion-context-pi entry is a DIFFERENT (usually absent) package
-        // that self-disables under BILLION_CONTEXT_PROXY — it must NOT suppress -e
+        // that self-disables under SOPHIALIN_CONTEXT_PROXY — it must NOT suppress -e
         fs.writeFileSync(path.join(piHome, "settings.json"), JSON.stringify({ packages: ["npm:billion-context-pi"] }));
         clientArgsSeen.length = 0;
         await runLaunch(
@@ -485,8 +485,8 @@ test("runLaunch pi: native -e plugin injected only when not installed", async ()
         assert.equal(clientArgsSeen.length, 1);
         assert.deepEqual(clientArgsSeen[0].slice(0, 2), ["-e", distAgent]);
 
-        // a registry npm:billion-context entry DOES load this package's plugin → no -e
-        fs.writeFileSync(path.join(piHome, "settings.json"), JSON.stringify({ packages: ["npm:billion-context"] }));
+        // a registry npm:sophialin-context entry DOES load this package's plugin → no -e
+        fs.writeFileSync(path.join(piHome, "settings.json"), JSON.stringify({ packages: ["npm:sophialin-context"] }));
         clientArgsSeen.length = 0;
         await runLaunch(
             { client: "pi", clientArgs: [], overrides: {} },
@@ -510,7 +510,7 @@ test("runLaunch pi: native -e plugin injected only when not installed", async ()
 });
 
 test("runLaunch pi #535: refuses launch when http rewrites needed and extension cannot load; no overlay files written", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-pirefuse-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-pirefuse-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     const prevPiDir = process.env.PI_CODING_AGENT_DIR;
@@ -557,11 +557,11 @@ test("runLaunch pi #535: refuses launch when http rewrites needed and extension 
         // spawning anything (no proxy child, no client)
         await assert.rejects(
             runLaunch({ client: "pi", clientArgs: [], overrides: {} }, { fetchImpl: async () => ({ ok: true }), fetchHealthInfo: async () => ({ ok: true, pid: 42422 }), spawnImpl, sleep: () => Promise.resolve() }),
-            /needs provider URL rewrites but the bili extension cannot load/,
+            /needs provider URL rewrites but the sophialin extension cannot load/,
         );
         assert.equal(clientArgsSeen.length, 0);
         // no overlay dir was created for pi anymore (#535)
-        assert.equal(fs.existsSync(`${piHome}-bili`), false, "no pi overlay dir");
+        assert.equal(fs.existsSync(`${piHome}-sophialin`), false, "no pi overlay dir");
 
         // plugin installed in settings.json → extension loadable → launch proceeds
         fs.writeFileSync(path.join(piHome, "settings.json"), JSON.stringify({ packages: [root] }));
@@ -571,7 +571,7 @@ test("runLaunch pi #535: refuses launch when http rewrites needed and extension 
         );
         assert.equal(clientArgsSeen.length, 1);
         assert.ok(!clientArgsSeen[0].includes("-e"), "installed entry loads the plugin — no -e double load");
-        assert.equal(fs.existsSync(`${piHome}-bili`), false, "still no overlay dir");
+        assert.equal(fs.existsSync(`${piHome}-sophialin`), false, "still no overlay dir");
         assert.deepEqual(exitCalls, [0]);
     } finally {
         process.exit = prevExit;
@@ -588,16 +588,16 @@ test("runLaunch pi #535: refuses launch when http rewrites needed and extension 
 });
 
 test("runLaunch omp #535: refuses launch when http rewrites needed and extension cannot load; no overlay files written", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-omprefuse-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-omprefuse-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevClientBin = process.env.BILI_CLIENT_BIN;
+    const prevClientBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevOmpDir = process.env.PI_CODING_AGENT_DIR;
     process.env.HOME = home;
     if (prevUserProfile !== undefined) process.env.USERPROFILE = home;
     delete process.env.PI_CODING_AGENT_DIR;
-    process.env.BILI_CLIENT_BIN = path.join(home, process.platform === "win32" ? "fake-omp.exe" : "fake-omp");
-    fs.writeFileSync(process.env.BILI_CLIENT_BIN, "");
+    process.env.SOPHIALIN_CLIENT_BIN = path.join(home, process.platform === "win32" ? "fake-omp.exe" : "fake-omp");
+    fs.writeFileSync(process.env.SOPHIALIN_CLIENT_BIN, "");
     const ompHome = path.join(home, ".omp", "agent");
     fs.mkdirSync(ompHome, { recursive: true });
     fs.writeFileSync(path.join(ompHome, "models.yml"), "providers:\n  glm:\n    baseUrl: http://127.0.0.1:8199/v1\n");
@@ -610,7 +610,7 @@ test("runLaunch omp #535: refuses launch when http rewrites needed and extension
 
     const clientArgsSeen: string[][] = [];
     const spawnImpl: SpawnFn = (cmd, args) => {
-        if (cmd === process.env.BILI_CLIENT_BIN) {
+        if (cmd === process.env.SOPHIALIN_CLIENT_BIN) {
             clientArgsSeen.push([...args]);
             const child = makeFakeChild(0);
             const orig = child.on.bind(child);
@@ -634,10 +634,10 @@ test("runLaunch omp #535: refuses launch when http rewrites needed and extension
         // anything (no proxy child, no client)
         await assert.rejects(
             runLaunch({ client: "omp", clientArgs: [], overrides: {} }, { fetchImpl: async () => ({ ok: true }), fetchHealthInfo: async () => ({ ok: true, pid: 42422 }), spawnImpl, sleep: () => Promise.resolve() }),
-            /omp needs provider URL rewrites but the bili extension cannot load/,
+            /omp needs provider URL rewrites but the sophialin extension cannot load/,
         );
         assert.equal(clientArgsSeen.length, 0);
-        assert.equal(fs.existsSync(`${ompHome}-bili`), false, "no omp overlay dir");
+        assert.equal(fs.existsSync(`${ompHome}-sophialin`), false, "no omp overlay dir");
 
         // plugin entry in config.yml (existing file) → extension loadable → launch proceeds
         const otherInstall = path.join(home, "other-install", "dist", "agent", "omp.js");
@@ -650,12 +650,12 @@ test("runLaunch omp #535: refuses launch when http rewrites needed and extension
         );
         assert.equal(clientArgsSeen.length, 1);
         assert.ok(!clientArgsSeen[0].includes("-e"), "installed entry loads the plugin — no -e double load");
-        assert.equal(fs.existsSync(`${ompHome}-bili`), false, "still no overlay dir");
+        assert.equal(fs.existsSync(`${ompHome}-sophialin`), false, "still no overlay dir");
         assert.deepEqual(exitCalls, [0]);
     } finally {
         process.exit = prevExit;
-        if (prevClientBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevClientBin;
+        if (prevClientBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevClientBin;
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
@@ -667,18 +667,18 @@ test("runLaunch omp #535: refuses launch when http rewrites needed and extension
 });
 
 test("runLaunch hermes #535: proxy env routing, no HERMES_HOME overlay, real config untouched", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-hermesenv-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-hermesenv-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     const prevHermesHome = process.env.HERMES_HOME;
     const prevHttpsProxy = process.env.HTTPS_PROXY;
-    const prevClientBin = process.env.BILI_CLIENT_BIN;
+    const prevClientBin = process.env.SOPHIALIN_CLIENT_BIN;
     process.env.HOME = home;
     if (prevUserProfile !== undefined) process.env.USERPROFILE = home;
     delete process.env.HTTPS_PROXY;
     const fakeHermes = path.join(home, process.platform === "win32" ? "fake-hermes.exe" : "fake-hermes");
     fs.writeFileSync(fakeHermes, "");
-    process.env.BILI_CLIENT_BIN = fakeHermes;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeHermes;
     const hermesHome = path.join(home, ".hermes");
     fs.mkdirSync(hermesHome, { recursive: true });
     fs.writeFileSync(
@@ -721,17 +721,17 @@ test("runLaunch hermes #535: proxy env routing, no HERMES_HOME overlay, real con
         assert.match(childEnv!.HTTPS_PROXY ?? "", /^http:\/\/127\.0\.0\.1:\d+$/);
         assert.ok(childEnv!.HERMES_CA_BUNDLE, "CA bundle exported");
         assert.ok(
-            String(childEnv!.SSL_CERT_FILE).endsWith(path.join("billion-context", "ca", "combined-ca.pem")),
+            String(childEnv!.SSL_CERT_FILE).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")),
             "combined CA bundle exported (#1375)",
         );
         assert.equal(childEnv!.HERMES_HOME, hermesHome, "user-set real home survives to the child");
-        assert.equal(fs.existsSync(`${hermesHome}-bili`), false, "no hermes overlay dir");
+        assert.equal(fs.existsSync(`${hermesHome}-sophialin`), false, "no hermes overlay dir");
         const after = fs.statSync(path.join(hermesHome, "config.yaml"));
         assert.equal(after.mtimeMs, configStat.mtimeMs, "real config.yaml untouched");
     } finally {
         process.exit = prevExit;
-        if (prevClientBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevClientBin;
+        if (prevClientBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevClientBin;
         if (prevHermesHome === undefined) delete process.env.HERMES_HOME;
         else process.env.HERMES_HOME = prevHermesHome;
         if (prevHttpsProxy === undefined) delete process.env.HTTPS_PROXY;
@@ -743,7 +743,7 @@ test("runLaunch hermes #535: proxy env routing, no HERMES_HOME overlay, real con
     }
 });
 test("runLaunch pi #535: refuses launch when ONLY https (hand-wrapped) rewrites needed and extension cannot load", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-pirefuse2-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-pirefuse2-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     const prevPiDir = process.env.PI_CODING_AGENT_DIR;
@@ -756,7 +756,7 @@ test("runLaunch pi #535: refuses launch when ONLY https (hand-wrapped) rewrites 
     // the manifest repin it would point at a dead embedded proxy origin.
     fs.writeFileSync(
         path.join(piHome, "models.json"),
-        JSON.stringify({ providers: { openai: { baseUrl: "http://127.0.0.1:8787/bili/https://api.openai.com/v1" } } }),
+        JSON.stringify({ providers: { openai: { baseUrl: "http://127.0.0.1:8787/sophialin/https://api.openai.com/v1" } } }),
     );
 
     const root = selfPackageRoot();
@@ -769,7 +769,7 @@ test("runLaunch pi #535: refuses launch when ONLY https (hand-wrapped) rewrites 
     try {
         await assert.rejects(
             runLaunch({ client: "pi", clientArgs: [], overrides: {} }, { fetchImpl: async () => ({ ok: true }), fetchHealthInfo: async () => ({ ok: true, pid: 42422 }), spawnImpl, sleep: () => Promise.resolve() }),
-            /needs provider URL rewrites but the bili extension cannot load/,
+            /needs provider URL rewrites but the sophialin extension cannot load/,
         );
     } finally {
         process.env.HOME = prevHome;
@@ -783,17 +783,17 @@ test("runLaunch pi #535: refuses launch when ONLY https (hand-wrapped) rewrites 
 });
 
 test("runLaunch omp: native -e plugin injected only when no loadable config entry", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-ompe-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-ompe-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevClientBin = process.env.BILI_CLIENT_BIN;
+    const prevClientBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevOmpDir = process.env.PI_CODING_AGENT_DIR;
     process.env.HOME = home;
     if (prevUserProfile !== undefined) process.env.USERPROFILE = home;
     delete process.env.PI_CODING_AGENT_DIR;
     const fakeOmp = path.join(home, process.platform === "win32" ? "fake-omp.exe" : "fake-omp");
     fs.writeFileSync(fakeOmp, "");
-    process.env.BILI_CLIENT_BIN = fakeOmp;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeOmp;
     const ompHome = path.join(home, ".omp", "agent");
     fs.mkdirSync(ompHome, { recursive: true });
     fs.writeFileSync(path.join(ompHome, "models.yml"), "providers: {}\n");
@@ -870,8 +870,8 @@ test("runLaunch omp: native -e plugin injected only when no loadable config entr
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevClientBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevClientBin;
+        if (prevClientBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevClientBin;
         if (prevOmpDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
         else process.env.PI_CODING_AGENT_DIR = prevOmpDir;
         if (stubbed) fs.rmSync(distAgent, { force: true });
@@ -879,23 +879,23 @@ test("runLaunch omp: native -e plugin injected only when no loadable config entr
     }
 });
 
-test("piPluginInstalled: dead bili-shaped entries do not count as installed (#1318)", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-piinst-"));
+test("piPluginInstalled: dead sophialin-shaped entries do not count as installed (#1318)", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-piinst-"));
     try {
         const piHome = path.join(home, ".pi", "agent");
         fs.mkdirSync(piHome, { recursive: true });
         assert.equal(piPluginInstalled(piHome), false); // no settings.json
-        // A bili-shaped entry pointing at a path that does not exist (hand-edited
+        // A sophialin-shaped entry pointing at a path that does not exist (hand-edited
         // settings, moved install, another machine's path) must NOT suppress the
         // launcher's -e fallback — that left pi with no plugin at all: no /acp,
         // no provider rewrites, traffic silently bypassing the proxy.
-        fs.writeFileSync(path.join(piHome, "settings.json"), JSON.stringify({ packages: ["/u/node_modules/billion-context/dist/agent/pi.js"] }));
+        fs.writeFileSync(path.join(piHome, "settings.json"), JSON.stringify({ packages: ["/u/node_modules/sophialin-context/dist/agent/pi.js"] }));
         assert.equal(piPluginInstalled(piHome), false); // dead target
         // npm: entries are pi-managed and count without a local file check
-        fs.writeFileSync(path.join(piHome, "settings.json"), JSON.stringify({ packages: ["npm:billion-context"] }));
+        fs.writeFileSync(path.join(piHome, "settings.json"), JSON.stringify({ packages: ["npm:sophialin-context"] }));
         assert.equal(piPluginInstalled(piHome), true);
         // A live absolute entry counts
-        const live = path.join(home, "node_modules", "billion-context");
+        const live = path.join(home, "node_modules", "sophialin-context");
         fs.mkdirSync(live, { recursive: true });
         fs.writeFileSync(path.join(piHome, "settings.json"), JSON.stringify({ packages: [live] }));
         assert.equal(piPluginInstalled(piHome), true);
@@ -908,7 +908,7 @@ test("piPluginInstalled: dead bili-shaped entries do not count as installed (#13
 });
 
 test("ompPluginLoadedFrom: only entries whose file exists count as loaded", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-ompl-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-ompl-"));
     try {
         const ompHome = path.join(home, ".omp", "agent");
         fs.mkdirSync(ompHome, { recursive: true });
@@ -916,7 +916,7 @@ test("ompPluginLoadedFrom: only entries whose file exists count as loaded", () =
         const live = path.join(home, "live", "dist", "agent", "omp.js");
         fs.mkdirSync(path.dirname(live), { recursive: true });
         fs.writeFileSync(live, "");
-        fs.writeFileSync(path.join(ompHome, "config.yml"), `# omp config\nextensions:\n  - ${live} # bili\nmodelRoles:\n  default: x\n`);
+        fs.writeFileSync(path.join(ompHome, "config.yml"), `# omp config\nextensions:\n  - ${live} # sophialin\nmodelRoles:\n  default: x\n`);
         assert.equal(ompPluginLoadedFrom(ompHome), true); // comments/inline tolerated
         fs.writeFileSync(path.join(ompHome, "config.yml"), "extensions:\n  - /gone/dist/agent/omp.js\n");
         assert.equal(ompPluginLoadedFrom(ompHome), false); // stale target
@@ -939,7 +939,7 @@ test("stopProxyGuarded: spares a spawned instance that other watchers still shar
         healthCalls++;
         return { ok: true, watchdog: { armed: true, watchers: [process.pid, 42500] } };
     });
-    assert.equal(healthCalls, 1, "guard consults /__bili/health exactly once");
+    assert.equal(healthCalls, 1, "guard consults /__sophialin/health exactly once");
     assert.equal(killed, false, "instance with other live watchers must be spared");
 });
 
@@ -990,7 +990,7 @@ test("stopProxyGuarded: attached handles never consult or kill (#1753)", async (
 });
 
 test("runLaunch: client exit spares the shared proxy when other watchers remain (#1753)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-spare-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-spare-"));
     const fakeBin = path.join(home, process.platform === "win32" ? "fake-pi.exe" : "fake-pi");
     fs.writeFileSync(fakeBin, "");
     let proxyKilled = false;
@@ -1010,10 +1010,10 @@ test("runLaunch: client exit spares the shared proxy when other watchers remain 
         return child;
     };
     const prevHome = process.env.HOME;
-    const prevBin = process.env.BILI_CLIENT_BIN;
+    const prevBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevExit = process.exit;
     process.env.HOME = home;
-    process.env.BILI_CLIENT_BIN = fakeBin;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeBin;
     process.exit = (() => undefined) as typeof process.exit;
     try {
         await runLaunch(
@@ -1028,8 +1028,8 @@ test("runLaunch: client exit spares the shared proxy when other watchers remain 
     } finally {
         process.exit = prevExit;
         process.env.HOME = prevHome;
-        if (prevBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevBin;
+        if (prevBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevBin;
         rmrf(home);
     }
     assert.equal(proxyKilled, false, "runLaunch exit must spare the instance other sessions are watching");
@@ -1147,7 +1147,7 @@ test("ensureProxyRunning: registers a child 'error' handler so an async spawn fa
 
 // #1225: the attaching side hashes the script it WOULD spawn; the fake
 // instance records the hash of this fixture so matching attach tests line up.
-const FP_SCRIPT = path.join(os.tmpdir(), `bili-fp-${process.pid}.js`);
+const FP_SCRIPT = path.join(os.tmpdir(), `sophialin-fp-${process.pid}.js`);
 fs.writeFileSync(FP_SCRIPT, "// fingerprint fixture\n");
 const FP_HASH = createHash("sha256").update(fs.readFileSync(FP_SCRIPT)).digest("hex");
 
@@ -1229,7 +1229,7 @@ test("ensureProxyRunning: attach registers opts.parentPid when given, never on s
     );
     assert.equal(spawned, true);
     assert.equal(spawnedHandle.attached, undefined);
-    assert.deepEqual(registrations, [], "spawn must not register (BILI_PARENT_PID already arms the watchdog)");
+    assert.deepEqual(registrations, [], "spawn must not register (SOPHIALIN_PARENT_PID already arms the watchdog)");
 });
 
 // #1335: an unarmed listener is never attached by default, so the post-attach
@@ -1299,7 +1299,7 @@ test("ensureProxyRunning: same lane attaches, different declared lanes spawn sep
     );
     assert.equal(spawnCalls, 1);
     assert.equal(other.attached, undefined);
-    assert.equal(lastSpawnEnv?.BILI_LAUNCHER_LANE, "codex");
+    assert.equal(lastSpawnEnv?.SOPHIALIN_LAUNCHER_LANE, "codex");
 });
 
 test("ensureProxyRunning: armed daemon (no lane) stays shareable with any client lane (#1225)", async () => {
@@ -1318,10 +1318,10 @@ test("ensureProxyRunning: armed daemon (no lane) stays shareable with any client
 
 // #1335: the attach gate — an unarmed listener is never attached by
 // default; the hook spawns its own session-owned proxy so every session runs
-// the currently installed bili and the proxy dies with the last session
+// the currently installed sophialin and the proxy dies with the last session
 // (#1186 semantics). #1660 narrows the gate to LANE'D instances: a lane'd
 // proxy with a dead/unarmed watchdog is a lifecycle-drift symptom and is
-// refused; a USER-ZONE instance (manual `bili start`: no lane, no launch
+// refused; a USER-ZONE instance (manual `sophialin start`: no lane, no launch
 // token) is deliberately maintained by the user and IS attachable — see the
 // dedicated user-zone test below.
 test("ensureProxyRunning: unarmed LANE'D listener is not attached by default — self-managed spawn (#1335/#1660)", async () => {
@@ -1334,7 +1334,7 @@ test("ensureProxyRunning: unarmed LANE'D listener is not attached by default —
         {
             spawnImpl: (_cmd, _args, options) => {
                 spawned = true;
-                childToken = options.env?.BILI_LAUNCH_TOKEN ?? "";
+                childToken = options.env?.SOPHIALIN_LAUNCH_TOKEN ?? "";
                 spawnCalls++;
                 return makeFakeChild(42501);
             },
@@ -1355,7 +1355,7 @@ test("ensureProxyRunning: unarmed LANE'D listener is not attached by default —
     assert.equal(registered, 0, "no watcher registration is attempted against the refused daemon");
 });
 
-test("ensureProxyRunning: unarmed USER-ZONE daemon (manual `bili start`) is attached by default (#1660)", async () => {
+test("ensureProxyRunning: unarmed USER-ZONE daemon (manual `sophialin start`) is attached by default (#1660)", async () => {
     let spawnCalls = 0;
     let registered = 0;
     const handle = await ensureProxyRunning(
@@ -1451,7 +1451,7 @@ test("ensureProxyRunning: unverifiable lane'd listener (no watchdog field, pre-#
         {
             spawnImpl: (_cmd, _args, options) => {
                 spawned = true;
-                childToken = options.env?.BILI_LAUNCH_TOKEN ?? "";
+                childToken = options.env?.SOPHIALIN_LAUNCH_TOKEN ?? "";
                 spawnCalls++;
                 return makeFakeChild(42502);
             },
@@ -1504,7 +1504,7 @@ test("ensureProxyRunning: strictPort launch fails fast when its pinned port is h
                 scriptPath: FP_SCRIPT,
             },
         ),
-        /lifecycle-less bili proxy/,
+        /lifecycle-less sophialin proxy/,
     );
     assert.equal(spawnCalls, 0, "fail fast instead of burning the wait window into a confusing EADDRINUSE");
 });
@@ -1557,7 +1557,7 @@ test("ensureProxyRunning: pre-#1225 instance without codeFingerprint is never at
 // state dir (the module-level XDG_STATE_HOME is shared across this file).
 function isoStateDir(): { restore: () => void } {
     const prev = process.env.XDG_STATE_HOME;
-    process.env.XDG_STATE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "bili-iso-state-"));
+    process.env.XDG_STATE_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-iso-state-"));
     return {
         restore: () => {
             if (prev === undefined) delete process.env.XDG_STATE_HOME;
@@ -1716,7 +1716,7 @@ test("ensureProxyRunning: active starting marker of a different lane → spawns 
             {
                 spawnImpl: (_cmd, _args, options) => {
                     spawnCalls++;
-                    spawnedLane = options.env?.BILI_LAUNCHER_LANE;
+                    spawnedLane = options.env?.SOPHIALIN_LAUNCHER_LANE;
                     return makeFakeChild(42462);
                 },
                 fetchImpl: async () => ({ ok: true }),
@@ -1888,7 +1888,7 @@ test("ensureProxyRunning: starter claims marker before spawning and clears it wh
         let childToken = "";
         let markerTokenAtSpawn: string | undefined;
         const spawnImpl: SpawnFn = (_cmd, _args, options) => {
-            childToken = (options.env?.BILI_LAUNCH_TOKEN as string) ?? "";
+            childToken = (options.env?.SOPHIALIN_LAUNCH_TOKEN as string) ?? "";
             markerTokenAtSpawn = readStartingMarker()?.token;
             return makeFakeChild(42454);
         };
@@ -1981,7 +1981,7 @@ test("ensureProxyRunning: unreadable starting marker is self-healed — removed,
         let markerTokenAtSpawn: string | undefined;
         const spawnImpl: SpawnFn = (_cmd, _args, options) => {
             spawnCalls++;
-            childToken = (options.env?.BILI_LAUNCH_TOKEN as string) ?? "";
+            childToken = (options.env?.SOPHIALIN_LAUNCH_TOKEN as string) ?? "";
             markerTokenAtSpawn = readStartingMarker()?.token;
             return makeFakeChild(42460);
         };
@@ -2103,9 +2103,9 @@ test("ensureProxyRunning: explicit port is honored verbatim (no ephemeral reassi
 test("ensureProxyRunning: launchToken handshake returns the child's real port (#407)", async () => {
     let handshaked: InstanceFile | undefined;
     const spawnImpl: SpawnFn = (_cmd, _args, options) => {
-        const token = (options.env?.BILI_LAUNCH_TOKEN as string) ?? "";
-        const parentPid = Number(options.env?.BILI_PARENT_PID);
-        assert.ok(token.length > 0, "spawn env carries BILI_LAUNCH_TOKEN");
+        const token = (options.env?.SOPHIALIN_LAUNCH_TOKEN as string) ?? "";
+        const parentPid = Number(options.env?.SOPHIALIN_PARENT_PID);
+        assert.ok(token.length > 0, "spawn env carries SOPHIALIN_LAUNCH_TOKEN");
         assert.equal(parentPid, process.pid);
         setImmediate(() => {
             handshaked = recordedInstance({ origin: "http://127.0.0.1:8799", port: 8799, launchToken: token });
@@ -2177,7 +2177,7 @@ test("stopProxy: POSIX kills the owned child, win32 defers to the parent-gone wa
     };
     stopProxy({ origin: "http://127.0.0.1:8787", port: 8787, reused: false, child });
     if (process.platform === "win32") {
-        assert.equal(killed, false, "win32 child.kill is TerminateProcess (no flush) — shutdown belongs to BILI_PARENT_PID watcher");
+        assert.equal(killed, false, "win32 child.kill is TerminateProcess (no flush) — shutdown belongs to SOPHIALIN_PARENT_PID watcher");
     } else {
         assert.equal(killed, true);
     }
@@ -2192,7 +2192,7 @@ test("isOnPath: finds a known binary on PATH, misses bogus name", () => {
 });
 
 test("resolveClientCommand: codex/claude not on PATH fall back to bare name", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "bili-path-"));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-path-"));
     try {
         assert.deepEqual(resolveClientCommand("codex", { PATH: tmp }), {
             command: "codex",
@@ -2208,7 +2208,7 @@ test("resolveClientCommand: codex/claude not on PATH fall back to bare name", ()
 });
 
 test("resolveClientCommand: codex/claude on PATH resolve to full path", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "bili-path-"));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-path-"));
     const codexFile = path.join(tmp, "codex");
     const claudeFile = path.join(tmp, "claude");
     fs.writeFileSync(codexFile, "#!/bin/sh\necho codex\n", { mode: 0o755 });
@@ -2237,7 +2237,7 @@ test("resolveClientCommand: pi prefers PI_BIN env", () => {
 });
 
 test("resolveClientCommand: pi on PATH resolves to full path", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "bili-path-"));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-path-"));
     const piFile = path.join(tmp, "pi");
     fs.writeFileSync(piFile, "#!/bin/sh\necho pi\n", { mode: 0o755 });
     try {
@@ -2287,11 +2287,11 @@ test("discoverRoutes: codex mixed http+https → splits httpsDomains + httpRewri
     ]);
 });
 
-test("discoverRoutes: codex wrapped /bili/ http provider → unwrapped realUpstream", () => {
+test("discoverRoutes: codex wrapped /sophialin/ http provider → unwrapped realUpstream", () => {
     const config: ClientConfig = {
         codex: {
             providers: {
-                relay: { baseUrl: "http://127.0.0.1:8787/bili/http://relay.local/v1" },
+                relay: { baseUrl: "http://127.0.0.1:8787/sophialin/http://relay.local/v1" },
             },
         },
     };
@@ -2313,7 +2313,7 @@ test("discoverRoutes: claude with http ANTHROPIC_BASE_URL → httpRewrites entry
     ]);
 });
 
-test("discoverRoutes: claude default → ANTHROPIC_BASE_URL /bili/ rewrite (no cert MITM; undici ignores HTTPS_PROXY)", () => {
+test("discoverRoutes: claude default → ANTHROPIC_BASE_URL /sophialin/ rewrite (no cert MITM; undici ignores HTTPS_PROXY)", () => {
     const routes = discoverRoutes("claude", {});
     assert.deepEqual(routes.httpsDomains, []);
     assert.deepEqual(routes.httpsRewrites, []);
@@ -2322,9 +2322,9 @@ test("discoverRoutes: claude default → ANTHROPIC_BASE_URL /bili/ rewrite (no c
     ]);
 });
 
-test("discoverRoutes: claude /bili/-wrapped base_url unwraps to real upstream for re-wrap", () => {
+test("discoverRoutes: claude /sophialin/-wrapped base_url unwraps to real upstream for re-wrap", () => {
     const config: ClientConfig = {
-        claude: { anthropicBaseUrl: "http://127.0.0.1:8787/bili/https://api.anthropic.com" },
+        claude: { anthropicBaseUrl: "http://127.0.0.1:8787/sophialin/https://api.anthropic.com" },
     };
     const routes = discoverRoutes("claude", config);
     assert.deepEqual(routes.httpsDomains, []);
@@ -2354,18 +2354,18 @@ test("discoverRoutes: empty config → {httpsDomains:[], httpRewrites:[]}", () =
     assert.deepEqual(discoverRoutes("codex", {}), { httpsDomains: [], httpRewrites: [], httpsRewrites: [], httpEnvRoutes: [] });
 });
 
-test("discoverRoutes: codex /bili/-wrapped HTTPS provider → httpsRewrites to raw upstream", () => {
+test("discoverRoutes: codex /sophialin/-wrapped HTTPS provider → httpsRewrites to raw upstream", () => {
     const config: ClientConfig = {
         codex: {
             providers: {
-                "bili-comfly": { baseUrl: "http://127.0.0.1:8787/bili/https://ai.comfly.org/v1" },
+                "sophialin-comfly": { baseUrl: "http://127.0.0.1:8787/sophialin/https://ai.comfly.org/v1" },
             },
         },
     };
     const routes = discoverRoutes("codex", config);
     assert.deepEqual(routes.httpsDomains, ["ai.comfly.org"]);
     assert.deepEqual(routes.httpsRewrites, [
-        { key: "model_providers.bili-comfly.base_url", realUpstream: "https://ai.comfly.org/v1" },
+        { key: "model_providers.sophialin-comfly.base_url", realUpstream: "https://ai.comfly.org/v1" },
     ]);
     assert.deepEqual(routes.httpRewrites, []);
 });
@@ -2395,8 +2395,8 @@ test("buildCodexArgs: emits -c pairs for each http rewrite, then extra args", ()
         { key: "k2", realUpstream: "u2" },
     ];
     assert.deepEqual(buildCodexArgs("http://h:p", rewrites, [], ["--extra"]), [
-        "-c", "k1=http://h:p/bili/u1",
-        "-c", "k2=http://h:p/bili/u2",
+        "-c", "k1=http://h:p/sophialin/u1",
+        "-c", "k2=http://h:p/sophialin/u2",
         "--extra",
     ]);
 });
@@ -2412,7 +2412,7 @@ test("buildClaudeEnv: ANTHROPIC_BASE_URL rewrite sets env + keeps HTTPS_PROXY/CA
     const env = buildClaudeEnv("http://127.0.0.1:8787", "/tmp/ca.pem", rewrites, [], { PATH: "/usr/bin" });
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.NODE_EXTRA_CA_CERTS, "/tmp/ca.pem");
-    assert.equal(env.ANTHROPIC_BASE_URL, "http://127.0.0.1:8787/bili/http://relay.local/anthropic");
+    assert.equal(env.ANTHROPIC_BASE_URL, "http://127.0.0.1:8787/sophialin/http://relay.local/anthropic");
 });
 
 test("buildClaudeEnv: no ANTHROPIC_BASE_URL rewrite → env.ANTHROPIC_BASE_URL unset", () => {
@@ -2421,23 +2421,23 @@ test("buildClaudeEnv: no ANTHROPIC_BASE_URL rewrite → env.ANTHROPIC_BASE_URL u
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
 });
 
-test("buildPiEnv: http rewrites → BILI_PROVIDER_REWRITES manifest (#535 file-free routing)", () => {
+test("buildPiEnv: http rewrites → SOPHIALIN_PROVIDER_REWRITES manifest (#535 file-free routing)", () => {
     const env = buildPiEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { PATH: "/usr/bin" }, [
         { key: "a", realUpstream: "http://example.com/v1" },
         { key: "b", realUpstream: "http://other.example.com" },
     ]);
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
-    assert.equal(env.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
-    const manifest = JSON.parse(env.BILI_PROVIDER_REWRITES ?? "null");
+    assert.equal(env.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    const manifest = JSON.parse(env.SOPHIALIN_PROVIDER_REWRITES ?? "null");
     assert.deepEqual(manifest, {
-        a: "http://127.0.0.1:8787/bili/http://example.com/v1",
-        b: "http://127.0.0.1:8787/bili/http://other.example.com",
+        a: "http://127.0.0.1:8787/sophialin/http://example.com/v1",
+        b: "http://127.0.0.1:8787/sophialin/http://other.example.com",
     });
 });
 
 test("buildPiEnv: no rewrites → no manifest env", () => {
     const env = buildPiEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { PATH: "/usr/bin" }, []);
-    assert.equal(env.BILI_PROVIDER_REWRITES, undefined);
+    assert.equal(env.SOPHIALIN_PROVIDER_REWRITES, undefined);
 });
 
 test("buildPiEnv: empty-key/empty-upstream entries skipped", () => {
@@ -2445,19 +2445,19 @@ test("buildPiEnv: empty-key/empty-upstream entries skipped", () => {
         { key: "", realUpstream: "http://example.com/v1" },
         { key: "b", realUpstream: "" },
     ]);
-    assert.equal(env.BILI_PROVIDER_REWRITES, undefined);
+    assert.equal(env.SOPHIALIN_PROVIDER_REWRITES, undefined);
 });
 
-test("buildPiEnv: exports BILI_NON_HTTP_PROVIDERS only when non-http providers are listed (#1392)", () => {
+test("buildPiEnv: exports SOPHIALIN_NON_HTTP_PROVIDERS only when non-http providers are listed (#1392)", () => {
     const env = buildPiEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { PATH: "/usr/bin" }, [], [], [], ["claude-bridge"]);
-    assert.equal(env.BILI_NON_HTTP_PROVIDERS, "claude-bridge");
+    assert.equal(env.SOPHIALIN_NON_HTTP_PROVIDERS, "claude-bridge");
     const bare = buildPiEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { PATH: "/usr/bin" });
-    assert.equal(bare.BILI_NON_HTTP_PROVIDERS, undefined);
+    assert.equal(bare.SOPHIALIN_NON_HTTP_PROVIDERS, undefined);
 });
 
 test("resolveNonHttpProviders: providers-table compactionOptIn ∪ env list, deduped (#1392)", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-nhp-"));
-    const cfgFile = path.join(dir, "billion-context.json");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-nhp-"));
+    const cfgFile = path.join(dir, "sophialin-context.json");
     fs.writeFileSync(cfgFile, JSON.stringify({
         providers: {
             "claude-bridge": { compactionOptIn: true },
@@ -2467,8 +2467,8 @@ test("resolveNonHttpProviders: providers-table compactionOptIn ∪ env list, ded
             "https://api.anthropic.com": { compactionOptIn: true },
         },
     }), "utf8");
-    const prevCfg = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = cfgFile;
+    const prevCfg = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = cfgFile;
     try {
         // Only strictly-true compactionOptIn opts a provider id in: false,
         // "yes", and absent are ignored. URL-shaped entries with the field set
@@ -2476,9 +2476,9 @@ test("resolveNonHttpProviders: providers-table compactionOptIn ∪ env list, ded
         // baseUrls) but keep deterministic order: config iteration order.
         assert.deepEqual(resolveNonHttpProviders({}), ["claude-bridge", "https://api.anthropic.com"]);
         // Env ∪ file, deduped: claude-bridge (both sources) + z (env-only).
-        assert.deepEqual(resolveNonHttpProviders({ BILI_NON_HTTP_PROVIDERS: "claude-bridge,z" }), ["claude-bridge", "https://api.anthropic.com", "z"]);
+        assert.deepEqual(resolveNonHttpProviders({ SOPHIALIN_NON_HTTP_PROVIDERS: "claude-bridge,z" }), ["claude-bridge", "https://api.anthropic.com", "z"]);
     } finally {
-        if (prevCfg === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = prevCfg;
+        if (prevCfg === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = prevCfg;
         fs.rmSync(dir, { recursive: true, force: true });
     }
 });
@@ -2493,7 +2493,7 @@ test("stripInheritedProxy: removes generic proxy redirector vars, keeps the rest
         ALL_PROXY: "http://corp:20172",
         no_proxy: "127.0.0.1",
         NO_PROXY: "127.0.0.1",
-        BILI_UPSTREAM_PROXY: "http://relay:9999",
+        SOPHIALIN_UPSTREAM_PROXY: "http://relay:9999",
         PATH: "/usr/bin",
         HOME: "/home/dog",
     });
@@ -2503,7 +2503,7 @@ test("stripInheritedProxy: removes generic proxy redirector vars, keeps the rest
     // #535: no_proxy/NO_PROXY are stripped too — an inherited exclusion list
     // could punch holes in the proxy routing we inject (hermes/httpx honors
     // no_proxy per-URL).
-    assert.equal(cleaned.BILI_UPSTREAM_PROXY, "http://relay:9999", "BILI_UPSTREAM_PROXY kept (explicit chaining)");
+    assert.equal(cleaned.SOPHIALIN_UPSTREAM_PROXY, "http://relay:9999", "SOPHIALIN_UPSTREAM_PROXY kept (explicit chaining)");
     assert.equal(cleaned.PATH, "/usr/bin", "PATH kept");
     assert.equal(cleaned.HOME, "/home/dog", "HOME kept");
 });
@@ -2536,7 +2536,7 @@ test("parseOmpYaml: no providers key → {}", () => {
 });
 
 test("readOmpConfig: reads models.yml from omp home", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-omphome-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-omphome-"));
     try {
         fs.writeFileSync(path.join(home, "models.yml"), "providers:\n  a:\n    baseUrl: http://x:1/v1\n");
         const cfg = readOmpConfig(home);
@@ -2547,7 +2547,7 @@ test("readOmpConfig: reads models.yml from omp home", () => {
 });
 
 test("readOmpConfig: missing models.yml → {}", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-omphome-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-omphome-"));
     try {
         assert.deepEqual(readOmpConfig(home), { providers: {} });
     } finally {
@@ -2600,7 +2600,7 @@ test("readOpencodeConfig: reads provider baseURLs from opencode.json", () => {
     }
 });
 
-test("discoverRoutes(opencode): HTTP baseURL → /bili/ rewrite, HTTPS → MITM domain", () => {
+test("discoverRoutes(opencode): HTTP baseURL → /sophialin/ rewrite, HTTPS → MITM domain", () => {
     const config = {
         opencode: {
             providers: {
@@ -2721,27 +2721,27 @@ test("prepareOpencodeHttpRewrite: writes rewritten copy from a JSONC user config
         const tmpFile = prepareOpencodeHttpRewrite(root, "http://127.0.0.1:8787", rw, [], undefined, false, spawnEnv);
         assert.ok(tmpFile);
         const rewritten = JSON.parse(fs.readFileSync(tmpFile, "utf8"));
-        assert.equal(rewritten.provider["zhipuai-lb"].options.baseURL, "http://127.0.0.1:8787/bili/http://127.0.0.1:18081/v1");
+        assert.equal(rewritten.provider["zhipuai-lb"].options.baseURL, "http://127.0.0.1:8787/sophialin/http://127.0.0.1:18081/v1");
         // #920: the acp entry is stripped from the clone — the thin plugin
         // imports the package as a library; its spec rides along via env.
         assert.deepEqual(rewritten.plugin, []);
-        assert.equal(spawnEnv["BILI_OPENCODE_ACP_SPEC"], "opencode-acp@latest");
+        assert.equal(spawnEnv["SOPHIALIN_OPENCODE_ACP_SPEC"], "opencode-acp@latest");
         assert.deepEqual(rewritten.compaction, { auto: false });
         assert.equal(fs.readFileSync(cfgFile, "utf8"), original);
         // the caller's merged root must stay pristine (rewrite happens on a clone)
         assert.deepEqual(root, { plugin: ["opencode-acp@latest"], provider: { "zhipuai-lb": { options: { baseURL: "http://127.0.0.1:18081/v1" } } } });
         rmrf(path.dirname(tmpFile));
         assert.equal(prepareOpencodeHttpRewrite(root, "http://127.0.0.1:8787", [], []), undefined);
-        const withPlugin = prepareOpencodeHttpRewrite(root, "http://127.0.0.1:8787", [], [], "/opt/bili/dist/agent/opencode.js", false, { ...spawnEnv });
+        const withPlugin = prepareOpencodeHttpRewrite(root, "http://127.0.0.1:8787", [], [], "/opt/sophialin/dist/agent/opencode.js", false, { ...spawnEnv });
         assert.ok(withPlugin);
         const injected = JSON.parse(fs.readFileSync(withPlugin, "utf8"));
-        assert.deepEqual(injected.plugin, ["/opt/bili/dist/agent/opencode.js"]);
+        assert.deepEqual(injected.plugin, ["/opt/sophialin/dist/agent/opencode.js"]);
         assert.equal(injected.provider["zhipuai-lb"].options.baseURL, "http://127.0.0.1:18081/v1");
         rmrf(path.dirname(withPlugin));
-        const missingCfg = prepareOpencodeHttpRewrite(undefined, "http://127.0.0.1:8787", [], [], "/opt/bili/dist/agent/opencode.js");
+        const missingCfg = prepareOpencodeHttpRewrite(undefined, "http://127.0.0.1:8787", [], [], "/opt/sophialin/dist/agent/opencode.js");
         assert.ok(missingCfg);
         const fromEmpty = JSON.parse(fs.readFileSync(missingCfg, "utf8"));
-        assert.deepEqual(fromEmpty.plugin, ["/opt/bili/dist/agent/opencode.js"]);
+        assert.deepEqual(fromEmpty.plugin, ["/opt/sophialin/dist/agent/opencode.js"]);
         assert.deepEqual(fromEmpty.compaction, { auto: false });
         rmrf(path.dirname(missingCfg));
     } finally {
@@ -2764,19 +2764,19 @@ test("prepareOpencodeHttpRewrite: strips opencode-acp entries in all spec forms 
             provider: {},
         };
         const spawnEnv: NodeJS.ProcessEnv = {};
-        const tmpFile = prepareOpencodeHttpRewrite(root, "http://127.0.0.1:8787", [], [], "/opt/bili/dist/agent/opencode.js", false, spawnEnv);
+        const tmpFile = prepareOpencodeHttpRewrite(root, "http://127.0.0.1:8787", [], [], "/opt/sophialin/dist/agent/opencode.js", false, spawnEnv);
         assert.ok(tmpFile);
         const out = JSON.parse(fs.readFileSync(tmpFile, "utf8"));
-        assert.deepEqual(out.plugin, ["my-opencode-acp-fork", "some-other-plugin", "/opt/bili/dist/agent/opencode.js"]);
+        assert.deepEqual(out.plugin, ["my-opencode-acp-fork", "some-other-plugin", "/opt/sophialin/dist/agent/opencode.js"]);
         assert.deepEqual(out.plugins, []);
         // first stripped spec wins — the copy the host would have loaded first
-        assert.equal(spawnEnv["BILI_OPENCODE_ACP_SPEC"], "opencode-acp@latest");
+        assert.equal(spawnEnv["SOPHIALIN_OPENCODE_ACP_SPEC"], "opencode-acp@latest");
         rmrf(path.dirname(tmpFile));
         // no acp entries → env untouched
         const env2: NodeJS.ProcessEnv = {};
         const plain = prepareOpencodeHttpRewrite({ plugin: ["other"], provider: {} }, "http://127.0.0.1:8787", [], [], "/opt/p.js", false, env2);
         assert.ok(plain);
-        assert.equal(env2["BILI_OPENCODE_ACP_SPEC"], undefined);
+        assert.equal(env2["SOPHIALIN_OPENCODE_ACP_SPEC"], undefined);
         rmrf(path.dirname(plain));
     } finally {
         rmrf(dir);
@@ -2786,14 +2786,14 @@ test("prepareOpencodeHttpRewrite: strips opencode-acp entries in all spec forms 
 test("prepareOpencodeHttpRewrite: pluginDirMode wraps the plugin in an index.js shim dir", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-rw2-"));
     try {
-        const tmpFile = prepareOpencodeHttpRewrite({ provider: {} }, "http://127.0.0.1:8787", [], [], "/opt/bili/dist/agent/opencode.js", true);
+        const tmpFile = prepareOpencodeHttpRewrite({ provider: {} }, "http://127.0.0.1:8787", [], [], "/opt/sophialin/dist/agent/opencode.js", true);
         assert.ok(tmpFile);
         const injected = JSON.parse(fs.readFileSync(tmpFile, "utf8"));
         const entry = injected.plugin[injected.plugin.length - 1];
-        assert.ok(entry !== "/opt/bili/dist/agent/opencode.js");
+        assert.ok(entry !== "/opt/sophialin/dist/agent/opencode.js");
         assert.ok(fs.statSync(entry).isDirectory());
         const shim = fs.readFileSync(path.join(entry, "index.js"), "utf8");
-        assert.match(shim, /export \{ default \} from "\/opt\/bili\/dist\/agent\/opencode\.js";/);
+        assert.match(shim, /export \{ default \} from "\/opt\/sophialin\/dist\/agent\/opencode\.js";/);
         assert.deepEqual(injected.compaction, { auto: false });
         rmrf(path.dirname(tmpFile));
     } finally {
@@ -2814,7 +2814,7 @@ test("prepareOpencodeHttpRewrite: re-anchors relative local plugin specs against
         fs.writeFileSync(path.join(cfgDir, "opencode.json"), original);
         const env = { XDG_CONFIG_HOME: xdg };
         const root = readOpencodeConfigRoot(env);
-        const tmpFile = prepareOpencodeHttpRewrite(root, "http://127.0.0.1:8787", [], [], "/opt/bili/dist/agent/opencode.js", true, env);
+        const tmpFile = prepareOpencodeHttpRewrite(root, "http://127.0.0.1:8787", [], [], "/opt/sophialin/dist/agent/opencode.js", true, env);
         assert.ok(tmpFile);
         const cloned = JSON.parse(fs.readFileSync(tmpFile, "utf8"));
         assert.deepEqual(cloned.plugin.slice(0, 5), [
@@ -2825,7 +2825,7 @@ test("prepareOpencodeHttpRewrite: re-anchors relative local plugin specs against
             "/abs/already.js",
         ]);
         const shimDir = cloned.plugin[cloned.plugin.length - 1] as string;
-        assert.notEqual(shimDir, "/opt/bili/dist/agent/opencode.js");
+        assert.notEqual(shimDir, "/opt/sophialin/dist/agent/opencode.js");
         assert.ok(fs.statSync(shimDir).isDirectory());
         assert.deepEqual(cloned.plugins, [
             { package: path.resolve(cfgDir, "./ntfy"), options: {} },
@@ -2854,7 +2854,7 @@ test("prepareOpencodeHttpRewrite: OPENCODE_CONFIG dir wins as the relative-spec 
         fs.writeFileSync(ocFile, JSON.stringify({ plugins: [{ package: "./local" }] }));
         const env = { XDG_CONFIG_HOME: xdg, OPENCODE_CONFIG: ocFile };
         const root = readOpencodeConfigRoot(env);
-        const tmpFile = prepareOpencodeHttpRewrite(root, "http://127.0.0.1:8787", [], [], "/opt/bili/dist/agent/opencode.js", false, env);
+        const tmpFile = prepareOpencodeHttpRewrite(root, "http://127.0.0.1:8787", [], [], "/opt/sophialin/dist/agent/opencode.js", false, env);
         assert.ok(tmpFile);
         const cloned = JSON.parse(fs.readFileSync(tmpFile, "utf8"));
         assert.deepEqual(cloned.plugins, [{ package: path.resolve(ocDir, "./local") }]);
@@ -2868,7 +2868,7 @@ test("opencodeMajorVersion: parses --version output, defaults to 1 on failure", 
     assert.equal(parseOpencodeMajor("opencode v2.0.3"), 2);
     assert.equal(parseOpencodeMajor("1.14.46"), 1);
     assert.equal(parseOpencodeMajor("no digits here"), undefined);
-    assert.equal(opencodeMajorVersion("/nonexistent/bili-test-bin"), 1);
+    assert.equal(opencodeMajorVersion("/nonexistent/sophialin-test-bin"), 1);
     if (process.platform === "win32") return; // shebang fakes are not executable on Windows
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-ver-"));
     try {
@@ -2917,18 +2917,18 @@ test("parseHermesYaml: v12 providers dict + legacy custom_providers list", () =>
     const v12 = parseHermesYaml([
         "model:",
         "  default: qwen3.8-27b",
-        "  provider: bili",
+        "  provider: sophialin",
         "providers:",
-        "  bili:",
-        "    name: bili",
+        "  sophialin:",
+        "    name: sophialin",
         "    api: http://127.0.0.1:8199/v1",
         "    transport: openai_chat",
         "  glm:",
         "    api: https://open.bigmodel.cn/api/paas/v4",
     ].join("\n"));
-    assert.equal(v12.providers.bili?.api, "http://127.0.0.1:8199/v1");
+    assert.equal(v12.providers.sophialin?.api, "http://127.0.0.1:8199/v1");
     assert.equal(v12.providers.glm?.api, "https://open.bigmodel.cn/api/paas/v4");
-    assert.deepEqual(v12.providers.bili ?? {}, { api: "http://127.0.0.1:8199/v1" });
+    assert.deepEqual(v12.providers.sophialin ?? {}, { api: "http://127.0.0.1:8199/v1" });
 
     const legacy = parseHermesYaml([
         "custom_providers:",
@@ -2944,12 +2944,12 @@ test("parseHermesYaml: v12 providers dict + legacy custom_providers list", () =>
 test("parseHermesYaml: v12 dict base_url/url forms + base_url wins over api", () => {
     const canonical = parseHermesYaml([
         "providers:",
-        "  bili:",
-        "    name: bili",
+        "  sophialin:",
+        "    name: sophialin",
         "    base_url: http://127.0.0.1:8199/v1",
         "    transport: openai_chat",
     ].join("\n"));
-    assert.equal(canonical.providers.bili?.api, "http://127.0.0.1:8199/v1", "base_url is hermes' canonical form");
+    assert.equal(canonical.providers.sophialin?.api, "http://127.0.0.1:8199/v1", "base_url is hermes' canonical form");
 
     const urlForm = parseHermesYaml("providers:\n  u:\n    url: http://u:1/v1\n");
     assert.equal(urlForm.providers.u?.api, "http://u:1/v1");
@@ -2983,7 +2983,7 @@ test("discoverRoutes: hermes splits https → MITM domains, http → forward-pro
         providers: {
             sglang: { api: "http://127.0.0.1:8199/v1" },
             glm: { api: "https://open.bigmodel.cn/api/paas/v4" },
-            wrapped: { api: "http://127.0.0.1:8787/bili/https://api.foo.io/v1" },
+            wrapped: { api: "http://127.0.0.1:8787/sophialin/https://api.foo.io/v1" },
             broken: { api: "::::" },
         },
     };
@@ -3039,14 +3039,14 @@ test("discoverRoutes: dsh splits by destination — loopback rewrote, rest proxi
             "http://127.0.0.1:8199/v1",
             "https://localhost:8443/v1",
             "https://open.bigmodel.cn/api/paas/v4",
-            "http://127.0.0.1:8787/bili/https://api.foo.io/v1",
+            "http://127.0.0.1:8787/sophialin/https://api.foo.io/v1",
             "http://10.0.0.5:1234/v1",
             "http://127.0.0.1:8199/v1",
             "::::",
         ],
     };
     const routes = discoverRoutes("dsh", config);
-    // loopback (http OR https) → settings.yaml /bili/ rewrite; non-loopback
+    // loopback (http OR https) → settings.yaml /sophialin/ rewrite; non-loopback
     // https → cert-MITM whitelist; wrapped values unwrap first (legacy
     // self-heal); non-loopback plain-http → HTTP_PROXY absolute-form routing.
     assert.deepEqual(
@@ -3095,9 +3095,9 @@ test("prepareDshHome: rewrites baseURL lines, shares siblings, never touches the
         const overlay = prepareDshHome(dir, "http://127.0.0.1:8787", rewrites);
         assert.ok(overlay);
         const txt = fs.readFileSync(path.join(overlay, "settings.yaml"), "utf8");
-        assert.ok(txt.includes("baseURL: http://127.0.0.1:8787/bili/https://api.anthropic.com  # official"));
-        assert.ok(txt.includes("baseURL: http://127.0.0.1:8787/bili/http://127.0.0.1:8199/v1"));
-        assert.ok(txt.includes("baseURL: http://127.0.0.1:8787/bili/https://relay.example.com"));
+        assert.ok(txt.includes("baseURL: http://127.0.0.1:8787/sophialin/https://api.anthropic.com  # official"));
+        assert.ok(txt.includes("baseURL: http://127.0.0.1:8787/sophialin/http://127.0.0.1:8199/v1"));
+        assert.ok(txt.includes("baseURL: http://127.0.0.1:8787/sophialin/https://relay.example.com"));
         assert.ok(txt.includes("unrelated: true"));
         assert.equal(fs.readFileSync(path.join(dir, "settings.yaml"), "utf8"), original);
         assert.equal(fs.readFileSync(path.join(overlay, ".credentials.yaml"), "utf8"), "DEEPSEEK_API_KEY: sk-x");
@@ -3123,24 +3123,24 @@ test("prepareDshHome: preserves CRLF line endings when rewriting", () => {
         const txt = fs.readFileSync(path.join(overlay, "settings.yaml"), "utf8");
         assert.ok(txt.includes("\r\n"), "CRLF preserved");
         assert.ok(!/\r\n\r\n/.test(txt), "no doubled newlines");
-        assert.ok(txt.includes("baseURL: http://127.0.0.1:8787/bili/http://127.0.0.1:8199/v1\r"));
+        assert.ok(txt.includes("baseURL: http://127.0.0.1:8787/sophialin/http://127.0.0.1:8199/v1\r"));
         rmrf(overlay);
     } finally {
         rmrf(dir);
     }
 });
 
-test("writeDshAcpPatch: writes insert overlay with file:// plugin URL into <home>-bili", () => {
+test("writeDshAcpPatch: writes insert overlay with file:// plugin URL into <home>-sophialin", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dsh-patch-"));
     try {
         const file = writeDshAcpPatch(dir);
         assert.ok(file);
-        assert.equal(file, path.join(`${dir}-bili`, ".bili-acp.patch.yml"));
+        assert.equal(file, path.join(`${dir}-sophialin`, ".sophialin-acp.patch.yml"));
         const txt = fs.readFileSync(file, "utf8");
         assert.ok(txt.startsWith("- insert:\n"));
-        assert.match(txt, /^ {4}- id: bili-native\n {6}name: file:\/\/.+dsh-native\.js$/m);
+        assert.match(txt, /^ {4}- id: sophialin-native\n {6}name: file:\/\/.+dsh-native\.js$/m);
         assert.match(txt, /^- id: compaction-basic\n  config:\n    auto: false\n$/m);
-        rmrf(`${dir}-bili`);
+        rmrf(`${dir}-sophialin`);
     } finally {
         rmrf(dir);
     }
@@ -3149,11 +3149,11 @@ test("writeDshAcpPatch: writes insert overlay with file:// plugin URL into <home
 test("writeDshAcpPatch: honors an explicit bare-specifier entry name (#1590)", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dsh-patch-"));
     try {
-        const file = writeDshAcpPatch(dir, "billion-context");
+        const file = writeDshAcpPatch(dir, "sophialin-context");
         assert.ok(file);
         const txt = fs.readFileSync(file, "utf8");
-        assert.match(txt, /^ {4}- id: bili-native\n {6}name: billion-context$/m);
-        fs.rmSync(`${dir}-bili`, { recursive: true, force: true });
+        assert.match(txt, /^ {4}- id: sophialin-native\n {6}name: sophialin-context$/m);
+        fs.rmSync(`${dir}-sophialin`, { recursive: true, force: true });
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -3164,8 +3164,8 @@ test("writeDshClientShimFiles + dshPluginEntry: resolvable shim yields the bare 
     try {
         // os.tmpdir() sits inside this repo: a differently-named package.json
         // above the probe anchor stops Node's self-name resolution from
-        // "finding" billion-context in the checkout instead of the fixture.
-        fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "bili-launcher-fixture", version: "0.0.0" }));
+        // "finding" sophialin-context in the checkout instead of the fixture.
+        fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "sophialin-launcher-fixture", version: "0.0.0" }));
         const home = path.join(dir, ".dsh");
         fs.mkdirSync(home);
         const hostBundle = path.join(dir, "agent", "dsh-native.js");
@@ -3173,21 +3173,21 @@ test("writeDshClientShimFiles + dshPluginEntry: resolvable shim yields the bare 
         fs.mkdirSync(path.dirname(hostBundle), { recursive: true });
         fs.writeFileSync(hostBundle, "// host\n");
         fs.writeFileSync(clientBundle, "// client\n");
-        const shimDir = path.join(home, "node_modules", "billion-context");
+        const shimDir = path.join(home, "node_modules", "sophialin-context");
 
         assert.equal(writeDshClientShimFiles(shimDir, hostBundle, clientBundle, "0.1.169"), true);
         const shimPkg = JSON.parse(fs.readFileSync(path.join(shimDir, "package.json"), "utf8"));
-        assert.equal(shimPkg.name, "billion-context");
+        assert.equal(shimPkg.name, "sophialin-context");
         assert.deepEqual(shimPkg.exports, { ".": "./index.js", "./dsh": "./index.js", "./dsh/package.json": "./package.json", "./client": "./bundle.js" });
         assert.equal(shimPkg.dsh.client.platform, "web");
-        // The bundles are SYMLINKS into bili's live dist — an auto-update that
+        // The bundles are SYMLINKS into sophialin's live dist — an auto-update that
         // moves dist self-heals on the next launch without rewriting the shim.
         assert.equal(fs.realpathSync(path.join(shimDir, "index.js")), fs.realpathSync(hostBundle));
         assert.equal(fs.realpathSync(path.join(shimDir, "bundle.js")), fs.realpathSync(clientBundle));
 
         // Resolvable from the home's walk-up chain, and the root import
         // lands on the host module itself ⇒ the bare entry.
-        assert.equal(dshPluginEntry(home), "billion-context");
+        assert.equal(dshPluginEntry(home), "sophialin-context");
 
         // A shim whose root "." export points elsewhere (e.g. a real install
         // whose root is the CLI entry, not the dsh host half) must NOT claim
@@ -3197,7 +3197,7 @@ test("writeDshClientShimFiles + dshPluginEntry: resolvable shim yields the bare 
         // invisible to the next resolve.
         const home2 = path.join(dir, ".dsh2");
         fs.mkdirSync(home2);
-        const shimDir2 = path.join(home2, "node_modules", "billion-context");
+        const shimDir2 = path.join(home2, "node_modules", "sophialin-context");
         assert.equal(writeDshClientShimFiles(shimDir2, hostBundle, clientBundle, "0.1.169"), true);
         const pkg2 = path.join(shimDir2, "package.json");
         fs.writeFileSync(pkg2, JSON.stringify({ ...JSON.parse(fs.readFileSync(pkg2, "utf8")), exports: { ".": "./other.js" } }));
@@ -3214,7 +3214,7 @@ test("writeDshClientShimFiles + dshPluginEntry: resolvable shim yields the bare 
         assert.match(dshPluginEntry(home), /^file:\/\/.+dsh-native\.js$/);
 
         // Missing dist bundles: nothing written, existing content untouched.
-        const other = path.join(dir, "nm", "billion-context");
+        const other = path.join(dir, "nm", "sophialin-context");
         fs.mkdirSync(other, { recursive: true });
         fs.writeFileSync(path.join(other, "keep.txt"), "x");
         assert.equal(writeDshClientShimFiles(other, path.join(dir, "missing.js"), clientBundle, "0.0.0"), false);
@@ -3224,7 +3224,7 @@ test("writeDshClientShimFiles + dshPluginEntry: resolvable shim yields the bare 
     }
 });
 
-test("writeDshClientShim: stamps the real bili version into the shim package.json (#1590)", (t) => {
+test("writeDshClientShim: stamps the real sophialin version into the shim package.json (#1590)", (t) => {
     const root = selfPackageRoot();
     if (!fs.existsSync(path.join(root, "dist", "agent", "dsh-native.js")) || !fs.existsSync(path.join(root, "dist", "agent", "dsh-native-client.js"))) {
         t.skip("needs a built dist (npm run build first)");
@@ -3235,7 +3235,7 @@ test("writeDshClientShim: stamps the real bili version into the shim package.jso
         const home = path.join(dir, ".dsh");
         fs.mkdirSync(home);
         assert.equal(writeDshClientShim(home), true);
-        const shimPkg = JSON.parse(fs.readFileSync(path.join(home, "node_modules", "billion-context", "package.json"), "utf8"));
+        const shimPkg = JSON.parse(fs.readFileSync(path.join(home, "node_modules", "sophialin-context", "package.json"), "utf8"));
         const repoPkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
         assert.equal(shimPkg.version, repoPkg.version);
     } finally {
@@ -3244,7 +3244,7 @@ test("writeDshClientShim: stamps the real bili version into the shim package.jso
 });
 
 test("dshArgsWithPatch: splices --patch by dsh argv shape", () => {
-    const patch = "/tmp/x/.bili-acp.patch.yml";
+    const patch = "/tmp/x/.sophialin-acp.patch.yml";
     assert.deepEqual(dshArgsWithPatch(["--profile", "headless", "task"], patch), ["--patch", patch, "--profile", "headless", "task"]);
     assert.deepEqual(dshArgsWithPatch([], patch), ["--patch", patch]);
     assert.deepEqual(dshArgsWithPatch(["web", "--port", "3080"], patch), ["web", "--patch", patch, "--port", "3080"]);
@@ -3267,7 +3267,7 @@ test("resolveCodexHome: honours CODEX_HOME, defaults to ~/.codex", () => {
     assert.ok(resolveCodexHome({}).endsWith(".codex"));
 });
 
-test("prepareCodexHome: no real config → overlay holds only the bili MCP block, siblings shared, real home untouched (#681)", () => {
+test("prepareCodexHome: no real config → overlay holds only the sophialin MCP block, siblings shared, real home untouched (#681)", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cx-home-"));
     const origin = "http://127.0.0.1:8787";
     const cid = "conv-1";
@@ -3278,13 +3278,13 @@ test("prepareCodexHome: no real config → overlay holds only the bili MCP block
 
         const overlay = prepareCodexHome(dir, origin, cid);
         assert.ok(overlay);
-        assert.equal(overlay, `${dir}-bili`);
+        assert.equal(overlay, `${dir}-sophialin`);
         const txt = fs.readFileSync(path.join(overlay, "config.toml"), "utf8");
-        assert.equal((txt.match(/\[mcp_servers\.bili\]/g) ?? []).length, 1);
+        assert.equal((txt.match(/\[mcp_servers\.sophialin\]/g) ?? []).length, 1);
         assert.ok(txt.includes(`command = ${JSON.stringify(process.execPath)}`));
         assert.match(txt, /args = \[.*mcp\.js.*\]/);
-        assert.ok(txt.includes(`BILI_MCP_PROXY = ${JSON.stringify(origin)}`));
-        assert.ok(txt.includes(`BILI_CONVERSATION_ID = ${JSON.stringify(cid)}`));
+        assert.ok(txt.includes(`SOPHIALIN_MCP_PROXY = ${JSON.stringify(origin)}`));
+        assert.ok(txt.includes(`SOPHIALIN_CONVERSATION_ID = ${JSON.stringify(cid)}`));
         // the command value must be a quoted TOML basic string — only then does a spaced/quoted Windows path survive being read from the file
         assert.match(txt, /^command = ".+"$/m);
         assert.ok(fs.lstatSync(path.join(overlay, "auth.json")).isSymbolicLink());
@@ -3297,7 +3297,7 @@ test("prepareCodexHome: no real config → overlay holds only the bili MCP block
     }
 });
 
-test("prepareCodexHome: real config without bili → original preserved, block appended once (#681)", () => {
+test("prepareCodexHome: real config without sophialin → original preserved, block appended once (#681)", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cx-home-"));
     try {
         fs.writeFileSync(
@@ -3310,7 +3310,7 @@ test("prepareCodexHome: real config without bili → original preserved, block a
         const txt = fs.readFileSync(path.join(overlay, "config.toml"), "utf8");
         assert.ok(txt.includes('model = "gpt-5"'));
         assert.ok(txt.includes('[model_providers.openai]'));
-        assert.equal((txt.match(/\[mcp_servers\.bili\]/g) ?? []).length, 1);
+        assert.equal((txt.match(/\[mcp_servers\.sophialin\]/g) ?? []).length, 1);
         assert.equal(fs.readFileSync(path.join(dir, "config.toml"), "utf8"), original);
         rmrf(overlay);
     } finally {
@@ -3318,7 +3318,7 @@ test("prepareCodexHome: real config without bili → original preserved, block a
     }
 });
 
-test("prepareCodexHome: pre-existing [mcp_servers.bili] is replaced, never duplicated (#681)", () => {
+test("prepareCodexHome: pre-existing [mcp_servers.sophialin] is replaced, never duplicated (#681)", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cx-home-"));
     try {
         fs.writeFileSync(
@@ -3326,10 +3326,10 @@ test("prepareCodexHome: pre-existing [mcp_servers.bili] is replaced, never dupli
             [
                 "model = \"gpt-5\"",
                 "",
-                "[mcp_servers.bili]",
+                "[mcp_servers.sophialin]",
                 "command = \"/old/path/node\"",
                 "args = [\"/old/mcp.js\"]",
-                "env = { BILI_MCP_PROXY = \"http://old:1\" }",
+                "env = { SOPHIALIN_MCP_PROXY = \"http://old:1\" }",
                 "",
                 "[other_table]",
                 "keep = \"me\"",
@@ -3339,10 +3339,10 @@ test("prepareCodexHome: pre-existing [mcp_servers.bili] is replaced, never dupli
         const overlay = prepareCodexHome(dir, "http://127.0.0.1:8787", "conv-3");
         assert.ok(overlay);
         const txt = fs.readFileSync(path.join(overlay, "config.toml"), "utf8");
-        assert.equal((txt.match(/\[mcp_servers\.bili\]/g) ?? []).length, 1, "exactly one bili block");
+        assert.equal((txt.match(/\[mcp_servers\.sophialin\]/g) ?? []).length, 1, "exactly one sophialin block");
         assert.ok(!txt.includes("/old/path/node"), "stale install block removed");
         assert.ok(!txt.includes("http://old:1"), "stale proxy origin removed");
-        assert.ok(txt.includes(`BILI_CONVERSATION_ID = ${JSON.stringify("conv-3")}`), "per-spawn conversation id added");
+        assert.ok(txt.includes(`SOPHIALIN_CONVERSATION_ID = ${JSON.stringify("conv-3")}`), "per-spawn conversation id added");
         assert.ok(txt.includes('model = "gpt-5"'), "unrelated top-level key kept");
         assert.ok(txt.includes('[other_table]') && txt.includes('keep = "me"'), "unrelated table kept");
         rmrf(overlay);
@@ -3374,19 +3374,19 @@ test("prepareCodexMcpInjection: win32 redirects CODEX_HOME to the overlay, drops
             conversationId: "conv-w",
         });
         assert.deepEqual(r.clientArgs, [], "no inline -c args on Windows");
-        assert.equal(r.envPatch.CODEX_HOME, `${dir}-bili`);
-        assert.ok(fs.existsSync(path.join(`${dir}-bili`, "config.toml")));
-        const txt = fs.readFileSync(path.join(`${dir}-bili`, "config.toml"), "utf8");
-        assert.equal((txt.match(/\[mcp_servers\.bili\]/g) ?? []).length, 1);
-        rmrf(`${dir}-bili`);
+        assert.equal(r.envPatch.CODEX_HOME, `${dir}-sophialin`);
+        assert.ok(fs.existsSync(path.join(`${dir}-sophialin`, "config.toml")));
+        const txt = fs.readFileSync(path.join(`${dir}-sophialin`, "config.toml"), "utf8");
+        assert.equal((txt.match(/\[mcp_servers\.sophialin\]/g) ?? []).length, 1);
+        rmrf(`${dir}-sophialin`);
     } finally {
         rmrf(dir);
     }
 });
 
 test("runLaunch dsh: non-loopback upstreams ride proxy envs, loopback keeps the overlay (#535 phase 4)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dsh-launch-"));
-    const prevBin = process.env.BILI_CLIENT_BIN;
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-dsh-launch-"));
+    const prevBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevDshHome = process.env.DSH_HOME;
     const prevNoProxy = process.env.NO_PROXY;
     const dshHome = path.join(home, ".dsh");
@@ -3405,13 +3405,13 @@ test("runLaunch dsh: non-loopback upstreams ride proxy envs, loopback keeps the 
     fs.mkdirSync(path.join(dshHome, "profiles"));
     const original = fs.readFileSync(path.join(dshHome, "settings.yaml"), "utf8");
     // A differently-named package.json above the probe anchor: os.tmpdir()
-    // can sit inside a billion-context checkout (as it does in this sandbox),
+    // can sit inside a sophialin-context checkout (as it does in this sandbox),
     // and tsx's resolver checks the nearest enclosing package.json for a
     // self-name match BEFORE walking node_modules — without the guard the
     // probe would resolve against the checkout's own package.json instead of
     // the fixture/shim below. It must sit on the overlay anchor's walk-up
     // chain (home root), not merely beside it.
-    fs.writeFileSync(path.join(home, "package.json"), JSON.stringify({ name: "bili-dsh-launch-fixture", version: "0.0.0" }));
+    fs.writeFileSync(path.join(home, "package.json"), JSON.stringify({ name: "sophialin-dsh-launch-fixture", version: "0.0.0" }));
     const dshTree = path.join(home, "dshhost");
     fs.mkdirSync(path.join(dshTree, "bin"), { recursive: true });
     fs.writeFileSync(path.join(dshTree, "package.json"), JSON.stringify({ name: "dsh-fake-host", version: "0.0.0" }));
@@ -3419,15 +3419,15 @@ test("runLaunch dsh: non-loopback upstreams ride proxy envs, loopback keeps the 
     // overlay home — loopback rewrites are pending here, so the overlay
     // exists). Keeps the bare-entry assertion deterministic on trees without
     // a build: runLaunch's own writeDshClientShim only overwrites the fixture
-    // with real dist symlinks when bili's dist bundles exist.
+    // with real dist symlinks when sophialin's dist bundles exist.
     const hostFixture = path.join(home, "host-bundle.js");
     const clientFixture = path.join(home, "client-bundle.js");
     fs.writeFileSync(hostFixture, "// host\n");
     fs.writeFileSync(clientFixture, "// client\n");
-    assert.equal(writeDshClientShimFiles(path.join(`${dshHome}-bili`, "node_modules", "billion-context"), hostFixture, clientFixture, "0.1.169"), true);
+    assert.equal(writeDshClientShimFiles(path.join(`${dshHome}-sophialin`, "node_modules", "sophialin-context"), hostFixture, clientFixture, "0.1.169"), true);
     const fakeDsh = path.join(dshTree, "bin", process.platform === "win32" ? "fake-dsh.exe" : "fake-dsh");
     fs.writeFileSync(fakeDsh, "");
-    process.env.BILI_CLIENT_BIN = fakeDsh;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeDsh;
     process.env.DSH_HOME = dshHome;
     process.env.NO_PROXY = "localhost,.corp";
 
@@ -3467,9 +3467,9 @@ test("runLaunch dsh: non-loopback upstreams ride proxy envs, loopback keeps the 
         );
         assert.equal(envSeen.length, 1);
         const seenEnv = envSeen[0];
-        const origin = seenEnv.BILLION_CONTEXT_PROXY;
+        const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
         assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)));
-        assert.equal(seenEnv.DEEPSEEK_BASE_URL, `${origin}/bili/https://api.deepseek.com`);
+        assert.equal(seenEnv.DEEPSEEK_BASE_URL, `${origin}/sophialin/https://api.deepseek.com`);
         // Session identity for the proxy: forces dsh's pi-ai stack to stamp
         // prompt_cache_key (the dsh session id) on every request.
         assert.equal(seenEnv.PI_CACHE_RETENTION, "long");
@@ -3478,28 +3478,28 @@ test("runLaunch dsh: non-loopback upstreams ride proxy envs, loopback keeps the 
         // vars are fully stripped (same contract as hermes): dsh's loopback
         // exclusion comes from its built-in policy, not from NO_PROXY.
         assert.equal(seenEnv.HTTPS_PROXY, origin);
-        assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("billion-context", "ca", "combined-ca.pem")));
+        assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")));
         // #710: Windows official Node ignores SSL_CERT_FILE and reads only
         // NODE_EXTRA_CA_CERTS — both must carry the combined bundle.
-        assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("billion-context", "ca", "combined-ca.pem")));
+        assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")));
         assert.equal(seenEnv.HTTP_PROXY, undefined);
         assert.equal(seenEnv.NO_PROXY, undefined);
-        // Loopback sglang stays on the /bili/ rewrite path via the persistent
+        // Loopback sglang stays on the /sophialin/ rewrite path via the persistent
         // overlay — and ONLY the loopback endpoint gets rewritten there.
-        assert.equal(seenEnv.DSH_HOME, `${dshHome}-bili`);
+        assert.equal(seenEnv.DSH_HOME, `${dshHome}-sophialin`);
         assert.deepEqual(exitCalls, [0]);
         assert.equal(fs.readFileSync(path.join(dshHome, "settings.yaml"), "utf8"), original);
-        const overlay = `${dshHome}-bili`;
+        const overlay = `${dshHome}-sophialin`;
         const overlayTxt = fs.readFileSync(path.join(overlay, "settings.yaml"), "utf8");
-        assert.ok(overlayTxt.includes(`baseURL: ${origin}/bili/http://127.0.0.1:8199/v1`));
+        assert.ok(overlayTxt.includes(`baseURL: ${origin}/sophialin/http://127.0.0.1:8199/v1`));
         assert.ok(overlayTxt.includes("baseURL: https://api.anthropic.com"));
         assert.ok(fs.lstatSync(path.join(overlay, "profiles")).isSymbolicLink());
         // The MITM whitelist carries the non-loopback https host.
         assert.ok(proxyEnvs.length > 0);
-        assert.ok(String(proxyEnvs[0].BILI_MITM_DOMAINS).split(",").includes("api.anthropic.com"));
+        assert.ok(String(proxyEnvs[0].SOPHIALIN_MITM_DOMAINS).split(",").includes("api.anthropic.com"));
         // /acp command injection: --patch flag spliced before user args, and
         // the patch overlay file exists pointing at our bundled cordis plugin.
-        const patchFile = path.join(overlay, ".bili-acp.patch.yml");
+        const patchFile = path.join(overlay, ".sophialin-acp.patch.yml");
         assert.ok(fs.existsSync(patchFile));
         const patchTxt = fs.readFileSync(patchFile, "utf8");
         assert.ok(patchTxt.startsWith("- insert:\n"));
@@ -3507,15 +3507,15 @@ test("runLaunch dsh: non-loopback upstreams ride proxy envs, loopback keeps the 
         // walk-up chain ⇒ bare specifier (lets dsh load the host half AND its
         // client scanner attach the browser half), not the legacy file URL;
         // NODE_PATH points the scanner's CJS resolution at the base home.
-        assert.ok(/- id: bili-native\n {6}name: billion-context\n/.test(patchTxt));
+        assert.ok(/- id: sophialin-native\n {6}name: sophialin-context\n/.test(patchTxt));
         assert.match(patchTxt, /^- id: compaction-basic\n  config:\n    auto: false\n$/m);
         assert.ok(String(seenEnv.NODE_PATH ?? "").startsWith(path.join(dshHome, "node_modules")), `NODE_PATH seeds the scanner: ${seenEnv.NODE_PATH}`);
         assert.deepEqual(argsSeen[0], ["--patch", patchFile, "--profile", "headless", "task"]);
         rmrf(overlay);
     } finally {
         process.exit = prevExit;
-        if (prevBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevBin;
+        if (prevBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevBin;
         if (prevDshHome === undefined) delete process.env.DSH_HOME;
         else process.env.DSH_HOME = prevDshHome;
         if (prevNoProxy === undefined) delete process.env.NO_PROXY;
@@ -3525,8 +3525,8 @@ test("runLaunch dsh: non-loopback upstreams ride proxy envs, loopback keeps the 
 });
 
 test("runLaunch dsh: no loopback custom providers — no DSH_HOME overlay (#535 phase 4)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dsh-launch-"));
-    const prevBin = process.env.BILI_CLIENT_BIN;
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-dsh-launch-"));
+    const prevBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevDshHome = process.env.DSH_HOME;
     const dshHome = path.join(home, ".dsh");
     fs.mkdirSync(dshHome);
@@ -3541,7 +3541,7 @@ test("runLaunch dsh: no loopback custom providers — no DSH_HOME overlay (#535 
     );
     const fakeDsh = path.join(home, process.platform === "win32" ? "fake-dsh.exe" : "fake-dsh");
     fs.writeFileSync(fakeDsh, "");
-    process.env.BILI_CLIENT_BIN = fakeDsh;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeDsh;
     process.env.DSH_HOME = dshHome;
 
     const envSeen: NodeJS.ProcessEnv[] = [];
@@ -3572,21 +3572,21 @@ test("runLaunch dsh: no loopback custom providers — no DSH_HOME overlay (#535 
         );
         assert.equal(envSeen.length, 1);
         const seenEnv = envSeen[0];
-        const origin = seenEnv.BILLION_CONTEXT_PROXY;
+        const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
         assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)));
         // The single non-loopback https provider still rides cert MITM...
         assert.equal(seenEnv.HTTPS_PROXY, origin);
         // ...but nothing needs the settings rewrite, so no overlay redirect —
         // the inherited DSH_HOME (the real home discovery read) passes through
-        // unchanged; the -bili dir only holds the /acp patch file written by
+        // unchanged; the -sophialin dir only holds the /acp patch file written by
         // writeDshAcpPatch.
         assert.equal(seenEnv.DSH_HOME, dshHome);
-        assert.equal(fs.existsSync(path.join(`${dshHome}-bili`, "settings.yaml")), false);
-        assert.ok(fs.existsSync(path.join(`${dshHome}-bili`, ".bili-acp.patch.yml")));
+        assert.equal(fs.existsSync(path.join(`${dshHome}-sophialin`, "settings.yaml")), false);
+        assert.ok(fs.existsSync(path.join(`${dshHome}-sophialin`, ".sophialin-acp.patch.yml")));
     } finally {
         process.exit = prevExit;
-        if (prevBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevBin;
+        if (prevBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevBin;
         if (prevDshHome === undefined) delete process.env.DSH_HOME;
         else process.env.DSH_HOME = prevDshHome;
         rmrf(home);
@@ -3598,15 +3598,15 @@ test("resolveNodeRuntime: a live Node executable wins without consulting PATH (#
     assert.equal(resolveNodeRuntime("C:/nodejs/node.exe", {}, "win32", () => false), "C:/nodejs/node.exe");
 });
 
-test("resolveNodeRuntime: non-Node host uses the BILLION_CONTEXT_NODE override when it exists", () => {
+test("resolveNodeRuntime: non-Node host uses the SOPHIALIN_CONTEXT_NODE override when it exists", () => {
     const exists = (p: string): boolean => p === "/opt/runtimes/node";
     assert.equal(
-        resolveNodeRuntime("/usr/bin/opencode", { BILLION_CONTEXT_NODE: "  /opt/runtimes/node ", PATH: "" }, "linux", exists),
+        resolveNodeRuntime("/usr/bin/opencode", { SOPHIALIN_CONTEXT_NODE: "  /opt/runtimes/node ", PATH: "" }, "linux", exists),
         "/opt/runtimes/node",
     );
     // an override pointing at a missing file is ignored — the PATH search still runs
     assert.equal(
-        resolveNodeRuntime("/usr/bin/opencode", { BILLION_CONTEXT_NODE: "/missing/node", PATH: "/usr/local/bin" }, "linux", (p) => p === "/usr/local/bin/node"),
+        resolveNodeRuntime("/usr/bin/opencode", { SOPHIALIN_CONTEXT_NODE: "/missing/node", PATH: "/usr/local/bin" }, "linux", (p) => p === "/usr/local/bin/node"),
         "/usr/local/bin/node",
     );
 });
@@ -3628,7 +3628,7 @@ test("resolveNodeRuntime: PATH search finds node for non-Node hosts (posix + win
 test("resolveNodeRuntime: throws with the actionable message when nothing resolves", () => {
     assert.throws(
         () => resolveNodeRuntime("/usr/bin/opencode", { PATH: "/nonexistent" }, "linux", () => false),
-        /BILLION_CONTEXT_NODE/,
+        /SOPHIALIN_CONTEXT_NODE/,
     );
 });
 
@@ -3678,7 +3678,7 @@ test("resolveNodeRuntime: win32 GUI host finds node in Program Files not on PATH
 test("resolveNodeRuntime: non-Electron host still throws when no Node resolves (#1429)", () => {
     assert.throws(
         () => resolveNodeRuntime("/usr/bin/opencode", { PATH: "/nonexistent" }, "linux", () => false, undefined),
-        /BILLION_CONTEXT_NODE/,
+        /SOPHIALIN_CONTEXT_NODE/,
     );
 });
 
@@ -3696,17 +3696,17 @@ test("ensureProxyRunning: spawns the resolved Node runtime, not blind process.ex
 });
 
 test("runLaunch omp: launcher hands per-model windows to the spawned proxy", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mw-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-mw-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevClientBin = process.env.BILI_CLIENT_BIN;
+    const prevClientBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevOmpDir = process.env.PI_CODING_AGENT_DIR;
     process.env.HOME = home;
     if (prevUserProfile !== undefined) process.env.USERPROFILE = home;
     delete process.env.PI_CODING_AGENT_DIR;
     const fakeOmp = path.join(home, process.platform === "win32" ? "fake-omp.exe" : "fake-omp");
     fs.writeFileSync(fakeOmp, "");
-    process.env.BILI_CLIENT_BIN = fakeOmp;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeOmp;
     const ompHome = path.join(home, ".omp", "agent");
     fs.mkdirSync(ompHome, { recursive: true });
     fs.writeFileSync(
@@ -3761,15 +3761,15 @@ test("runLaunch omp: launcher hands per-model windows to the spawned proxy", asy
         );
         assert.deepEqual(exitCalls, [0]);
         assert.equal(proxyEnvs.length, 1, "proxy spawned once");
-        const raw = proxyEnvs[0]?.BILI_LAUNCHER_MODEL_WINDOWS;
-        assert.ok(typeof raw === "string", "BILI_LAUNCHER_MODEL_WINDOWS handed to the proxy");
+        const raw = proxyEnvs[0]?.SOPHIALIN_LAUNCHER_MODEL_WINDOWS;
+        assert.ok(typeof raw === "string", "SOPHIALIN_LAUNCHER_MODEL_WINDOWS handed to the proxy");
         const windows = JSON.parse(raw as string) as Record<string, number>;
         assert.equal(windows["qwen3.8-27b"], 262144);
         assert.equal(windows.tiny, 4096);
     } finally {
         process.exit = prevExit;
-        if (prevClientBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevClientBin;
+        if (prevClientBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevClientBin;
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
@@ -3808,16 +3808,16 @@ test("resolveLauncherWindow: config route > built-in table > registry > nothing"
     try {
         assert.equal(await resolveLauncherWindow("gpt-x", routes, "https://api.openai.com/v1"), 123456);
         assert.equal(await resolveLauncherWindow("gpt-5.5", {}, "https://api.openai.com/v1"), 400000);
-        registrySetForTest({ "openai/bili-fallback-model": { limit: { context: 333333 } } });
-        assert.equal(await resolveLauncherWindow("bili-fallback-model", {}, "https://api.openai.com/v1"), 333333);
-        assert.equal(await resolveLauncherWindow("bili-nonexistent-model-xyz", {}, "https://api.openai.com/v1"), undefined);
+        registrySetForTest({ "openai/sophialin-fallback-model": { limit: { context: 333333 } } });
+        assert.equal(await resolveLauncherWindow("sophialin-fallback-model", {}, "https://api.openai.com/v1"), 333333);
+        assert.equal(await resolveLauncherWindow("sophialin-nonexistent-model-xyz", {}, "https://api.openai.com/v1"), undefined);
         assert.equal(await resolveLauncherWindow(undefined, routes, "https://api.openai.com/v1"), undefined);
     } finally {
         registryResetForTest();
     }
 });
 
-test("resolveCodexBudgetArgs: injects window + same-value limit from bili's chain", async () => {
+test("resolveCodexBudgetArgs: injects window + same-value limit from sophialin's chain", async () => {
     registrySetForTest({});
     try {
         assert.deepEqual(
@@ -3829,9 +3829,9 @@ test("resolveCodexBudgetArgs: injects window + same-value limit from bili's chai
             await resolveCodexBudgetArgs({ model: "gpt-x", clientWindow: undefined, clientAutoCompactLimit: undefined, routes, upstreamUrl: "https://relay.example.com/v1" }),
             ["-c", "model_context_window=123456", "-c", "model_auto_compact_token_limit=123456"],
         );
-        registrySetForTest({ "openai/bili-fallback-model": { limit: { context: 333333 } } });
+        registrySetForTest({ "openai/sophialin-fallback-model": { limit: { context: 333333 } } });
         assert.deepEqual(
-            await resolveCodexBudgetArgs({ model: "bili-fallback-model", clientWindow: undefined, clientAutoCompactLimit: undefined, routes: {}, upstreamUrl: "https://api.openai.com/v1" }),
+            await resolveCodexBudgetArgs({ model: "sophialin-fallback-model", clientWindow: undefined, clientAutoCompactLimit: undefined, routes: {}, upstreamUrl: "https://api.openai.com/v1" }),
             ["-c", "model_context_window=333333", "-c", "model_auto_compact_token_limit=333333"],
         );
     } finally {
@@ -3844,7 +3844,7 @@ test("resolveCodexBudgetArgs: no injection when user self-aligned or unresolvabl
     try {
         assert.deepEqual(await resolveCodexBudgetArgs({ model: "gpt-5.5", clientWindow: 1000000, clientAutoCompactLimit: undefined, routes: {}, upstreamUrl: "https://api.openai.com/v1" }), []);
         assert.deepEqual(await resolveCodexBudgetArgs({ model: undefined, clientWindow: undefined, clientAutoCompactLimit: undefined, routes: {}, upstreamUrl: "https://api.openai.com/v1" }), []);
-        assert.deepEqual(await resolveCodexBudgetArgs({ model: "bili-nonexistent-model-xyz", clientWindow: undefined, clientAutoCompactLimit: undefined, routes: {}, upstreamUrl: "https://api.openai.com/v1" }), []);
+        assert.deepEqual(await resolveCodexBudgetArgs({ model: "sophialin-nonexistent-model-xyz", clientWindow: undefined, clientAutoCompactLimit: undefined, routes: {}, upstreamUrl: "https://api.openai.com/v1" }), []);
     } finally {
         registryResetForTest();
     }
@@ -3857,7 +3857,7 @@ test("resolveCodexBudgetArgs: honors user-set model_auto_compact_token_limit", a
     );
 });
 
-test("resolveClaudeBudgetEnv: injects CLAUDE_CODE_AUTO_COMPACT_WINDOW from bili's chain", async () => {
+test("resolveClaudeBudgetEnv: injects CLAUDE_CODE_AUTO_COMPACT_WINDOW from sophialin's chain", async () => {
     registrySetForTest({});
     try {
         assert.deepEqual(
@@ -3869,9 +3869,9 @@ test("resolveClaudeBudgetEnv: injects CLAUDE_CODE_AUTO_COMPACT_WINDOW from bili'
             await resolveClaudeBudgetEnv({ model: "claude-x", userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes, upstreamUrl: "https://relay.example.com" }),
             { CLAUDE_CODE_AUTO_COMPACT_WINDOW: "123456" },
         );
-        registrySetForTest({ "anthropic/bili-fallback-model": { limit: { context: 333333 } } });
+        registrySetForTest({ "anthropic/sophialin-fallback-model": { limit: { context: 333333 } } });
         assert.deepEqual(
-            await resolveClaudeBudgetEnv({ model: "bili-fallback-model", userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://api.anthropic.com" }),
+            await resolveClaudeBudgetEnv({ model: "sophialin-fallback-model", userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://api.anthropic.com" }),
             { CLAUDE_CODE_AUTO_COMPACT_WINDOW: "333333" },
         );
     } finally {
@@ -3885,7 +3885,7 @@ test("resolveClaudeBudgetEnv: no injection when user self-aligned or unresolvabl
         assert.deepEqual(await resolveClaudeBudgetEnv({ model: "claude-sonnet-4-5", userAutoCompactWindow: 300000, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://api.anthropic.com" }), {});
         assert.deepEqual(await resolveClaudeBudgetEnv({ model: "claude-sonnet-4-5", userAutoCompactWindow: undefined, shellAutoCompactWindow: "250000", routes: {}, upstreamUrl: "https://api.anthropic.com" }), {});
         assert.deepEqual(await resolveClaudeBudgetEnv({ model: undefined, userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://api.anthropic.com" }), {});
-        assert.deepEqual(await resolveClaudeBudgetEnv({ model: "bili-nonexistent-model-xyz", userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://api.anthropic.com" }), {});
+        assert.deepEqual(await resolveClaudeBudgetEnv({ model: "sophialin-nonexistent-model-xyz", userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://api.anthropic.com" }), {});
     } finally {
         registryResetForTest();
     }
@@ -3912,7 +3912,7 @@ base_url = "https://relay.example.com/v1"
 });
 
 test("readClaudeSettings: model from env block / top-level, autoCompactWindow from both forms", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-claude-settings-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-claude-settings-"));
     try {
         const settingsDir = path.join(home, ".claude");
         fs.mkdirSync(settingsDir, { recursive: true });
@@ -3939,10 +3939,10 @@ test("readClaudeSettings: model from env block / top-level, autoCompactWindow fr
 });
 
 test("runLaunch codex: budget args injected for MITM mode (built-in table window)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-codex-budget-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-codex-budget-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevClientBin = process.env.BILI_CLIENT_BIN;
+    const prevClientBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevAnthropicModel = process.env.ANTHROPIC_MODEL;
     const prevAutoCompact = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
     process.env.HOME = home;
@@ -3951,7 +3951,7 @@ test("runLaunch codex: budget args injected for MITM mode (built-in table window
     delete process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
     const fakeCodex = path.join(home, process.platform === "win32" ? "fake-codex.exe" : "fake-codex");
     fs.writeFileSync(fakeCodex, "");
-    process.env.BILI_CLIENT_BIN = fakeCodex;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeCodex;
     const codexHome = path.join(home, ".codex");
     fs.mkdirSync(codexHome, { recursive: true });
     fs.writeFileSync(path.join(codexHome, "config.toml"), 'model = "gpt-5.5"\n');
@@ -4013,8 +4013,8 @@ test("runLaunch codex: budget args injected for MITM mode (built-in table window
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevClientBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevClientBin;
+        if (prevClientBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevClientBin;
         if (prevAnthropicModel === undefined) delete process.env.ANTHROPIC_MODEL;
         else process.env.ANTHROPIC_MODEL = prevAnthropicModel;
         if (prevAutoCompact === undefined) delete process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
@@ -4024,10 +4024,10 @@ test("runLaunch codex: budget args injected for MITM mode (built-in table window
 });
 
 test("runLaunch claude: CLAUDE_CODE_AUTO_COMPACT_WINDOW injected (built-in table window)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-claude-budget-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-claude-budget-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevClientBin = process.env.BILI_CLIENT_BIN;
+    const prevClientBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevAnthropicModel = process.env.ANTHROPIC_MODEL;
     const prevAutoCompact = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
     process.env.HOME = home;
@@ -4036,7 +4036,7 @@ test("runLaunch claude: CLAUDE_CODE_AUTO_COMPACT_WINDOW injected (built-in table
     delete process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
     const fakeClaude = path.join(home, process.platform === "win32" ? "fake-claude.exe" : "fake-claude");
     fs.writeFileSync(fakeClaude, "");
-    process.env.BILI_CLIENT_BIN = fakeClaude;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeClaude;
     const claudeDir = path.join(home, ".claude");
     fs.mkdirSync(claudeDir, { recursive: true });
     fs.writeFileSync(path.join(claudeDir, "settings.json"), JSON.stringify({ model: "claude-sonnet-4-5" }));
@@ -4093,8 +4093,8 @@ test("runLaunch claude: CLAUDE_CODE_AUTO_COMPACT_WINDOW injected (built-in table
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevClientBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevClientBin;
+        if (prevClientBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevClientBin;
         if (prevAnthropicModel === undefined) delete process.env.ANTHROPIC_MODEL;
         else process.env.ANTHROPIC_MODEL = prevAnthropicModel;
         if (prevAutoCompact === undefined) delete process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
@@ -4149,7 +4149,7 @@ test("parseCodebuddyModelsJson: top-level map / models map / array shapes", () =
 });
 
 test("readCodebuddyConfig: settings env block / top-level model / autoCompactWindow / shell fallback", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-codebuddy-settings-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-codebuddy-settings-"));
     try {
         const cbDir = path.join(home, ".codebuddy");
         fs.mkdirSync(cbDir, { recursive: true });
@@ -4177,8 +4177,8 @@ test("readCodebuddyConfig: settings env block / top-level model / autoCompactWin
 });
 
 test("readCodebuddyConfig: two-tier models.json, project level wins per model", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-codebuddy-models-"));
-    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "bili-codebuddy-cwd-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-codebuddy-models-"));
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-codebuddy-cwd-"));
     try {
         const cbDir = path.join(home, ".codebuddy");
         fs.mkdirSync(cbDir, { recursive: true });
@@ -4219,9 +4219,9 @@ test("buildCodebuddyEnv: CODEBUDDY_BASE_URL rewrite sets env + keeps HTTPS_PROXY
     const env = buildCodebuddyEnv("http://127.0.0.1:8787", "/tmp/ca.pem", rewrites, [], { PATH: "/usr/bin", CODEBUDDY_API_KEY: "cb-x" });
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.NODE_EXTRA_CA_CERTS, "/tmp/ca.pem");
-    assert.equal(env.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    assert.equal(env.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.CODEBUDDY_API_KEY, "cb-x");
-    assert.equal(env.CODEBUDDY_BASE_URL, "http://127.0.0.1:8787/bili/http://relay.local/cb");
+    assert.equal(env.CODEBUDDY_BASE_URL, "http://127.0.0.1:8787/sophialin/http://relay.local/cb");
 });
 
 test("buildCodebuddyEnv: no CODEBUDDY_BASE_URL rewrite → env.CODEBUDDY_BASE_URL unset", () => {
@@ -4230,7 +4230,7 @@ test("buildCodebuddyEnv: no CODEBUDDY_BASE_URL rewrite → env.CODEBUDDY_BASE_UR
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
 });
 
-test("discoverRoutes: codebuddy default → CODEBUDDY_BASE_URL /bili/ rewrite (CN platform endpoint)", () => {
+test("discoverRoutes: codebuddy default → CODEBUDDY_BASE_URL /sophialin/ rewrite (CN platform endpoint)", () => {
     const routes = discoverRoutes("codebuddy", {});
     assert.deepEqual(routes.httpsDomains, []);
     assert.deepEqual(routes.httpsRewrites, []);
@@ -4250,9 +4250,9 @@ test("discoverRoutes: codebuddy configured http base URL → httpRewrites entry,
     ]);
 });
 
-test("discoverRoutes: codebuddy /bili/-wrapped base_url unwraps to real upstream for re-wrap", () => {
+test("discoverRoutes: codebuddy /sophialin/-wrapped base_url unwraps to real upstream for re-wrap", () => {
     const config: ClientConfig = {
-        codebuddy: { codebuddyBaseUrl: "http://127.0.0.1:8787/bili/https://relay.example.com/v2" },
+        codebuddy: { codebuddyBaseUrl: "http://127.0.0.1:8787/sophialin/https://relay.example.com/v2" },
     };
     const routes = discoverRoutes("codebuddy", config);
     assert.deepEqual(routes.httpsDomains, []);
@@ -4278,7 +4278,7 @@ test("discoverRoutes: codebuddy models.json urls → httpsDomains inventory, nev
     ]);
 });
 
-test("resolveCodebuddyBudgetEnv: injects CODEBUDDY_AUTO_COMPACT_WINDOW from bili's chain", async () => {
+test("resolveCodebuddyBudgetEnv: injects CODEBUDDY_AUTO_COMPACT_WINDOW from sophialin's chain", async () => {
     registrySetForTest({});
     try {
         assert.deepEqual(
@@ -4290,9 +4290,9 @@ test("resolveCodebuddyBudgetEnv: injects CODEBUDDY_AUTO_COMPACT_WINDOW from bili
             await resolveCodebuddyBudgetEnv({ model: "cb-x", userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes, upstreamUrl: "https://relay.example.com" }),
             { CODEBUDDY_AUTO_COMPACT_WINDOW: "123456" },
         );
-        registrySetForTest({ "anthropic/bili-fallback-model": { limit: { context: 333333 } } });
+        registrySetForTest({ "anthropic/sophialin-fallback-model": { limit: { context: 333333 } } });
         assert.deepEqual(
-            await resolveCodebuddyBudgetEnv({ model: "bili-fallback-model", userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://tencent.sso.codebuddy.cn/v2" }),
+            await resolveCodebuddyBudgetEnv({ model: "sophialin-fallback-model", userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://tencent.sso.codebuddy.cn/v2" }),
             { CODEBUDDY_AUTO_COMPACT_WINDOW: "333333" },
         );
     } finally {
@@ -4306,7 +4306,7 @@ test("resolveCodebuddyBudgetEnv: no injection when user self-aligned or unresolv
         assert.deepEqual(await resolveCodebuddyBudgetEnv({ model: "claude-sonnet-4-5", userAutoCompactWindow: 300000, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://tencent.sso.codebuddy.cn/v2" }), {});
         assert.deepEqual(await resolveCodebuddyBudgetEnv({ model: "claude-sonnet-4-5", userAutoCompactWindow: undefined, shellAutoCompactWindow: "250000", routes: {}, upstreamUrl: "https://tencent.sso.codebuddy.cn/v2" }), {});
         assert.deepEqual(await resolveCodebuddyBudgetEnv({ model: undefined, userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://tencent.sso.codebuddy.cn/v2" }), {});
-        assert.deepEqual(await resolveCodebuddyBudgetEnv({ model: "bili-nonexistent-model-xyz", userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://tencent.sso.codebuddy.cn/v2" }), {});
+        assert.deepEqual(await resolveCodebuddyBudgetEnv({ model: "sophialin-nonexistent-model-xyz", userAutoCompactWindow: undefined, shellAutoCompactWindow: undefined, routes: {}, upstreamUrl: "https://tencent.sso.codebuddy.cn/v2" }), {});
     } finally {
         registryResetForTest();
     }
@@ -4317,7 +4317,7 @@ test("resolveClientCommand: codebuddy resolves codebuddy, then cbc, then bare na
         command: "codebuddy",
         prefixArgs: [],
     });
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "bili-path-"));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-path-"));
     const cbcFile = path.join(tmp, "cbc");
     fs.writeFileSync(cbcFile, "#!/bin/sh\necho cbc\n", { mode: 0o755 });
     try {
@@ -4329,7 +4329,7 @@ test("resolveClientCommand: codebuddy resolves codebuddy, then cbc, then bare na
         fs.unlinkSync(cbcFile);
         fs.rmdirSync(tmp);
     }
-    const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), "bili-path-"));
+    const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-path-"));
     const cbFile = path.join(tmp2, "codebuddy");
     const cbFile2 = path.join(tmp2, "cbc");
     fs.writeFileSync(cbFile, "#!/bin/sh\necho cb\n", { mode: 0o755 });
@@ -4346,11 +4346,11 @@ test("resolveClientCommand: codebuddy resolves codebuddy, then cbc, then bare na
     }
 });
 
-test("runLaunch codebuddy: CODEBUDDY_BASE_URL /bili/ rewrite + budget injected (built-in table window)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-codebuddy-budget-"));
+test("runLaunch codebuddy: CODEBUDDY_BASE_URL /sophialin/ rewrite + budget injected (built-in table window)", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-codebuddy-budget-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevClientBin = process.env.BILI_CLIENT_BIN;
+    const prevClientBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevBaseUrl = process.env.CODEBUDDY_BASE_URL;
     const prevAutoCompact = process.env.CODEBUDDY_AUTO_COMPACT_WINDOW;
     const prevConfigDir = process.env.CODEBUDDY_CONFIG_DIR;
@@ -4361,7 +4361,7 @@ test("runLaunch codebuddy: CODEBUDDY_BASE_URL /bili/ rewrite + budget injected (
     delete process.env.CODEBUDDY_CONFIG_DIR;
     const fakeCodebuddy = path.join(home, process.platform === "win32" ? "fake-codebuddy.exe" : "fake-codebuddy");
     fs.writeFileSync(fakeCodebuddy, "");
-    process.env.BILI_CLIENT_BIN = fakeCodebuddy;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeCodebuddy;
     const cbDir = path.join(home, ".codebuddy");
     fs.mkdirSync(cbDir, { recursive: true });
     fs.writeFileSync(path.join(cbDir, "settings.json"), JSON.stringify({ model: "claude-sonnet-4-5" }));
@@ -4391,9 +4391,9 @@ test("runLaunch codebuddy: CODEBUDDY_BASE_URL /bili/ rewrite + budget injected (
             { fetchImpl, fetchHealthInfo: async () => ({ ok: true, pid: lastFakeChildPid }), spawnImpl, sleep: () => Promise.resolve() },
         );
         assert.equal(clientEnvs.length, 1);
-        assert.match(clientEnvs[0]?.CODEBUDDY_BASE_URL ?? "", /^http:\/\/127\.0\.0\.1:\d+\/bili\/https:\/\/tencent\.sso\.codebuddy\.cn\/v2$/);
+        assert.match(clientEnvs[0]?.CODEBUDDY_BASE_URL ?? "", /^http:\/\/127\.0\.0\.1:\d+\/sophialin\/https:\/\/tencent\.sso\.codebuddy\.cn\/v2$/);
         assert.equal(clientEnvs[0]?.CODEBUDDY_AUTO_COMPACT_WINDOW, "200000");
-        assert.equal(clientEnvs[0]?.HTTPS_PROXY, clientEnvs[0]?.BILLION_CONTEXT_PROXY);
+        assert.equal(clientEnvs[0]?.HTTPS_PROXY, clientEnvs[0]?.SOPHIALIN_CONTEXT_PROXY);
 
         // user self-aligned (settings autoCompactWindow) → no budget injection
         fs.writeFileSync(path.join(cbDir, "settings.json"), JSON.stringify({ model: "claude-sonnet-4-5", autoCompactWindow: 300000 }));
@@ -4404,14 +4404,14 @@ test("runLaunch codebuddy: CODEBUDDY_BASE_URL /bili/ rewrite + budget injected (
         );
         assert.equal(clientEnvs.length, 1);
         assert.equal(clientEnvs[0]?.CODEBUDDY_AUTO_COMPACT_WINDOW, undefined);
-        assert.match(clientEnvs[0]?.CODEBUDDY_BASE_URL ?? "", /^http:\/\/127\.0\.0\.1:\d+\/bili\//);
+        assert.match(clientEnvs[0]?.CODEBUDDY_BASE_URL ?? "", /^http:\/\/127\.0\.0\.1:\d+\/sophialin\//);
     } finally {
         process.exit = prevExit;
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevClientBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevClientBin;
+        if (prevClientBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevClientBin;
         if (prevBaseUrl === undefined) delete process.env.CODEBUDDY_BASE_URL;
         else process.env.CODEBUDDY_BASE_URL = prevBaseUrl;
         if (prevAutoCompact === undefined) delete process.env.CODEBUDDY_AUTO_COMPACT_WINDOW;
@@ -4432,7 +4432,7 @@ test("qoderIsCnSite: QODERCLI_SITE and CN-prefixed envs decide the site", () => 
 });
 
 test("qoderIsCnSite: on-disk config dirs only break the tie (no dirs → intl)", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-qoder-site-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-qoder-site-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     process.env.HOME = home;
@@ -4452,7 +4452,7 @@ test("qoderIsCnSite: on-disk config dirs only break the tie (no dirs → intl)",
 });
 
 test("resolveQoderHome: env override > CLI_HOME+dir name > site default", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-qoder-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-qoder-home-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     process.env.HOME = home;
@@ -4477,7 +4477,7 @@ test("resolveQoderHome: env override > CLI_HOME+dir name > site default", () => 
 });
 
 test("readQoderConfig: settings.json model (string + object) and model server host env", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-qoder-cfg-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-qoder-cfg-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     process.env.HOME = home;
@@ -4522,15 +4522,15 @@ test("discoverRoutes: qoder modelServerHost replaces the default map", () => {
     assert.deepEqual(routes.httpsDomains, ["my-relay.example.com"]);
 });
 
-test("buildQoderEnv: HTTPS_PROXY + NODE_EXTRA_CA_CERTS + BILLION_CONTEXT_PROXY, baseEnv preserved", () => {
+test("buildQoderEnv: HTTPS_PROXY + NODE_EXTRA_CA_CERTS + SOPHIALIN_CONTEXT_PROXY, baseEnv preserved", () => {
     const env = buildQoderEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { FOO: "bar" });
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.NODE_EXTRA_CA_CERTS, "/tmp/ca.pem");
-    assert.equal(env.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    assert.equal(env.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.FOO, "bar");
 });
 
-test("resolveQoderBudgetEnv: injects the site-prefixed window key from bili's chain", async () => {
+test("resolveQoderBudgetEnv: injects the site-prefixed window key from sophialin's chain", async () => {
     registrySetForTest({});
     try {
         assert.deepEqual(
@@ -4542,9 +4542,9 @@ test("resolveQoderBudgetEnv: injects the site-prefixed window key from bili's ch
             await resolveQoderBudgetEnv({ model: "qoder-x", userAutoCompactWindow: undefined, windowKey: "QODERCN_AUTOCOMPACT_WINDOW", routes, upstreamUrl: "https://relay.example.com" }),
             { QODERCN_AUTOCOMPACT_WINDOW: "123456" },
         );
-        registrySetForTest({ "anthropic/bili-fallback-model": { limit: { context: 333333 } } });
+        registrySetForTest({ "anthropic/sophialin-fallback-model": { limit: { context: 333333 } } });
         assert.deepEqual(
-            await resolveQoderBudgetEnv({ model: "bili-fallback-model", userAutoCompactWindow: undefined, windowKey: "QODER_AUTOCOMPACT_WINDOW", routes: {}, upstreamUrl: "https://api.anthropic.com" }),
+            await resolveQoderBudgetEnv({ model: "sophialin-fallback-model", userAutoCompactWindow: undefined, windowKey: "QODER_AUTOCOMPACT_WINDOW", routes: {}, upstreamUrl: "https://api.anthropic.com" }),
             { QODER_AUTOCOMPACT_WINDOW: "333333" },
         );
     } finally {
@@ -4564,7 +4564,7 @@ test("resolveQoderBudgetEnv: no injection when user self-aligned or unresolvable
 });
 
 test("resolveClientCommand: qoder resolves `qoder`, falls back to `qodercli`", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-qoder-bin-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-qoder-bin-"));
     try {
         const env: NodeJS.ProcessEnv = { PATH: dir };
         assert.deepEqual(resolveClientCommand("qoder", env), { command: "qoder", prefixArgs: [] });
@@ -4578,10 +4578,10 @@ test("resolveClientCommand: qoder resolves `qoder`, falls back to `qodercli`", (
 });
 
 test("runLaunch qoder: cert-MITM envs, transport forced, budget aligned, default MITM whitelist (#653)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-qoder-launch-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-qoder-launch-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevBin = process.env.BILI_CLIENT_BIN;
+    const prevBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevModel = process.env.QODER_MODEL;
     const prevWindow = process.env.QODER_AUTOCOMPACT_WINDOW;
     const prevTransport = process.env.QODER_MODEL_TRANSPORT;
@@ -4596,7 +4596,7 @@ test("runLaunch qoder: cert-MITM envs, transport forced, budget aligned, default
     fs.writeFileSync(path.join(qoderDir, "settings.json"), JSON.stringify({ model: { name: "claude-sonnet-4-5" } }));
     const fakeQoder = path.join(home, process.platform === "win32" ? "fake-qoder.exe" : "fake-qoder");
     fs.writeFileSync(fakeQoder, "");
-    process.env.BILI_CLIENT_BIN = fakeQoder;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeQoder;
     process.env.NO_PROXY = "localhost,.corp";
 
     const clientEnvs: (NodeJS.ProcessEnv | undefined)[] = [];
@@ -4628,16 +4628,16 @@ test("runLaunch qoder: cert-MITM envs, transport forced, budget aligned, default
         );
         assert.equal(clientEnvs.length, 1);
         const seenEnv = clientEnvs[0]!;
-        const origin = seenEnv.BILLION_CONTEXT_PROXY;
+        const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
         assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
         assert.equal(seenEnv.HTTPS_PROXY, origin);
-        assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("billion-context", "ca", "root-ca.pem")), String(seenEnv.NODE_EXTRA_CA_CERTS));
+        assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("sophialin-context", "ca", "root-ca.pem")), String(seenEnv.NODE_EXTRA_CA_CERTS));
         assert.equal(seenEnv.HTTP_PROXY, undefined, "inherited HTTP_PROXY stripped");
         assert.equal(seenEnv.NO_PROXY, undefined, "inherited NO_PROXY stripped");
         assert.equal(seenEnv.QODER_MODEL_TRANSPORT, "http");
         assert.equal(seenEnv.QODER_AUTOCOMPACT_WINDOW, "200000", "budget aligned from built-in table");
         assert.ok(proxyEnvs.length > 0, "proxy child spawned");
-        const mitm = String(proxyEnvs[0]!.BILI_MITM_DOMAINS).split(",");
+        const mitm = String(proxyEnvs[0]!.SOPHIALIN_MITM_DOMAINS).split(",");
         for (const h of QODER_DEFAULT_MODEL_HOSTS) {
             assert.ok(mitm.includes(h), `whitelist has ${h}: ${mitm.join(",")}`);
         }
@@ -4646,8 +4646,8 @@ test("runLaunch qoder: cert-MITM envs, transport forced, budget aligned, default
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevBin;
+        if (prevBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevBin;
         if (prevModel === undefined) delete process.env.QODER_MODEL;
         else process.env.QODER_MODEL = prevModel;
         if (prevWindow === undefined) delete process.env.QODER_AUTOCOMPACT_WINDOW;
@@ -4661,7 +4661,7 @@ test("runLaunch qoder: cert-MITM envs, transport forced, budget aligned, default
 });
 
 test("resolveTraeHome: TRAE_CONFIG_DIR override > ~/.trae", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-trae-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-trae-home-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     process.env.HOME = home;
@@ -4704,19 +4704,19 @@ test("discoverRoutes: trae modelApiHost with :port → hostname only (MITM is SN
     assert.deepEqual(routes.httpsDomains, ["my-relay.example.com"]);
 });
 
-test("buildTraeEnv: HTTPS_PROXY + SSL_CERT_FILE + BILLION_CONTEXT_PROXY, baseEnv preserved", () => {
+test("buildTraeEnv: HTTPS_PROXY + SSL_CERT_FILE + SOPHIALIN_CONTEXT_PROXY, baseEnv preserved", () => {
     const env = buildTraeEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { FOO: "bar" });
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.SSL_CERT_FILE, "/tmp/ca.pem");
-    assert.equal(env.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    assert.equal(env.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.FOO, "bar");
 });
 
-test("buildJcodeEnv: HTTPS_PROXY + SSL_CERT_FILE + BILLION_CONTEXT_PROXY + NO_PROXY loopback, baseEnv preserved", () => {
+test("buildJcodeEnv: HTTPS_PROXY + SSL_CERT_FILE + SOPHIALIN_CONTEXT_PROXY + NO_PROXY loopback, baseEnv preserved", () => {
     const env = buildJcodeEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { FOO: "bar" });
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.SSL_CERT_FILE, "/tmp/ca.pem");
-    assert.equal(env.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    assert.equal(env.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.NO_PROXY, "localhost,127.0.0.1,::1");
     assert.equal(env.no_proxy, "localhost,127.0.0.1,::1");
     assert.equal(env.FOO, "bar");
@@ -4739,8 +4739,8 @@ test("readAiderConfig: env channels, order + dedupe (#1048)", () => {
 });
 
 test("readAiderConfUrls: home > git root > cwd precedence, quoted values (#1048)", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-aider-home-"));
-    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "bili-aider-repo-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-aider-home-"));
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-aider-repo-"));
     const work = path.join(repo, "work");
     try {
         fs.mkdirSync(path.join(repo, ".git"));
@@ -4821,7 +4821,7 @@ test("buildAiderEnv: dual CA vars + NO_PROXY loopback + conditional HTTP_PROXY (
     assert.equal(noHttp.HTTP_PROXY, undefined);
     assert.equal(noHttp.SSL_CERT_FILE, "/tmp/combined-ca.pem");
     assert.equal(noHttp.REQUESTS_CA_BUNDLE, "/tmp/combined-ca.pem");
-    assert.equal(noHttp.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    assert.equal(noHttp.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
     assert.equal(noHttp.NO_PROXY, "localhost,127.0.0.1,::1");
     assert.equal(noHttp.no_proxy, "localhost,127.0.0.1,::1");
     assert.equal(noHttp.FOO, "bar");
@@ -4830,7 +4830,7 @@ test("buildAiderEnv: dual CA vars + NO_PROXY loopback + conditional HTTP_PROXY (
 });
 
 test("resolveClientCommand: aider resolves the `aider` bin generically (#1048)", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-aider-bin-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-aider-bin-"));
     try {
         const env: NodeJS.ProcessEnv = { PATH: dir };
         assert.deepEqual(resolveClientCommand("aider", env), { command: "aider", prefixArgs: [] });
@@ -4841,19 +4841,19 @@ test("resolveClientCommand: aider resolves the `aider` bin generically (#1048)",
     }
 });
 
-test("buildCopilotEnv: HTTPS_PROXY + SSL_CERT_FILE + BILLION_CONTEXT_PROXY, baseEnv preserved (#1049)", () => {
+test("buildCopilotEnv: HTTPS_PROXY + SSL_CERT_FILE + SOPHIALIN_CONTEXT_PROXY, baseEnv preserved (#1049)", () => {
     const env = buildCopilotEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { FOO: "bar" });
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.SSL_CERT_FILE, "/tmp/ca.pem");
-    assert.equal(env.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    assert.equal(env.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.FOO, "bar");
 });
 
-test("buildAmpEnv: HTTPS_PROXY + SSL_CERT_FILE + BILLION_CONTEXT_PROXY, baseEnv preserved (#1049)", () => {
+test("buildAmpEnv: HTTPS_PROXY + SSL_CERT_FILE + SOPHIALIN_CONTEXT_PROXY, baseEnv preserved (#1049)", () => {
     const env = buildAmpEnv("http://127.0.0.1:8787", "/tmp/ca.pem", { FOO: "bar" });
     assert.equal(env.HTTPS_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.SSL_CERT_FILE, "/tmp/ca.pem");
-    assert.equal(env.BILLION_CONTEXT_PROXY, "http://127.0.0.1:8787");
+    assert.equal(env.SOPHIALIN_CONTEXT_PROXY, "http://127.0.0.1:8787");
     assert.equal(env.FOO, "bar");
 });
 
@@ -4890,7 +4890,7 @@ test("discoverRoutes: goose rewrites custom provider base_urls (incl. loopback),
 });
 
 test("resolveGooseDirs: GOOSE_PATH_ROOT wins; XDG fallback scatters under Block (#1049)", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-goose-root-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-goose-root-"));
     try {
         const dirs = resolveGooseDirs({ GOOSE_PATH_ROOT: root });
         assert.deepEqual(dirs, {
@@ -4922,7 +4922,7 @@ test("resolveGooseDirs: GOOSE_PATH_ROOT wins; XDG fallback scatters under Block 
 });
 
 test("readGooseConfig: active_provider + custom_providers base_urls; GOOSE_PROVIDER wins (#1049)", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-goose-cfg-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-goose-cfg-"));
     try {
         const cfgDir = path.join(root, "config");
         fs.mkdirSync(path.join(cfgDir, "custom_providers"), { recursive: true });
@@ -4935,14 +4935,14 @@ test("readGooseConfig: active_provider + custom_providers base_urls; GOOSE_PROVI
         assert.equal(cfg.activeProvider, "mine");
         assert.deepEqual(cfg.customProviders, { mine: "https://api.custom.example/v1" });
         assert.equal(readGooseConfig(dirs, { GOOSE_PROVIDER: "override" }).activeProvider, "override");
-        assert.deepEqual(readGooseConfig(resolveGooseDirs({ GOOSE_PATH_ROOT: "/nonexistent-bili-test" }), {}).customProviders, {});
+        assert.deepEqual(readGooseConfig(resolveGooseDirs({ GOOSE_PATH_ROOT: "/nonexistent-sophialin-test" }), {}).customProviders, {});
     } finally {
         rmrf(root);
     }
 });
 
 test("prepareGooseHome/finalizeGooseHome: overlay layout, patched urls, merge-back round-trip (#1049)", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-goose-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-goose-home-"));
     try {
         const cfgDir = path.join(home, ".config", "goose");
         fs.mkdirSync(path.join(cfgDir, "custom_providers"), { recursive: true });
@@ -4954,7 +4954,7 @@ test("prepareGooseHome/finalizeGooseHome: overlay layout, patched urls, merge-ba
         const overlay = prepareGooseHome(env, origin, [{ key: "mine", realUpstream: "https://api.custom.example/v1" }]);
         assert.ok(overlay, "overlay prepared");
         const root = overlay!.root;
-        assert.equal(root, path.join(home, ".config", "goose-bili"));
+        assert.equal(root, path.join(home, ".config", "goose-sophialin"));
         assert.ok(fs.lstatSync(path.join(root, "data")).isSymbolicLink());
         assert.ok(fs.lstatSync(path.join(root, "state")).isSymbolicLink());
         assert.ok(fs.lstatSync(path.join(root, ".agents")).isSymbolicLink());
@@ -4978,7 +4978,7 @@ test("prepareGooseHome/finalizeGooseHome: overlay layout, patched urls, merge-ba
 });
 
 test("resolveClientCommand: trae resolves `traecli`, falls back to `trae-cli` then `trae`", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-trae-bin-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-trae-bin-"));
     try {
         const env: NodeJS.ProcessEnv = { PATH: dir };
         assert.deepEqual(resolveClientCommand("trae", env), { command: "traecli", prefixArgs: [] });
@@ -4994,16 +4994,16 @@ test("resolveClientCommand: trae resolves `traecli`, falls back to `trae-cli` th
 });
 
 test("runLaunch trae: cert-MITM envs (SSL_CERT_FILE combined bundle), no budget/transport, default MITM whitelist (#655)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-trae-launch-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-trae-launch-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevBin = process.env.BILI_CLIENT_BIN;
+    const prevBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevNoProxy = process.env.NO_PROXY;
     process.env.HOME = home;
     if (prevUserProfile !== undefined) process.env.USERPROFILE = home;
     const fakeTrae = path.join(home, process.platform === "win32" ? "fake-traecli.exe" : "fake-traecli");
     fs.writeFileSync(fakeTrae, "");
-    process.env.BILI_CLIENT_BIN = fakeTrae;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeTrae;
     process.env.NO_PROXY = "localhost,.corp";
 
     const clientEnvs: (NodeJS.ProcessEnv | undefined)[] = [];
@@ -5035,15 +5035,15 @@ test("runLaunch trae: cert-MITM envs (SSL_CERT_FILE combined bundle), no budget/
         );
         assert.equal(clientEnvs.length, 1);
         const seenEnv = clientEnvs[0]!;
-        const origin = seenEnv.BILLION_CONTEXT_PROXY;
+        const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
         assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
         assert.equal(seenEnv.HTTPS_PROXY, origin);
-        assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("billion-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
+        assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
         assert.equal(seenEnv.NODE_EXTRA_CA_CERTS, undefined, "trae uses SSL_CERT_FILE, not NODE_EXTRA_CA_CERTS");
         assert.equal(seenEnv.HTTP_PROXY, undefined, "inherited HTTP_PROXY stripped");
         assert.equal(seenEnv.NO_PROXY, undefined, "inherited NO_PROXY stripped");
         assert.ok(proxyEnvs.length > 0, "proxy child spawned");
-        const mitm = String(proxyEnvs[0]!.BILI_MITM_DOMAINS).split(",");
+        const mitm = String(proxyEnvs[0]!.SOPHIALIN_MITM_DOMAINS).split(",");
         for (const h of TRAE_DEFAULT_MODEL_HOSTS) {
             assert.ok(mitm.includes(h), `whitelist has ${h}: ${mitm.join(",")}`);
         }
@@ -5052,8 +5052,8 @@ test("runLaunch trae: cert-MITM envs (SSL_CERT_FILE combined bundle), no budget/
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevBin;
+        if (prevBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevBin;
         if (prevNoProxy === undefined) delete process.env.NO_PROXY;
         else process.env.NO_PROXY = prevNoProxy;
         rmrf(home);
@@ -5071,23 +5071,23 @@ const INHERITED_PROXY_TEST_VARS = [
     "NO_PROXY",
 ] as const;
 
-// #890 harness: runLaunch under a fake HOME + BILI_CLIENT_BIN shim with every
+// #890 harness: runLaunch under a fake HOME + SOPHIALIN_CLIENT_BIN shim with every
 // generic proxy var inherited from the "shell"; returns the env actually
 // passed to the spawned client.
 async function captureLaunchedClientEnv(client: ClientName): Promise<NodeJS.ProcessEnv> {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), `bili-${client}-launch-`));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), `sophialin-${client}-launch-`));
     const fakeBin = path.join(home, process.platform === "win32" ? `fake-${client}.exe` : `fake-${client}`);
     fs.writeFileSync(fakeBin, "");
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevBin = process.env.BILI_CLIENT_BIN;
+    const prevBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevExit = process.exit;
     const savedProxyVars: Record<string, string | undefined> = {};
     for (const k of INHERITED_PROXY_TEST_VARS) savedProxyVars[k] = process.env[k];
-    const prevMarker = process.env.BILI_TEST_MARKER;
+    const prevMarker = process.env.SOPHIALIN_TEST_MARKER;
     process.env.HOME = home;
     if (prevUserProfile !== undefined) process.env.USERPROFILE = home;
-    process.env.BILI_CLIENT_BIN = fakeBin;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeBin;
     process.env.http_proxy = "http://corp-proxy.example:8080";
     process.env.https_proxy = "http://corp-proxy.example:8080";
     process.env.all_proxy = "socks5://corp-proxy.example:1080";
@@ -5095,7 +5095,7 @@ async function captureLaunchedClientEnv(client: ClientName): Promise<NodeJS.Proc
     process.env.ALL_PROXY = "socks5://corp-proxy.example:1080";
     process.env.no_proxy = "localhost,.corp";
     process.env.NO_PROXY = "localhost,.corp";
-    process.env.BILI_TEST_MARKER = "keep";
+    process.env.SOPHIALIN_TEST_MARKER = "keep";
     process.exit = (() => undefined) as typeof process.exit;
     const clientEnvs: (NodeJS.ProcessEnv | undefined)[] = [];
     const spawnImpl: SpawnFn = (cmd, args, opts) => {
@@ -5123,14 +5123,14 @@ async function captureLaunchedClientEnv(client: ClientName): Promise<NodeJS.Proc
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevBin;
+        if (prevBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevBin;
         for (const [k, v] of Object.entries(savedProxyVars)) {
             if (v === undefined) delete process.env[k];
             else process.env[k] = v;
         }
-        if (prevMarker === undefined) delete process.env.BILI_TEST_MARKER;
-        else process.env.BILI_TEST_MARKER = prevMarker;
+        if (prevMarker === undefined) delete process.env.SOPHIALIN_TEST_MARKER;
+        else process.env.SOPHIALIN_TEST_MARKER = prevMarker;
         rmrf(home);
     }
     assert.equal(clientEnvs.length, 1, `${client} client spawned exactly once`);
@@ -5138,60 +5138,60 @@ async function captureLaunchedClientEnv(client: ClientName): Promise<NodeJS.Proc
 }
 
 function assertInheritedProxyStripped(seenEnv: NodeJS.ProcessEnv, origin: string): void {
-    assert.equal(seenEnv.HTTPS_PROXY, origin, "HTTPS_PROXY points at bili");
+    assert.equal(seenEnv.HTTPS_PROXY, origin, "HTTPS_PROXY points at sophialin");
     for (const k of INHERITED_PROXY_TEST_VARS) {
         if (k === "HTTPS_PROXY") continue;
         assert.equal(seenEnv[k], undefined, `inherited ${k} stripped`);
     }
-    assert.equal(seenEnv.BILI_TEST_MARKER, "keep", "unrelated env vars preserved");
+    assert.equal(seenEnv.SOPHIALIN_TEST_MARKER, "keep", "unrelated env vars preserved");
 }
 
-test("runLaunch opencode: inherited proxy vars stripped so traffic cannot bypass bili (#890)", async () => {
+test("runLaunch opencode: inherited proxy vars stripped so traffic cannot bypass sophialin (#890)", async () => {
     const seenEnv = await captureLaunchedClientEnv("opencode");
-    const origin = seenEnv.BILLION_CONTEXT_PROXY;
+    const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
     assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
-    assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("billion-context", "ca", "root-ca.pem")), String(seenEnv.NODE_EXTRA_CA_CERTS));
+    assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("sophialin-context", "ca", "root-ca.pem")), String(seenEnv.NODE_EXTRA_CA_CERTS));
     assertInheritedProxyStripped(seenEnv, String(origin));
 });
 
-test("runLaunch pi: inherited proxy vars stripped so traffic cannot bypass bili (#890)", async () => {
+test("runLaunch pi: inherited proxy vars stripped so traffic cannot bypass sophialin (#890)", async () => {
     const seenEnv = await captureLaunchedClientEnv("pi");
-    const origin = seenEnv.BILLION_CONTEXT_PROXY;
+    const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
     assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
-    assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("billion-context", "ca", "root-ca.pem")), String(seenEnv.NODE_EXTRA_CA_CERTS));
+    assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("sophialin-context", "ca", "root-ca.pem")), String(seenEnv.NODE_EXTRA_CA_CERTS));
     assertInheritedProxyStripped(seenEnv, String(origin));
 });
 
-test("runLaunch omp: inherited proxy vars stripped so traffic cannot bypass bili (#890)", async () => {
+test("runLaunch omp: inherited proxy vars stripped so traffic cannot bypass sophialin (#890)", async () => {
     const seenEnv = await captureLaunchedClientEnv("omp");
-    const origin = seenEnv.BILLION_CONTEXT_PROXY;
+    const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
     assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
-    assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("billion-context", "ca", "root-ca.pem")), String(seenEnv.NODE_EXTRA_CA_CERTS));
+    assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("sophialin-context", "ca", "root-ca.pem")), String(seenEnv.NODE_EXTRA_CA_CERTS));
     assertInheritedProxyStripped(seenEnv, String(origin));
 });
 
-test("runLaunch codex: inherited proxy vars stripped so traffic cannot bypass bili (#890)", async () => {
-    const prevPlugin = process.env.BILI_LAUNCHER_PLUGIN;
-    process.env.BILI_LAUNCHER_PLUGIN = "0";
+test("runLaunch codex: inherited proxy vars stripped so traffic cannot bypass sophialin (#890)", async () => {
+    const prevPlugin = process.env.SOPHIALIN_LAUNCHER_PLUGIN;
+    process.env.SOPHIALIN_LAUNCHER_PLUGIN = "0";
     let seenEnv: NodeJS.ProcessEnv;
     try {
         seenEnv = await captureLaunchedClientEnv("codex");
     } finally {
-        if (prevPlugin === undefined) delete process.env.BILI_LAUNCHER_PLUGIN;
-        else process.env.BILI_LAUNCHER_PLUGIN = prevPlugin;
+        if (prevPlugin === undefined) delete process.env.SOPHIALIN_LAUNCHER_PLUGIN;
+        else process.env.SOPHIALIN_LAUNCHER_PLUGIN = prevPlugin;
     }
-    const origin = seenEnv.BILLION_CONTEXT_PROXY;
+    const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
     assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
-    assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("billion-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
+    assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
     assert.equal(seenEnv.NODE_EXTRA_CA_CERTS, undefined, "codex uses SSL_CERT_FILE, not NODE_EXTRA_CA_CERTS");
     assertInheritedProxyStripped(seenEnv, String(origin));
 });
 
 test("runLaunch codebuddy: inherited proxy vars stripped so loopback traffic cannot be hijacked (#890)", async () => {
     const seenEnv = await captureLaunchedClientEnv("codebuddy");
-    const origin = seenEnv.BILLION_CONTEXT_PROXY;
+    const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
     assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
-    assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("billion-context", "ca", "root-ca.pem")), String(seenEnv.NODE_EXTRA_CA_CERTS));
+    assert.ok(String(seenEnv.NODE_EXTRA_CA_CERTS).endsWith(path.join("sophialin-context", "ca", "root-ca.pem")), String(seenEnv.NODE_EXTRA_CA_CERTS));
     assertInheritedProxyStripped(seenEnv, String(origin));
 });
 
@@ -5199,10 +5199,10 @@ async function runAiderLaunch(
     clientArgs: string[],
     envOverrides: NodeJS.ProcessEnv = {},
 ): Promise<{ client: NodeJS.ProcessEnv; proxy: NodeJS.ProcessEnv }> {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-aider-launch-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-aider-launch-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevBin = process.env.BILI_CLIENT_BIN;
+    const prevBin = process.env.SOPHIALIN_CLIENT_BIN;
     const savedProxyVars: Record<string, string | undefined> = {};
     for (const k of INHERITED_PROXY_TEST_VARS) {
         savedProxyVars[k] = process.env[k];
@@ -5218,7 +5218,7 @@ async function runAiderLaunch(
     if (prevUserProfile !== undefined) process.env.USERPROFILE = home;
     const fakeAider = path.join(home, process.platform === "win32" ? "fake-aider.exe" : "fake-aider");
     fs.writeFileSync(fakeAider, "");
-    process.env.BILI_CLIENT_BIN = fakeAider;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeAider;
     let clientEnv: NodeJS.ProcessEnv | undefined;
     let proxyEnv: NodeJS.ProcessEnv | undefined;
     const spawnImpl: SpawnFn = (cmd, args, opts) => {
@@ -5250,8 +5250,8 @@ async function runAiderLaunch(
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevBin;
+        if (prevBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevBin;
         for (const [k, v] of Object.entries(savedProxyVars)) {
             if (v === undefined) delete process.env[k];
             else process.env[k] = v;
@@ -5269,15 +5269,15 @@ async function runAiderLaunch(
 
 test("runLaunch aider: nothing declared → default hosts whitelisted for cert-MITM (#1048)", async () => {
     const { client, proxy } = await runAiderLaunch([]);
-    const origin = String(client.BILLION_CONTEXT_PROXY);
+    const origin = String(client.SOPHIALIN_CONTEXT_PROXY);
     assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(origin), `origin: ${origin}`);
     assert.equal(client.HTTPS_PROXY, origin);
-    assert.ok(String(client.SSL_CERT_FILE).endsWith(path.join("billion-context", "ca", "combined-ca.pem")), String(client.SSL_CERT_FILE));
+    assert.ok(String(client.SSL_CERT_FILE).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")), String(client.SSL_CERT_FILE));
     assert.equal(client.REQUESTS_CA_BUNDLE, client.SSL_CERT_FILE, "requests reads REQUESTS_CA_BUNDLE");
     assert.equal(client.HTTP_PROXY, undefined, "no plaintext-http route → HTTP_PROXY unset");
     assert.equal(client.NO_PROXY, "localhost,127.0.0.1,::1");
     assert.equal(client.no_proxy, "localhost,127.0.0.1,::1");
-    const mitm = String(proxy.BILI_MITM_DOMAINS).split(",");
+    const mitm = String(proxy.SOPHIALIN_MITM_DOMAINS).split(",");
     for (const h of AIDER_DEFAULT_MODEL_HOSTS) {
         assert.ok(mitm.includes(h), `whitelist has ${h}: ${mitm.join(",")}`);
     }
@@ -5289,21 +5289,21 @@ test("runLaunch aider: env endpoints discovered — https MITM-whitelisted, http
         ANTHROPIC_BASE_URL: "http://lan-gw.example:8080/v1",
         http_proxy: "http://evil.example:3128",
     });
-    const origin = String(client.BILLION_CONTEXT_PROXY);
+    const origin = String(client.SOPHIALIN_CONTEXT_PROXY);
     assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(origin), `origin: ${origin}`);
     assert.equal(client.HTTPS_PROXY, origin);
-    assert.ok(String(client.SSL_CERT_FILE).endsWith(path.join("billion-context", "ca", "combined-ca.pem")), String(client.SSL_CERT_FILE));
+    assert.ok(String(client.SSL_CERT_FILE).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")), String(client.SSL_CERT_FILE));
     assert.equal(client.REQUESTS_CA_BUNDLE, client.SSL_CERT_FILE);
     assert.equal(client.HTTP_PROXY, origin, "plaintext-http route present → HTTP_PROXY set");
     assert.equal(client.http_proxy, undefined, "inherited http_proxy stripped");
-    const mitm = String(proxy.BILI_MITM_DOMAINS).split(",");
+    const mitm = String(proxy.SOPHIALIN_MITM_DOMAINS).split(",");
     assert.ok(mitm.includes("my-relay.example.com"), `whitelist has my-relay.example.com: ${mitm.join(",")}`);
     assert.ok(!mitm.includes("lan-gw.example"), "plaintext-http host rides the forward proxy, not MITM");
 });
 
 test("runLaunch aider: --openai-api-base passed through the launcher updates the whitelist (#1048)", async () => {
     const { proxy } = await runAiderLaunch(["--openai-api-base", "https://arg-relay.example.com/v1"]);
-    const mitm = String(proxy.BILI_MITM_DOMAINS).split(",");
+    const mitm = String(proxy.SOPHIALIN_MITM_DOMAINS).split(",");
     assert.ok(mitm.includes("arg-relay.example.com"), `whitelist has arg-relay.example.com: ${mitm.join(",")}`);
 });
 
@@ -5357,7 +5357,7 @@ test("parseKimiToml: providers/models/env channels (quoted names, overrides win,
 });
 
 test("readKimiConfig + resolveKimiHome: KIMI_CODE_HOME override, env channels, synthetic KIMI_MODEL window (#757)", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-kimi-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-kimi-home-"));
     try {
         assert.equal(resolveKimiHome({ KIMI_CODE_HOME: "/tmp/kh" }), "/tmp/kh");
         assert.ok(resolveKimiHome({}).endsWith(path.join(".kimi-code")));
@@ -5394,7 +5394,7 @@ test("discoverRoutes: kimi — loopback inventory, https MITM whitelist, http pr
                 local: { baseUrl: "http://127.0.0.1:8199/v1" },
                 remote: { baseUrl: "https://api.kimi.com/coding/v1" },
                 lan: { baseUrl: "http://10.0.0.5:1234/v1" },
-                wrapped: { baseUrl: "http://127.0.0.1:8787/bili/http://127.0.0.1:9999/v1" },
+                wrapped: { baseUrl: "http://127.0.0.1:8787/sophialin/http://127.0.0.1:9999/v1" },
             },
             modelUrls: ["https://api.kimi.com/coding/v1", "::::"],
             envUrls: ["http://10.0.0.5:1234/v1"],
@@ -5414,8 +5414,8 @@ test("discoverRoutes: kimi empty config → managed OAuth fallback hosts (#757)"
 });
 
 test("resolveClientCommand: kimi resolves `kimi` on PATH, falls back to <home>/bin/kimi (#757)", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-kimi-bin-"));
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-kimi-home-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-kimi-bin-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-kimi-home-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     process.env.HOME = home;
@@ -5425,7 +5425,7 @@ test("resolveClientCommand: kimi resolves `kimi` on PATH, falls back to <home>/b
         assert.deepEqual(resolveClientCommand("kimi", env), { command: path.join(home, ".kimi-code", "bin", "kimi"), prefixArgs: [] });
         fs.writeFileSync(path.join(dir, "kimi"), "");
         assert.deepEqual(resolveClientCommand("kimi", env), { command: path.join(dir, "kimi"), prefixArgs: [] });
-        const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-kimi-empty-"));
+        const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-kimi-empty-"));
         assert.deepEqual(resolveClientCommand("kimi", { PATH: emptyDir, KIMI_CODE_HOME: "/tmp/kh" }), { command: path.join("/tmp/kh", "bin", "kimi"), prefixArgs: [] });
         rmrf(emptyDir);
     } finally {
@@ -5439,10 +5439,10 @@ test("resolveClientCommand: kimi resolves `kimi` on PATH, falls back to <home>/b
 });
 
 test("runLaunch kimi: cert-MITM envs (combined CA on SSL_CERT_FILE + NODE_EXTRA_CA_CERTS), discovered host whitelist, model windows (#757)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-kimi-launch-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-kimi-launch-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevBin = process.env.BILI_CLIENT_BIN;
+    const prevBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevNoProxy = process.env.NO_PROXY;
     fs.mkdirSync(path.join(home, ".kimi-code"));
     fs.writeFileSync(
@@ -5453,7 +5453,7 @@ test("runLaunch kimi: cert-MITM envs (combined CA on SSL_CERT_FILE + NODE_EXTRA_
     if (prevUserProfile !== undefined) process.env.USERPROFILE = home;
     const fakeKimi = path.join(home, process.platform === "win32" ? "fake-kimi.exe" : "fake-kimi");
     fs.writeFileSync(fakeKimi, "");
-    process.env.BILI_CLIENT_BIN = fakeKimi;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeKimi;
     process.env.NO_PROXY = "localhost,.corp";
 
     const clientEnvs: (NodeJS.ProcessEnv | undefined)[] = [];
@@ -5487,24 +5487,24 @@ test("runLaunch kimi: cert-MITM envs (combined CA on SSL_CERT_FILE + NODE_EXTRA_
         const seenEnv = clientEnvs[0]!;
         const origin = seenEnv.HTTPS_PROXY;
         assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
-        assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("billion-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
+        assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
         assert.equal(seenEnv.NODE_EXTRA_CA_CERTS, seenEnv.SSL_CERT_FILE, "combined bundle on both CA vars");
         assert.equal(seenEnv.HTTP_PROXY, undefined, "no plain-http routes → no HTTP_PROXY");
         assert.equal(seenEnv.NO_PROXY, undefined, "inherited NO_PROXY stripped");
-        assert.equal(seenEnv.BILLION_CONTEXT_PROXY, undefined, "kimi has no agent-side plugin consumer");
+        assert.equal(seenEnv.SOPHIALIN_CONTEXT_PROXY, undefined, "kimi has no agent-side plugin consumer");
         assert.ok(proxyEnvs.length > 0, "proxy child spawned");
-        const mitm = String(proxyEnvs[0]!.BILI_MITM_DOMAINS).split(",");
+        const mitm = String(proxyEnvs[0]!.SOPHIALIN_MITM_DOMAINS).split(",");
         assert.ok(mitm.includes("api.kimi.com"), `whitelist has api.kimi.com: ${mitm.join(",")}`);
         assert.ok(!mitm.includes("api.kimi.ai"), "explicit provider present → no managed fallback hosts");
-        const windows = String(proxyEnvs[0]!.BILI_LAUNCHER_MODEL_WINDOWS ?? "");
+        const windows = String(proxyEnvs[0]!.SOPHIALIN_LAUNCHER_MODEL_WINDOWS ?? "");
         assert.ok(windows.includes("kimi-for-coding"), `windows: ${windows}`);
     } finally {
         process.exit = prevExit;
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevBin;
+        if (prevBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevBin;
         if (prevNoProxy === undefined) delete process.env.NO_PROXY;
         else process.env.NO_PROXY = prevNoProxy;
         rmrf(home);
@@ -5547,7 +5547,7 @@ test("parseMcodeYaml: minimax_api.baseURL, custom_provider options.baseURL (rese
 });
 
 test("readMcodeConfig: window merge keeps the known maxOutput when a larger context window replaces it (#1060)", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mcode-merge-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-mcode-merge-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     process.env.HOME = home;
@@ -5579,7 +5579,7 @@ test("readMcodeConfig: window merge keeps the known maxOutput when a larger cont
 });
 
 test("readMcodeConfig + resolveMcodeInstallDir: union-scan ~/.minimax*/config.yaml, MINIMAX_DATA_DIR override wins (#1050)", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mcode-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-mcode-home-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     process.env.HOME = home;
@@ -5599,7 +5599,7 @@ test("readMcodeConfig + resolveMcodeInstallDir: union-scan ~/.minimax*/config.ya
         assert.equal(cfg.providers["minimax_api"]?.baseUrl, "https://agent.minimax.cn/mavis/api/v1/llm/v1");
         assert.equal(cfg.providers["relay"]?.baseUrl, "https://relay.example.com/anthropic");
         assert.deepEqual(cfg.models, [{ id: "MiniMax-M3", contextWindow: 200000 }]);
-        const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mcode-data-"));
+        const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-mcode-data-"));
         fs.writeFileSync(path.join(dataDir, "config.yaml"), "minimax_api:\n  baseURL: https://override.example.com/\n");
         const overridden = readMcodeConfig({ MINIMAX_DATA_DIR: dataDir });
         assert.deepEqual(Object.keys(overridden.providers), ["minimax_api"]);
@@ -5621,7 +5621,7 @@ test("discoverRoutes: mcode — loopback inventory, https MITM whitelist, http p
                 local: { baseUrl: "http://127.0.0.1:8199/v1" },
                 remote: { baseUrl: "https://agent.minimax.io/mavis/api/v1/llm/v1" },
                 lan: { baseUrl: "http://10.0.0.5:1234/v1" },
-                wrapped: { baseUrl: "http://127.0.0.1:8787/bili/http://127.0.0.1:9999/v1" },
+                wrapped: { baseUrl: "http://127.0.0.1:8787/sophialin/http://127.0.0.1:9999/v1" },
             },
         },
     };
@@ -5639,8 +5639,8 @@ test("discoverRoutes: mcode empty config → official fallback hosts (#1050)", (
 });
 
 test("resolveClientCommand: mcode resolves `mcode` on PATH, falls back to <install>/bin/mcode (#1050)", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mcode-bin-"));
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mcode-home-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-mcode-bin-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-mcode-home-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
     process.env.HOME = home;
@@ -5650,7 +5650,7 @@ test("resolveClientCommand: mcode resolves `mcode` on PATH, falls back to <insta
         assert.deepEqual(resolveClientCommand("mcode", env), { command: path.join(home, ".minimax-code", "bin", "mcode"), prefixArgs: [] });
         fs.writeFileSync(path.join(dir, "mcode"), "");
         assert.deepEqual(resolveClientCommand("mcode", env), { command: path.join(dir, "mcode"), prefixArgs: [] });
-        const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mcode-empty-"));
+        const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-mcode-empty-"));
         assert.deepEqual(resolveClientCommand("mcode", { PATH: emptyDir, MCODE_INSTALL_DIR: "/tmp/md" }), { command: path.join("/tmp/md", "bin", "mcode"), prefixArgs: [] });
         rmrf(emptyDir);
     } finally {
@@ -5664,10 +5664,10 @@ test("resolveClientCommand: mcode resolves `mcode` on PATH, falls back to <insta
 });
 
 test("runLaunch mcode: cert-MITM envs (combined CA on SSL_CERT_FILE + NODE_EXTRA_CA_CERTS), discovered host whitelist, model windows (#1050)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mcode-launch-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-mcode-launch-"));
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevBin = process.env.BILI_CLIENT_BIN;
+    const prevBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevNoProxy = process.env.NO_PROXY;
     fs.mkdirSync(path.join(home, ".minimax"));
     fs.writeFileSync(
@@ -5678,7 +5678,7 @@ test("runLaunch mcode: cert-MITM envs (combined CA on SSL_CERT_FILE + NODE_EXTRA
     if (prevUserProfile !== undefined) process.env.USERPROFILE = home;
     const fakeMcode = path.join(home, process.platform === "win32" ? "fake-mcode.exe" : "fake-mcode");
     fs.writeFileSync(fakeMcode, "");
-    process.env.BILI_CLIENT_BIN = fakeMcode;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeMcode;
     process.env.NO_PROXY = "localhost,.corp";
 
     const clientEnvs: (NodeJS.ProcessEnv | undefined)[] = [];
@@ -5708,24 +5708,24 @@ test("runLaunch mcode: cert-MITM envs (combined CA on SSL_CERT_FILE + NODE_EXTRA
         const seenEnv = clientEnvs[0]!;
         const origin = seenEnv.HTTPS_PROXY;
         assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
-        assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("billion-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
+        assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
         assert.equal(seenEnv.NODE_EXTRA_CA_CERTS, seenEnv.SSL_CERT_FILE, "combined bundle on both CA vars");
         assert.equal(seenEnv.HTTP_PROXY, undefined, "no plain-http routes → no HTTP_PROXY");
         assert.equal(seenEnv.NO_PROXY, undefined, "inherited NO_PROXY stripped");
-        assert.equal(seenEnv.BILLION_CONTEXT_PROXY, undefined, "mcode has no agent-side plugin consumer");
+        assert.equal(seenEnv.SOPHIALIN_CONTEXT_PROXY, undefined, "mcode has no agent-side plugin consumer");
         assert.ok(proxyEnvs.length > 0, "proxy child spawned");
-        const mitm = String(proxyEnvs[0]!.BILI_MITM_DOMAINS).split(",");
+        const mitm = String(proxyEnvs[0]!.SOPHIALIN_MITM_DOMAINS).split(",");
         assert.ok(mitm.includes("agent.minimax.io"), `whitelist has agent.minimax.io: ${mitm.join(",")}`);
         assert.ok(mitm.includes("relay.example.com"), `whitelist has relay.example.com: ${mitm.join(",")}`);
-        const windows = String(proxyEnvs[0]!.BILI_LAUNCHER_MODEL_WINDOWS ?? "");
+        const windows = String(proxyEnvs[0]!.SOPHIALIN_LAUNCHER_MODEL_WINDOWS ?? "");
         assert.ok(windows.includes("MiniMax-M3"), `windows: ${windows}`);
     } finally {
         process.exit = prevExit;
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevBin;
+        if (prevBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevBin;
         if (prevNoProxy === undefined) delete process.env.NO_PROXY;
         else process.env.NO_PROXY = prevNoProxy;
         rmrf(home);
@@ -5827,8 +5827,8 @@ test("opencodeProjectBypassWarnings: override + project-only warn, routed values
     w = opencodeProjectBypassWarnings({ providers: { ghost: { baseURL: "http://127.0.0.1:7777/p", file: F } } }, routes);
     assert.equal(w.length, 1);
     assert.match(w[0], /defined only in opencode's project layer/);
-    w = opencodeProjectBypassWarnings({ providers: { "local-lb": { baseURL: "http://127.0.0.1:8787/bili/http://127.0.0.1:8199/v1", file: F } } }, routes);
-    assert.deepEqual(w, [], "already /bili/-wrapped → routed");
+    w = opencodeProjectBypassWarnings({ providers: { "local-lb": { baseURL: "http://127.0.0.1:8787/sophialin/http://127.0.0.1:8199/v1", file: F } } }, routes);
+    assert.deepEqual(w, [], "already /sophialin/-wrapped → routed");
     w = opencodeProjectBypassWarnings({ providers: { bigmodel: { baseURL: "https://open.bigmodel.cn/api/v4", file: F } } }, routes);
     assert.deepEqual(w, [], "https host already MITM-routed");
     w = opencodeProjectBypassWarnings({ providers: { "local-lb": { file: F } } }, routes);
@@ -5840,37 +5840,37 @@ test("opencodeProjectBypassWarnings: override + project-only warn, routed values
 
 test("runLaunch copilot: cert-MITM env (HTTPS_PROXY + combined SSL_CERT_FILE), inherited proxy stripped (#1049)", async () => {
     const seenEnv = await captureLaunchedClientEnv("copilot");
-    const origin = seenEnv.BILLION_CONTEXT_PROXY;
+    const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
     assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
-    assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("billion-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
+    assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
     assert.equal(seenEnv.NODE_EXTRA_CA_CERTS, undefined);
     assertInheritedProxyStripped(seenEnv, String(origin));
 });
 
 test("runLaunch amp: cert-MITM env (HTTPS_PROXY + combined SSL_CERT_FILE), inherited proxy stripped (#1049)", async () => {
     const seenEnv = await captureLaunchedClientEnv("amp");
-    const origin = seenEnv.BILLION_CONTEXT_PROXY;
+    const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
     assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
-    assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("billion-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
+    assert.ok(String(seenEnv.SSL_CERT_FILE).endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")), String(seenEnv.SSL_CERT_FILE));
     assert.equal(seenEnv.NODE_EXTRA_CA_CERTS, undefined);
     assertInheritedProxyStripped(seenEnv, String(origin));
 });
 
 test("runLaunch goose: *_HOST redirects to the proxy, no proxy envs at all (#1049)", async () => {
     const seenEnv = await captureLaunchedClientEnv("goose");
-    const origin = seenEnv.BILLION_CONTEXT_PROXY;
+    const origin = seenEnv.SOPHIALIN_CONTEXT_PROXY;
     assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(String(origin)), `origin: ${origin}`);
     assert.equal(seenEnv.OPENAI_HOST, wrapUpstream(String(origin), "https://api.openai.com"));
     assert.equal(seenEnv.ANTHROPIC_HOST, wrapUpstream(String(origin), "https://api.anthropic.com"));
     for (const k of INHERITED_PROXY_TEST_VARS) {
-        assert.equal(seenEnv[k], undefined, `${k} must stay unset — rustls distrusts bili's CA`);
+        assert.equal(seenEnv[k], undefined, `${k} must stay unset — rustls distrusts sophialin's CA`);
     }
     assert.equal(seenEnv.GOOSE_PATH_ROOT, undefined, "no custom providers → no overlay");
-    assert.equal(seenEnv.BILI_TEST_MARKER, "keep");
+    assert.equal(seenEnv.SOPHIALIN_TEST_MARKER, "keep");
 });
 
 test("runLaunch goose: custom provider rides the regenerated GOOSE_PATH_ROOT overlay, edits merge back (#1049)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-goose-launch-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-goose-launch-"));
     const fakeBin = path.join(home, process.platform === "win32" ? "fake-goose.exe" : "fake-goose");
     fs.writeFileSync(fakeBin, "");
     const cfgDir = path.join(home, ".config", "goose");
@@ -5879,7 +5879,7 @@ test("runLaunch goose: custom provider rides the regenerated GOOSE_PATH_ROOT ove
     fs.writeFileSync(path.join(cfgDir, "custom_providers", "mine.toml"), 'name = "Mine"\nbase_url = "https://api.custom.example/v1"\n');
     const prevHome = process.env.HOME;
     const prevUserProfile = process.env.USERPROFILE;
-    const prevBin = process.env.BILI_CLIENT_BIN;
+    const prevBin = process.env.SOPHIALIN_CLIENT_BIN;
     const prevExit = process.exit;
     const savedProxyVars: Record<string, string | undefined> = {};
     for (const k of INHERITED_PROXY_TEST_VARS) savedProxyVars[k] = process.env[k];
@@ -5891,7 +5891,7 @@ test("runLaunch goose: custom provider rides the regenerated GOOSE_PATH_ROOT ove
     process.env.XDG_CONFIG_HOME = path.join(home, ".config");
     process.env.XDG_DATA_HOME = path.join(home, ".local", "share");
     process.env.XDG_STATE_HOME = path.join(home, ".local", "state");
-    process.env.BILI_CLIENT_BIN = fakeBin;
+    process.env.SOPHIALIN_CLIENT_BIN = fakeBin;
     for (const k of INHERITED_PROXY_TEST_VARS) delete process.env[k];
     process.exit = (() => undefined) as typeof process.exit;
     const clientEnvs: (NodeJS.ProcessEnv | undefined)[] = [];
@@ -5918,14 +5918,14 @@ test("runLaunch goose: custom provider rides the regenerated GOOSE_PATH_ROOT ove
         );
         assert.equal(clientEnvs.length, 1, "goose client spawned exactly once");
         const seenEnv = clientEnvs[0]!;
-        const origin = String(seenEnv.BILLION_CONTEXT_PROXY);
+        const origin = String(seenEnv.SOPHIALIN_CONTEXT_PROXY);
         assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(origin), `origin: ${origin}`);
         assert.equal(seenEnv.OPENAI_HOST, wrapUpstream(origin, "https://api.openai.com"));
-        assert.equal(seenEnv.GOOSE_PATH_ROOT, path.join(home, ".config", "goose-bili"));
+        assert.equal(seenEnv.GOOSE_PATH_ROOT, path.join(home, ".config", "goose-sophialin"));
         for (const k of INHERITED_PROXY_TEST_VARS) {
             assert.equal(seenEnv[k], undefined, `${k} must stay unset`);
         }
-        const patched = fs.readFileSync(path.join(home, ".config", "goose-bili", "config", "custom_providers", "mine.toml"), "utf8");
+        const patched = fs.readFileSync(path.join(home, ".config", "goose-sophialin", "config", "custom_providers", "mine.toml"), "utf8");
         assert.ok(patched.includes(`base_url = "${wrapUpstream(origin, "https://api.custom.example/v1")}"`), patched);
         const realAfter = fs.readFileSync(path.join(cfgDir, "config.toml"), "utf8");
         assert.ok(realAfter.includes("some_new_key = 1"), "user edit merged back into the real config via runLaunch cleanup");
@@ -5935,8 +5935,8 @@ test("runLaunch goose: custom provider rides the regenerated GOOSE_PATH_ROOT ove
         process.env.HOME = prevHome;
         if (prevUserProfile === undefined) delete process.env.USERPROFILE;
         else process.env.USERPROFILE = prevUserProfile;
-        if (prevBin === undefined) delete process.env.BILI_CLIENT_BIN;
-        else process.env.BILI_CLIENT_BIN = prevBin;
+        if (prevBin === undefined) delete process.env.SOPHIALIN_CLIENT_BIN;
+        else process.env.SOPHIALIN_CLIENT_BIN = prevBin;
         if (prevXdgConfig === undefined) delete process.env.XDG_CONFIG_HOME;
         else process.env.XDG_CONFIG_HOME = prevXdgConfig;
         if (prevXdgData === undefined) delete process.env.XDG_DATA_HOME;
@@ -5953,7 +5953,7 @@ test("runLaunch goose: custom provider rides the regenerated GOOSE_PATH_ROOT ove
 
 // #1623: attach decisions must leave a trace. Every silent drop/skip branch
 // in probeLiveInstances/pickAttachable now emits a reason via attachDiag so
-// "why did we spawn instead of attaching?" is diagnosable from bili.log.
+// "why did we spawn instead of attaching?" is diagnosable from sophialin.log.
 
 test("findLiveAttachableInstance probes only — no spawn, no wait (#1623)", async () => {
     let spawned = false;
@@ -6027,7 +6027,7 @@ test("ensureProxyRunning: a healthy squatter on the preferred port is not mistak
     let childToken = "";
     const spawnImpl: SpawnFn = (_cmd, args, options) => {
         spawned.push(...args);
-        childToken = options.env?.BILI_LAUNCH_TOKEN ?? "";
+        childToken = options.env?.SOPHIALIN_LAUNCH_TOKEN ?? "";
         return child;
     };
     let recorded = false;

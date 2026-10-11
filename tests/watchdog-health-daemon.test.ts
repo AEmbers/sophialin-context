@@ -10,19 +10,19 @@ import type { AddressInfo } from "node:net";
 import { rmrf } from "./tmp-rm.ts";
 
 /** #1322 counterpart of watchdog-health.test.ts: a proxy started WITHOUT
- *  BILI_PARENT_PID is a daemon — its health must say `armed:false` and it must
+ *  SOPHIALIN_PARENT_PID is a daemon — its health must say `armed:false` and it must
  *  keep refusing watcher registrations (409) while staying up. Separate file
- *  because src/server.ts captures BILI_PARENT_PID at module load. */
+ *  because src/server.ts captures SOPHIALIN_PARENT_PID at module load. */
 
-const root = path.join(tmpdir(), `bili-watchdog-daemon-${process.pid}-${Date.now()}`);
+const root = path.join(tmpdir(), `sophialin-watchdog-daemon-${process.pid}-${Date.now()}`);
 mkdirSync(path.join(root, "config"), { recursive: true });
 process.env.XDG_CONFIG_HOME = path.join(root, "config");
 process.env.XDG_STATE_HOME = path.join(root, "state");
 process.env.XDG_CACHE_HOME = path.join(root, "cache");
-process.env.BILI_CONFIG_FILE = path.join(root, "config", "billion-context.json");
-writeFileSync(process.env.BILI_CONFIG_FILE, '{"providers":{}}\n', "utf8");
-delete process.env.BILLION_CONTEXT_PROXY;
-delete process.env.BILI_PARENT_PID;
+process.env.SOPHIALIN_CONFIG_FILE = path.join(root, "config", "sophialin-context.json");
+writeFileSync(process.env.SOPHIALIN_CONFIG_FILE, '{"providers":{}}\n', "utf8");
+delete process.env.SOPHIALIN_CONTEXT_PROXY;
+delete process.env.SOPHIALIN_PARENT_PID;
 
 const keeper = spawn(process.execPath, ["-e", "setInterval(() => {}, 60000)"], { stdio: "ignore" });
 
@@ -81,19 +81,19 @@ test("health exposes an unarmed watchdog on a daemon proxy; registration stays r
     if (!proxy.listening) await once(proxy, "listening");
     const port = (proxy.address() as AddressInfo).port;
     try {
-        const h = await getJson(port, "/__bili/health");
+        const h = await getJson(port, "/__sophialin/health");
         assert.equal(h.status, 200);
         const j = JSON.parse(h.body) as { watchdog?: { armed?: boolean; parentPid?: number; watchers?: number[] } };
-        assert.equal(j.watchdog?.armed, false, "no BILI_PARENT_PID → unarmed");
+        assert.equal(j.watchdog?.armed, false, "no SOPHIALIN_PARENT_PID → unarmed");
         assert.equal(j.watchdog?.parentPid, undefined, "no parent pid reported");
         assert.deepEqual(j.watchdog?.watchers, [], "empty owner set");
 
         // The #1322 attach case: a session tries to register on this daemon.
         // It must be refused (existing contract) AND the refusal must be
         // visible through health (the field that lets callers notice).
-        const reg = await postJson(port, "/__bili/watcher", { pid: keeper.pid });
+        const reg = await postJson(port, "/__sophialin/watcher", { pid: keeper.pid });
         assert.equal(reg.status, 409, "daemon refuses watchers");
-        const h2 = JSON.parse((await getJson(port, "/__bili/health")).body) as { watchdog?: { armed?: boolean; watchers?: number[] } };
+        const h2 = JSON.parse((await getJson(port, "/__sophialin/health")).body) as { watchdog?: { armed?: boolean; watchers?: number[] } };
         assert.equal(h2.watchdog?.armed, false, "refused registration did not arm a watchdog");
         assert.deepEqual(h2.watchdog?.watchers, [], "refused registration did not join the set");
     } finally {

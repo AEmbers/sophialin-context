@@ -13,7 +13,7 @@ import { _setForTest as setRegistryForTest } from "../src/registry.ts";
 import { classifyIp, checkTunnelDestination, tunnelAllowlistFromEnv, parseIpLiteral, normalizeIpLiteral, type ResolveHost } from "../src/tunnel-guard.ts";
 import { rmrf } from "./tmp-rm.ts";
 
-/** #409: the /bili/<absolute-url> tunnel must not reach the proxy's own
+/** #409: the /sophialin/<absolute-url> tunnel must not reach the proxy's own
  *  management plane, link-local metadata, or (for remote clients) any
  *  loopback/private destination — while LOCAL clients keep the self-hosted
  *  upstream case (sglang/ollama on 127.0.0.1:<other port>). */
@@ -204,9 +204,9 @@ test("checkTunnelDestination: default ports by scheme", async () => {
 });
 
 test("tunnelAllowlistFromEnv: comma parsing, case normalization, blanks dropped", () => {
-    assert.deepEqual(tunnelAllowlistFromEnv({ BILI_TUNNEL_ALLOWED_HOSTS: "127.0.0.1:8199, LANRELAY.EXAMPLE , ,10.0.0.5" }), ["127.0.0.1:8199", "lanrelay.example", "10.0.0.5"]);
+    assert.deepEqual(tunnelAllowlistFromEnv({ SOPHIALIN_TUNNEL_ALLOWED_HOSTS: "127.0.0.1:8199, LANRELAY.EXAMPLE , ,10.0.0.5" }), ["127.0.0.1:8199", "lanrelay.example", "10.0.0.5"]);
     assert.deepEqual(tunnelAllowlistFromEnv({}), []);
-    assert.deepEqual(tunnelAllowlistFromEnv({ BILI_TUNNEL_ALLOWED_HOSTS: "  " }), []);
+    assert.deepEqual(tunnelAllowlistFromEnv({ SOPHIALIN_TUNNEL_ALLOWED_HOSTS: "  " }), []);
 });
 
 // ---------------------------------------------------------------------------
@@ -231,12 +231,12 @@ function get(port: number, reqPath: string, headers: Record<string, string> = {}
 test("integration: tunnel cannot reach the proxy's own management plane (#409 PoC)", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-tunnel-self-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-tunnel-self-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const sophialinConfig = path.join(root, "sophialin-context.json");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const opts: ProxyOptions = {
         port: 0,
         host: "127.0.0.1",
@@ -260,19 +260,19 @@ test("integration: tunnel cannot reach the proxy's own management plane (#409 Po
     if (!proxy.listening) await once(proxy, "listening");
     const selfPort = (proxy.address() as { port: number }).port;
     try {
-        const poc = await get(selfPort, `/bili/http://127.0.0.1:${selfPort}/__bili/config`);
+        const poc = await get(selfPort, `/sophialin/http://127.0.0.1:${selfPort}/__sophialin/config`);
         assert.equal(poc.status, 403, "the issue's PoC GET must be denied");
         assert.match(poc.body, /tunnel_destination_denied/);
-        const pocPut = await get(selfPort, `/bili/http://127.0.0.1:${selfPort}/__bili/config`);
+        const pocPut = await get(selfPort, `/sophialin/http://127.0.0.1:${selfPort}/__sophialin/config`);
         assert.equal(pocPut.status, 403);
         // Direct loopback management access still works (marker not present).
-        const direct = await get(selfPort, "/__bili/config", { host: `127.0.0.1:${selfPort}` });
+        const direct = await get(selfPort, "/__sophialin/config", { host: `127.0.0.1:${selfPort}` });
         assert.equal(direct.status, 200);
         // Spoofed marker on a direct request only locks the spoofer out.
-        const spoof = await get(selfPort, "/__bili/config", { host: `127.0.0.1:${selfPort}`, "x-bili-tunnel": "1" });
+        const spoof = await get(selfPort, "/__sophialin/config", { host: `127.0.0.1:${selfPort}`, "x-sophialin-tunnel": "1" });
         assert.equal(spoof.status, 403, "admin gate rejects any request carrying the tunnel marker");
     } finally {
-        process.env.BILI_CONFIG_FILE = prevConfig;
+        process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         proxy.closeAllConnections?.();
         await close(proxy);
         try { rmrf(root); } catch { /* best-effort */ }
@@ -282,17 +282,17 @@ test("integration: tunnel cannot reach the proxy's own management plane (#409 Po
 test("integration: metadata destination never contacted (403 before any socket); local upstream still proxied + marker stamped", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-tunnel-meta-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-tunnel-meta-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const sophialinConfig = path.join(root, "sophialin-context.json");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
 
     // Echo upstream: captures headers, replies 200.
     let sawMarker: string | string[] | undefined;
     const echo = http.createServer((req, res) => {
-        sawMarker = req.headers["x-bili-tunnel"];
+        sawMarker = req.headers["x-sophialin-tunnel"];
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }));
     });
@@ -323,15 +323,15 @@ test("integration: metadata destination never contacted (403 before any socket);
     if (!proxy.listening) await once(proxy, "listening");
     const selfPort = (proxy.address() as { port: number }).port;
     try {
-        const meta = await get(selfPort, "/bili/http://169.254.169.254/latest/meta-data/");
+        const meta = await get(selfPort, "/sophialin/http://169.254.169.254/latest/meta-data/");
         assert.equal(meta.status, 403);
         assert.match(meta.body, /"detail":"linkLocal"/);
         // Self-hosted upstream on a DIFFERENT port still works for the local client.
-        const local = await get(selfPort, `/bili/http://127.0.0.1:${echoPort}/v1/models`);
+        const local = await get(selfPort, `/sophialin/http://127.0.0.1:${echoPort}/v1/models`);
         assert.equal(local.status, 200, `loopback client → loopback upstream must pass (got ${local.status}: ${local.body})`);
-        assert.equal(sawMarker, "1", "tunnel forward stamps x-bili-tunnel: 1");
+        assert.equal(sawMarker, "1", "tunnel forward stamps x-sophialin-tunnel: 1");
     } finally {
-        process.env.BILI_CONFIG_FILE = prevConfig;
+        process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         proxy.closeAllConnections?.();
         await close(proxy);
         echo.closeAllConnections?.();
@@ -340,15 +340,15 @@ test("integration: metadata destination never contacted (403 before any socket);
     }
 });
 
-test("integration: unresolvable /bili/ destination answers 502 transport-class, not 403 (#1686)", async () => {
+test("integration: unresolvable /sophialin/ destination answers 502 transport-class, not 403 (#1686)", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-tunnel-dns-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-tunnel-dns-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const sophialinConfig = path.join(root, "sophialin-context.json");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const opts: ProxyOptions = {
         port: 0,
         host: "127.0.0.1",
@@ -375,11 +375,11 @@ test("integration: unresolvable /bili/ destination answers 502 transport-class, 
         // RFC2606 reserved TLD: NXDOMAIN from a healthy resolver, EAI_AGAIN with
         // a dead one — either way the lookup throws and the verdict is
         // 'unresolvable', so the assertion holds in both network states.
-        const r = await get(selfPort, "/bili/http://no-such-host.invalid/v1/chat/completions");
+        const r = await get(selfPort, "/sophialin/http://no-such-host.invalid/v1/chat/completions");
         assert.equal(r.status, 502, `resolution failure must be transport-class (got ${r.status}: ${r.body})`);
         assert.match(r.body, /"detail":"unresolvable"/);
     } finally {
-        process.env.BILI_CONFIG_FILE = prevConfig;
+        process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         proxy.closeAllConnections?.();
         await close(proxy);
         try { rmrf(root); } catch { /* best-effort */ }

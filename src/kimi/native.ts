@@ -22,14 +22,14 @@ export type KimiNativePlan =
     | { readonly mode: "attach"; readonly attachOrigin: string }
     | { readonly mode: "spawn" };
 
-// Kill-switches > attach (BILLION_CONTEXT_ATTACH ?? BILLION_CONTEXT_PROXY) >
-// spawn. A preset BILLION_CONTEXT_PROXY is the `bili kimi` launcher (or a user
-// attach): routing is already owned (MITM / /bili/ rewrite), so we attach —
+// Kill-switches > attach (SOPHIALIN_CONTEXT_ATTACH ?? SOPHIALIN_CONTEXT_PROXY) >
+// spawn. A preset SOPHIALIN_CONTEXT_PROXY is the `sophialin kimi` launcher (or a user
+// attach): routing is already owned (MITM / /sophialin/ rewrite), so we attach —
 // stamp headers only, never rewrite, never spawn. Same contract as
 // planNativeDsh (#941).
 export function planNativeKimi(env: NodeJS.ProcessEnv = process.env): KimiNativePlan {
-    if (env.BILLION_CONTEXT_PLUGIN === "0" || env.BILI_NATIVE_KIMI === "0") return { mode: "off" };
-    if (env.BILI_PROVIDER_REWRITES !== undefined) return { mode: "off" };
+    if (env.SOPHIALIN_CONTEXT_PLUGIN === "0" || env.SOPHIALIN_NATIVE_KIMI === "0") return { mode: "off" };
+    if (env.SOPHIALIN_PROVIDER_REWRITES !== undefined) return { mode: "off" };
     const attach = nativeAttachOrigin(env) ?? proxyEnvOrigin(env);
     if (attach !== undefined) return { mode: "attach", attachOrigin: attach };
     return { mode: "spawn" };
@@ -37,7 +37,7 @@ export function planNativeKimi(env: NodeJS.ProcessEnv = process.env): KimiNative
 
 export async function probeProxyHealth(origin: string, timeoutMs = 2000): Promise<boolean> {
     try {
-        const res = await fetch(`${origin}/__bili/plugin/status?conversationId=kimi&fallback=latest`, { signal: AbortSignal.timeout(timeoutMs) });
+        const res = await fetch(`${origin}/__sophialin/plugin/status?conversationId=kimi&fallback=latest`, { signal: AbortSignal.timeout(timeoutMs) });
         // A live proxy answers this in EVERY boot state — 200 once a session
         // exists, 404 before the first request (#955 pre-first-request window)
         // — so 404 is healthy too; only a network failure means "not up yet".
@@ -58,7 +58,7 @@ export async function waitForProxyHealthy(origin: string, deadlineMs = 15000, in
     }
 }
 
-const CONFIG_LOCK_DIR = ".bili-config.lock";
+const CONFIG_LOCK_DIR = ".sophialin-config.lock";
 const CONFIG_LOCK_TIMEOUT_MS = 5000;
 const CONFIG_LOCK_STALE_MS = 30000;
 
@@ -148,7 +148,7 @@ export async function routeKimiConfig(opts: RouteKimiOptions): Promise<KimiRoute
         authLines: res.authLines,
     };
     const authSource = res.authSource;
-    const bakPath = path.join(home, "config.toml.bili-bak");
+    const bakPath = path.join(home, "config.toml.sophialin-bak");
     await withConfigLock(home, () => {
         const current = fs.readFileSync(cfgPath, "utf8");
         if (!fs.existsSync(bakPath)) fs.writeFileSync(bakPath, current);
@@ -201,7 +201,7 @@ export function unrouteKimi(opts: { env?: NodeJS.ProcessEnv; kimiHome?: string; 
     const log = opts.log ?? defaultLog;
     const home = opts.kimiHome ?? resolveKimiHome(env);
     const cfgPath = path.join(home, "config.toml");
-    const bakPath = path.join(home, "config.toml.bili-bak");
+    const bakPath = path.join(home, "config.toml.sophialin-bak");
     try {
         let text: string;
         try {
@@ -209,7 +209,7 @@ export function unrouteKimi(opts: { env?: NodeJS.ProcessEnv; kimiHome?: string; 
         } catch {
             return;
         }
-        if (text.includes("# bili begin")) {
+        if (text.includes("# sophialin begin")) {
             fs.writeFileSync(cfgPath, unrouteKimiConfig(text));
             log("reverted config.toml to pre-native routing");
         }
@@ -225,13 +225,13 @@ export interface RestoreKimiBackupResult {
     readonly restored: boolean;
 }
 
-/** Uninstall-level restore: put the pristine .bili-bak text back verbatim. */
+/** Uninstall-level restore: put the pristine .sophialin-bak text back verbatim. */
 export function restoreKimiBackup(opts: { env?: NodeJS.ProcessEnv; kimiHome?: string; log?: (msg: string) => void }): RestoreKimiBackupResult {
     const env = opts.env ?? process.env;
     const log = opts.log ?? defaultLog;
     const home = opts.kimiHome ?? resolveKimiHome(env);
     const cfgPath = path.join(home, "config.toml");
-    const bakPath = path.join(home, "config.toml.bili-bak");
+    const bakPath = path.join(home, "config.toml.sophialin-bak");
     try {
         const bak = fs.readFileSync(bakPath, "utf8");
         fs.writeFileSync(cfgPath, bak);
@@ -245,7 +245,7 @@ export function restoreKimiBackup(opts: { env?: NodeJS.ProcessEnv; kimiHome?: st
 }
 
 export function defaultLog(msg: string): void {
-    process.stderr.write(`[bili-kimi] ${msg}\n`);
+    process.stderr.write(`[sophialin-kimi] ${msg}\n`);
 }
 
 export type BootstrapMode =
@@ -278,7 +278,7 @@ export async function bootstrapKimiNative(opts: BootstrapKimiOptions = {}): Prom
         origin = plan.attachOrigin;
         attached = true;
         if (!(await waitForProxyHealthy(origin, opts.healthDeadlineMs))) {
-            throw new Error(`attach target ${origin} is not healthy — start your bili proxy first`);
+            throw new Error(`attach target ${origin} is not healthy — start your sophialin proxy first`);
         }
     } else {
         const ensure = opts.ensureProxy ?? defaultEnsureProxy;
@@ -293,7 +293,7 @@ export async function bootstrapKimiNative(opts: BootstrapKimiOptions = {}): Prom
 }
 
 async function defaultEnsureProxy(): Promise<{ origin: string; attached: boolean }> {
-    // The spawned proxy's parent-gone watchdog (#server.ts BILI_PARENT_PID)
+    // The spawned proxy's parent-gone watchdog (#server.ts SOPHIALIN_PARENT_PID)
     // keys off OUR pid: kimi kills this MCP child when its session ends, so
     // the per-session proxy tears itself down with it.
     const handle = await ensureProxyRunning(

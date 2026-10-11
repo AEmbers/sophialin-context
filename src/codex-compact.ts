@@ -3,7 +3,7 @@ import type { CompressionBlock } from "acp-kernel";
 import type { Session } from "./session.js";
 
 export const CODEX_COMPACT_ID_PREFIX = "fc_bili_";
-export const CODEX_COMPACT_SENTINEL = "bili:acp:";
+export const CODEX_COMPACT_SENTINEL = "sophialin:acp:";
 
 const CODEX_UA_PREFIXES = ["codex_cli_rs/", "codex_exec/", "codex desktop/"];
 
@@ -12,7 +12,7 @@ export type CodexCompactMode = "intercept" | "pass";
 // Read per-request (not cached at startup) so a running proxy can flip the
 // kill-switch without a restart.
 export function codexCompactMode(): CodexCompactMode {
-    const v = process.env.BILI_CODEX_COMPACT?.trim().toLowerCase();
+    const v = process.env.SOPHIALIN_CODEX_COMPACT?.trim().toLowerCase();
     return v === "pass" ? "pass" : "intercept";
 }
 
@@ -82,7 +82,7 @@ export function extractBiliSummary(item: unknown): string | undefined {
 // untouched.
 // #1634: exact handoff header the model sees on the responses wire; the
 // output-side stripper keys off this constant (single source of truth).
-export const CODEX_FORGED_HANDOFF_HEADER = "[bili] context summary after compaction:";
+export const CODEX_FORGED_HANDOFF_HEADER = "[sophialin] context summary after compaction:";
 
 export function replaceBiliCompactionItems<T>(input: T[]): { items: T[]; replaced: number; dropped: number } {
     const items: T[] = [];

@@ -8,12 +8,12 @@ here instead of between the options.
 
 At load the plugin **spawns its own proxy** (or attaches to a healthy
 running one — a parent-pid watchdog tears it down when the client exits),
-rewrites model traffic to `<proxy>/bili/<upstream-url>`, registers
+rewrites model traffic to `<proxy>/sophialin/<upstream-url>`, registers
 `compress` / `decompress` / `acp_status` as native client tools (plugin
 mode), and binds the `/acp` panel to the current session. It also reports
 the client's **own model config** to the proxy (runtime-info protocol,
 #955) so compression budgets use the real window instead of a registry
-guess. Opt-out envs: `BILI_NATIVE_PI=0`, `BILI_NATIVE_OMP=0`, `BILI_NATIVE_OPENCODE=0`, `BILI_NATIVE_DSH=0`, `BILI_NATIVE_KIMI=0`, `BILI_NATIVE_HERMES=0`, `BILI_NATIVE_ZCODE=0`.
+guess. Opt-out envs: `SOPHIALIN_NATIVE_PI=0`, `SOPHIALIN_NATIVE_OMP=0`, `SOPHIALIN_NATIVE_OPENCODE=0`, `SOPHIALIN_NATIVE_DSH=0`, `SOPHIALIN_NATIVE_KIMI=0`, `SOPHIALIN_NATIVE_HERMES=0`, `SOPHIALIN_NATIVE_ZCODE=0`.
 
 ## Proxy reuse and the attach gate (#1225, #1335, #1232, #1660)
 
@@ -23,26 +23,26 @@ A native hook may attach to an already-running proxy instead of spawning its own
 |---|---|---|
 | Proxy spawned by this session | ✅ | armed at birth |
 | Another session's armed shared proxy (watcher set, #1186) | ✅ | sharing is by design |
-| Manually started `bili start` daemon (user zone, #1660) | ✅ by default | **user-zone** instance (no lane, no launch token): deliberately maintained by the user — you own its lifetime and version; refused only when `BILI_NATIVE_ATTACH_EXTERNAL=0/false` explicitly closes the gate |
+| Manually started `sophialin start` daemon (user zone, #1660) | ✅ by default | **user-zone** instance (no lane, no launch token): deliberately maintained by the user — you own its lifetime and version; refused only when `SOPHIALIN_NATIVE_ATTACH_EXTERNAL=0/false` explicitly closes the gate |
 | Unarmed **lane'd** proxy (crashed-session orphan; pre-#1330 unverifiable) | ❌ loudly refused | lifecycle-drift symptom (#1335): riding it would silently reuse a proxy no live session owns |
 
-The hook probes each candidate's `/__bili/health` before attaching: armed → attach and register a watcher (unchanged); a **user-zone** candidate attaches by default regardless of watchdog state (#1660) — the user deliberately maintains that daemon; an unarmed **lane'd** candidate (a crashed session's orphan, or a pre-#1330 build that reports no `watchdog` field at all — unverifiable, treated as unarmed) is refused **loudly**, and the session spawns its own proxy in the self-managed port zone (base `18787`, or the lane's sticky drift record; armed at birth, dies with the last session, #1186 watcher semantics). Version skew stays fixed: the code-fingerprint check runs first, so a rebuilt or updated install never rides a stale daemon even through the user-zone exemption. Cost: one extra short-lived proxy process per session when nothing attachable exists (session state is shared on disk, so compression continuity is unaffected); the multi-instance warning (#394) becomes correspondingly more common. **Escape hatch:** `native.attachExternal: true` in the config file or `BILI_NATIVE_ATTACH_EXTERNAL=1` extends attaching to *lane'd* listeners regardless of watchdog state (including pre-#1330 builds) — you then own those daemons' lifetimes and versions; `0`/`false` closes the gate for everyone, including user-zone daemons, forcing fresh zone spawns. Explicit user-directed attaches (`BILLION_CONTEXT_ATTACH` / preset `BILLION_CONTEXT_PROXY` for kimi/dsh) bypass discovery entirely and are exempt by construction.
+The hook probes each candidate's `/__sophialin/health` before attaching: armed → attach and register a watcher (unchanged); a **user-zone** candidate attaches by default regardless of watchdog state (#1660) — the user deliberately maintains that daemon; an unarmed **lane'd** candidate (a crashed session's orphan, or a pre-#1330 build that reports no `watchdog` field at all — unverifiable, treated as unarmed) is refused **loudly**, and the session spawns its own proxy in the self-managed port zone (base `18787`, or the lane's sticky drift record; armed at birth, dies with the last session, #1186 watcher semantics). Version skew stays fixed: the code-fingerprint check runs first, so a rebuilt or updated install never rides a stale daemon even through the user-zone exemption. Cost: one extra short-lived proxy process per session when nothing attachable exists (session state is shared on disk, so compression continuity is unaffected); the multi-instance warning (#394) becomes correspondingly more common. **Escape hatch:** `native.attachExternal: true` in the config file or `SOPHIALIN_NATIVE_ATTACH_EXTERNAL=1` extends attaching to *lane'd* listeners regardless of watchdog state (including pre-#1330 builds) — you then own those daemons' lifetimes and versions; `0`/`false` closes the gate for everyone, including user-zone daemons, forcing fresh zone spawns. Explicit user-directed attaches (`SOPHIALIN_CONTEXT_ATTACH` / preset `SOPHIALIN_CONTEXT_PROXY` for kimi/dsh) bypass discovery entirely and are exempt by construction.
 
-Attach discovery is lane-aware across **all** live instances (#1232): the launcher probes every live entry in the instance registry, not just the single instance file (last-writer-wins — under concurrent multi-client use it can point at another client's proxy), and applies the gate above to every candidate. Among compatible candidates the newest instance with the launcher's own declared lane wins; an instance without a lane (a user-zone daemon) is wildcard-compatible on the lane axis and gate-exempt by default (#1660). The `another bili instance is running` warning (#394) is lane-aware too: it fires for same-lane or lane-less coexistence, but stays silent between two *different* declared lanes, whose session files are disjoint.
+Attach discovery is lane-aware across **all** live instances (#1232): the launcher probes every live entry in the instance registry, not just the single instance file (last-writer-wins — under concurrent multi-client use it can point at another client's proxy), and applies the gate above to every candidate. Among compatible candidates the newest instance with the launcher's own declared lane wins; an instance without a lane (a user-zone daemon) is wildcard-compatible on the lane axis and gate-exempt by default (#1660). The `another sophialin instance is running` warning (#394) is lane-aware too: it fires for same-lane or lane-less coexistence, but stays silent between two *different* declared lanes, whose session files are disjoint.
 
 ## Shared state dir and multi-instance security boundary (#394, #1724)
 
-Every bili instance on a host reads and writes the **same** per-host
-storage: the XDG data dir (`~/.local/share/billion-context/` — session
+Every sophialin instance on a host reads and writes the **same** per-host
+storage: the XDG data dir (`~/.local/share/sophialin-context/` — session
 records, CCR content-store, prefix-affinity) plus the state dir
-(`~/.local/state/billion-context/` — log, instance registry). The control
+(`~/.local/state/sophialin-context/` — log, instance registry). The control
 plane is lane-aware (#1232:
 attach discovery and the #394 coexistence warning both respect declared
 lanes), but the **data plane is not partitioned** — there is no per-session
 owner and no per-lane isolation on disk. Two consequences follow:
 
 - **Cross-instance session visibility.** Each instance's Web UI
-  (`__bili/sessions` list / detail / logs) re-scans the whole shared store, so
+  (`__sophialin/sessions` list / detail / logs) re-scans the whole shared store, so
   any instance reachable over loopback can enumerate and read *any* session —
   raw messages, content-store payloads, compressed blocks — created by any
   other instance/lane on that host.
@@ -55,7 +55,7 @@ owner and no per-lane isolation on disk. Two consequences follow:
    clobbers a sibling chain), and the self-restart ordering fix (#1742: durable
    state is flushed to disk before the replacement spawns). Host-driven restarts
   (dsh et al., #991) still rely on these data-layer guards, since their
-  kill/spawn order is not bili-controlled.
+  kill/spawn order is not sophialin-controlled.
 
 **Security posture:** the shared-state surface is protected *only* by the admin
 endpoint's loopback gate (non-loopback source addresses are refused) plus
@@ -78,13 +78,13 @@ table in the context-window chain:
 
 | Channel | When | Fields |
 |---|---|---|
-| Per-request headers (gated on `x-bili-plugin`) | every model request | `x-bili-plugin-context-window`, `x-bili-plugin-max-output`, `x-bili-plugin-model` |
-| `POST /__bili/plugin/runtime-info` (loopback) | plugin bootstrap + any reported-config change | `{agent, model, contextWindow?, maxOutput?, baseURL?, conversationId?, source}` |
+| Per-request headers (gated on `x-sophialin-plugin`) | every model request | `x-sophialin-plugin-context-window`, `x-sophialin-plugin-max-output`, `x-sophialin-plugin-model` |
+| `POST /__sophialin/plugin/runtime-info` (loopback) | plugin bootstrap + any reported-config change | `{agent, model, contextWindow?, maxOutput?, baseURL?, conversationId?, source}` |
 
 Resolution order for the window: `anthropic-beta` negotiation > per-request
 plugin header > runtime-info > launcher env > route config > models.dev
 registry > built-in table. The runtime-info step reads the **per-agent
-entry** when the request carries an `x-bili-plugin` header (agent+model must
+entry** when the request carries an `x-sophialin-plugin` header (agent+model must
 match); requests without one resolve the **conversation-scoped entry**
 recorded with a `conversationId`, keyed by the same conversation signal the
 session binds on (client conversation header, custom session header, or the
@@ -102,28 +102,28 @@ per-request headers via an `llm_request` middleware, max output captured by a
 protocol.
 
 The launcher env tier covers pure-proxy clients (no in-process plugin):
-`bili <client>` reads the client's own model config at launch
+`sophialin <client>` reads the client's own model config at launch
 (`model_context_window` / `model_max_output_tokens` for codex,
 `contextWindow` / `maxTokens` for pi / omp, `limit.context` / `limit.output`
 for opencode, `maxInputTokens` / `maxOutputTokens` for codebuddy) and hands
-it to the proxy via `BILI_LAUNCHER_MODEL_WINDOWS` / `BILI_LAUNCHER_MODEL_MAX_OUTPUTS`
+it to the proxy via `SOPHIALIN_LAUNCHER_MODEL_WINDOWS` / `SOPHIALIN_LAUNCHER_MODEL_MAX_OUTPUTS`
 (#971). A plugin report — when present — always outranks it.
 
 Before the first model request there is no session yet, so the `/acp` panel
-probes `GET /__bili/plugin/status?conversationId=<agent>&fallback=latest`,
+probes `GET /__sophialin/plugin/status?conversationId=<agent>&fallback=latest`,
 which answers from the runtime table (`phase: "pre-first-request"`) instead
 of 404ing — the reported config is visible immediately, and the real session
 takes over once traffic lands.
 
 ## Claude native posture (#964)
 
-Claude Code has no in-process extension point, so `bili plugin install
+Claude Code has no in-process extension point, so `sophialin plugin install
 claude` writes a managed block into `~/.claude/settings.json` (env
-`ANTHROPIC_BASE_URL=http://127.0.0.1:<port>/bili/<upstream>`,
+`ANTHROPIC_BASE_URL=http://127.0.0.1:<port>/sophialin/<upstream>`,
 `DISABLE_AUTO_COMPACT=1`, and a `SessionStart` hook) plus the same
 user-scope MCP shell as before. The hook (fired before claude's first model
 request) resolves its port like every lane (#1660): an explicit pin
-(`BILI_CLAUDE_NATIVE_PORT` > config `claude.nativePort`) launches
+(`SOPHIALIN_CLAUDE_NATIVE_PORT` > config `claude.nativePort`) launches
 **strict-port** on that exact port (a squatter is refused loudly, #964
 preserved); otherwise it rides the self-managed zone — the lane's sticky
 record else base `18787` — non-strict, with the child's EADDRINUSE +1
@@ -136,27 +136,27 @@ never leaves exhausts the wait and gets the plain ladder as before. After the
 proxy is up the hook re-pins the managed `ANTHROPIC_BASE_URL` to the live
 origin each session (`repinClaudeManagedBaseUrl`), so a hopped port
 self-heals on the next launch and the baked URL never stays desynced from
-the running proxy. Upstream override: `BILI_CLAUDE_UPSTREAM` (or the
+the running proxy. Upstream override: `SOPHIALIN_CLAUDE_UPSTREAM` (or the
 existing `claude.anthropicBaseUrl` config). Install no longer persists
-`claude.nativePort`. Opt out with `BILI_NATIVE_CLAUDE=0` — the hook then
+`claude.nativePort`. Opt out with `SOPHIALIN_NATIVE_CLAUDE=0` — the hook then
 brings up a **passthrough** proxy on the same resolved port (verbatim
 forward, compression off) so claude keeps working. The block is pure JSON
-merge/strip: foreign keys are never touched, `bili plugin remove claude`
-restores exactly. `bili claude` still works on a machine with the native
+merge/strip: foreign keys are never touched, `sophialin plugin remove claude`
+restores exactly. `sophialin claude` still works on a machine with the native
 block installed — it overrides the static URL with its own proxy and the
 hook stays dormant.
 
 ## Injection priority — no files unless unavoidable (#535)
 
-bili never owns user data: every launched client runs on its **real home**, so
+sophialin never owns user data: every launched client runs on its **real home**, so
 runtime writes land where the user expects them. When pointing a client at the
 proxy, the launcher picks by priority — **env vars first** (proxy/CA envs for
-hermes/dsh/codex; the `BILI_PROVIDER_REWRITES` URL manifest for pi/omp,
+hermes/dsh/codex; the `SOPHIALIN_PROVIDER_REWRITES` URL manifest for pi/omp,
 consumed by their extension's `registerProvider` at load), then **CLI flags or
 extension APIs** (codex `-c key=value`, opencode plugin), and **generated files
 last** — today only opencode's temp `opencode.json` (deleted on exit) and dsh's
 loopback exception: dsh's fetch stack bypasses proxy envs for loopback targets
-unconditionally, so local upstreams keep the persistent `~/.dsh-bili` overlay
+unconditionally, so local upstreams keep the persistent `~/.dsh-sophialin` overlay
 rewrite until dsh gains a settings-path env or an upstream loopback opt-out.
 Overlay dirs created by older versions are left in place and never merged back
 into the real home.
@@ -167,9 +167,9 @@ The proxy runs in one of two modes, and **the mode decides who executes
 `compress`, which in turn decides how the summary travels to the model** (the
 "carrier"). This distinction is the root of #377.
 
-| | **Launcher / plugin mode** (`bili pi`, `bili codex`, …) | **Proxy mode** (plain client → `/bili/`) |
+| | **Launcher / plugin mode** (`sophialin pi`, `sophialin codex`, …) | **Proxy mode** (plain client → `/sophialin/`) |
 |---|---|---|
-| Client | ACP-native agent with the bili extension (pi/omp) | Any OpenAI/Anthropic client, no extension |
+| Client | ACP-native agent with the sophialin extension (pi/omp) | Any OpenAI/Anthropic client, no extension |
 | Who executes `compress` | **The agent** (pi runs it locally) | **The proxy** (server-side compress loop) |
 | `compress` tool call in the re-sent history? | Yes — part of the agent's own conversation | No — ephemeral proxy-loop traffic |
 | Preflight blocks (no tool call)? | Last-resort backstop — the agent normally compresses on its own `compress` calls, but `src/preflight.ts` still fires (in both modes) when the input alone exceeds the window (#470) | Yes — `src/preflight.ts` compresses behind the client's back |
@@ -208,7 +208,7 @@ turn is a semantic mismatch the model tolerates (it is clearly marked
 **Do the two modes coexist?**
 
 - **Same proxy instance: yes, by design.** One proxy serves plugin and plain
-  clients at once; `pluginMode` is decided per request (`x-bili-plugin` header)
+  clients at once; `pluginMode` is decided per request (`x-sophialin-plugin` header)
   and bound per session (`session.metadata.pluginAgent`). The launcher reuses a
   running proxy.
 - **Same session: the mode is sticky.** A session created in plugin mode stays
@@ -236,25 +236,25 @@ and the injected prompt state explicitly that markers are proxy-emitted only.
 
 ## Single-writer: who owns which copy (#991)
 
-Every bili presence on a machine has exactly **one writer** — the thing
+Every sophialin presence on a machine has exactly **one writer** — the thing
 that installed it is the thing that updates it, and nothing else ever
 overwrites that copy in place:
 
 | Lane | Copy lives in | Updated by |
 |------|---------------|------------|
-| global `bili` | npm global (`npm i -g billion-context`) | `bili update` / background auto-update |
-| **pi** | pi's package manager (npm form) | **`pi update`** — bili never overwrites it |
-| **opencode** | opencode's plugin dir | **opencode's plugin manager** — bili never overwrites it |
-| **dsh** | each profile's pnpm store | a periodic check re-runs dsh's plugin channel per profile — driven by the global bili self-update **or by the profile copy's own proxy** when the global isn't running (dsh-market installs, #1196); manual: `dsh plugin add billion-context@latest`. pnpm's hardlinked store must never be copied over in place |
-| omp / claude / codex / kimi / zcode | no copy — entries point at the global bili install | they update together with the global copy |
-| **hermes** | `~/.hermes/plugins/billion-context/` (copied files + `bili.json` sidecar pointing at the global dist) | **`bili plugin update hermes`** re-copies the files; the sidecar tracks the global install |
+| global `sophialin` | npm global (`npm i -g sophialin-context`) | `sophialin update` / background auto-update |
+| **pi** | pi's package manager (npm form) | **`pi update`** — sophialin never overwrites it |
+| **opencode** | opencode's plugin dir | **opencode's plugin manager** — sophialin never overwrites it |
+| **dsh** | each profile's pnpm store | a periodic check re-runs dsh's plugin channel per profile — driven by the global sophialin self-update **or by the profile copy's own proxy** when the global isn't running (dsh-market installs, #1196); manual: `dsh plugin add sophialin-context@latest`. pnpm's hardlinked store must never be copied over in place |
+| omp / claude / codex / kimi / zcode | no copy — entries point at the global sophialin install | they update together with the global copy |
+| **hermes** | `~/.hermes/plugins/sophialin-context/` (copied files + `sophialin.json` sidecar pointing at the global dist) | **`sophialin plugin update hermes`** re-copies the files; the sidecar tracks the global install |
 
 This is enforced in code, not just convention: the self-updater
 (`src/update.ts` → `hostManagedInstall`) detects install dirs under a pnpm
 virtual store (`.pnpm`) or a host agent tree (pi / opencode / dsh / kimi /
 omp homes) and **skips** them; `installViaTarball` refuses them structurally
 so direct callers cannot corrupt a store either. Mixing *commands* is fine
-(`dsh plugin add` ≡ `bili plugin install dsh` — same channel, same records);
-mixing *writers* is what the guard forbids. `bili plugin update [client]`
+(`dsh plugin add` ≡ `sophialin plugin install dsh` — same channel, same records);
+mixing *writers* is what the guard forbids. `sophialin plugin update [client]`
 is the one command that drives every lane through its own owner and prints
-the per-lane update path (`bili plugin list` shows the same per-lane channel).
+the per-lane update path (`sophialin plugin list` shows the same per-lane channel).

@@ -52,7 +52,7 @@ export type ProviderRoute = {
     /** Per-provider wire-compat overrides. `roles` maps message roles to the
      *  role name this upstream accepts (e.g. `"developer": "system"`) —
      *  applied at the forward boundary to the FINAL wire body, covering
-     *  client-sent roles and bili's own injected prompt alike (#552). Wins
+     *  client-sent roles and sophialin's own injected prompt alike (#552). Wins
      *  per key over the global `compat` block. */
     compat?: { roles?: Record<string, string> };
     /** Route-scoped passthrough (#661): same semantics as the global
@@ -63,7 +63,7 @@ export type ProviderRoute = {
      *  the request body (e.g. ZCode 405/3012). */
     passthrough?: boolean;
     /** Client-side routing exemption (#1622): this upstream never gets pointed
-     *  through bili at all. Store-rewriting native lanes (zcode today) skip
+     *  through sophialin at all. Store-rewriting native lanes (zcode today) skip
      *  matching entries instead of wrapping them, so traffic flows
      *  client→upstream untouched — unlike `passthrough`, which still
      *  terminates at the proxy. Matched by the same longest-URL-prefix rule
@@ -74,10 +74,10 @@ export type ProviderRoute = {
      *  (conservative, matches byte-counting relays); "pixels" = dimension-
      *  based tile estimate (matches first-party pixel-tile upstreams);
      *  "auto" (default) classifies known first-party pixel hosts. Wins over
-     *  the global `imageBilling`; env BILI_IMAGE_BILLING wins over both. */
+     *  the global `imageBilling`; env SOPHIALIN_IMAGE_BILLING wins over both. */
     imageBilling?: ImageBillingMode;
 };
-export type ProviderRoutes = Record<string, ProviderRoute>; // key = upstream URL prefix (the /bili/<this> string)
+export type ProviderRoutes = Record<string, ProviderRoute>; // key = upstream URL prefix (the /sophialin/<this> string)
 
 /** Per-model declaration under a provider route. `context` / `output` are the
  *  legacy fields; `compress` is the level-3 override (deepest, highest priority). */
@@ -240,7 +240,7 @@ export type CompressSettings = {
     acknowledgePromptsRisk?: boolean;
     /** Named prompt pack (kernel pack registry): a curated surface preset —
      *  tool descriptions, system-prompt sections, nudge sections — resolved
-     *  from [project `./.billion-context/packs` > user `<configDir>/packs` >
+     *  from [project `./.sophialin-context/packs` > user `<configDir>/packs` >
      *  builtin (`default`, `lean`)]. Deepest-wins like every other field;
      *  unknown names fall back to the identity surface. Kernel >= 0.0.66. */
     promptPack?: string;
@@ -360,6 +360,46 @@ export type CompressSettings = {
     /** With {@link stripImages}, how many trailing messages keep their images
      *  verbatim (default 5). Ignored unless stripImages is true. */
     stripImagesKeepRecent?: number;
+    /** Budget-aware image offload (src/image-offload.ts). Where
+     *  {@link stripImages} drops images from a fixed *count* of trailing
+     *  messages, this drops the OLDEST image occurrences only until the request
+     *  fits a budget — mirroring the DSH host's own inline-image policy
+     *  (`dsh-llm-deepseek`: maxImagesPerRequest 600, inline request image bytes
+     *  20 MiB, quanta 20 / 10 MiB) so the two agree instead of fighting.
+     *
+     *  Why the proxy must do it: DSH only raises `IMAGE_OFFLOAD_REQUIRED` from
+     *  ITS OWN adapter's pre-send byte budget, and its
+     *  `dsh-compaction-image-offload` plugin reacts only to that code plus a
+     *  positive `offloadImages`. Behind a proxy the overrun instead surfaces as
+     *  a proxy 502 (preflight_compress_failed) or an upstream 400
+     *  (prompt_too_long) — neither carries the code, so DSH's own offload never
+     *  fires and images only accumulate. This module is the missing actor.
+     *
+     *  Dropped occurrences are replaced with the DSH-shaped placeholder from
+     *  `offloadedImageText` plus an `image_full` recovery hint; the originals
+     *  stay in the session cache, so the model can restore one on demand.
+     *  Selection is deterministic (oldest-first prefix) and recomputed from the
+     *  durable history each request, and offloading strictly REMOVES wire
+     *  content, so a later request is always a prefix-extension of the earlier
+     *  one — the provider prefix cache survives. Off unless explicitly enabled
+     *  at some level; merged sub-field-wise across the three levels like
+     *  `imageCompression`. */
+    imageOffload?: {
+        /** Enable budget-aware offload for this scope. Absent/false = off. */
+        enabled?: boolean;
+        /** Drop oldest occurrences until total inline image bytes fit this
+         *  (default 20 MiB, mirroring the DSH route budget). */
+        maxBytes?: number;
+        /** Drop oldest occurrences until at most this many inline image
+         *  occurrences remain (default 600, mirroring maxImagesPerRequest). */
+        maxImages?: number;
+        /** Byte quantum the byte overage is rounded up to (default 10 MiB,
+         *  mirroring the inline offload quantum). */
+        byteQuantum?: number;
+        /** Occurrence quantum the count overage is rounded up to (default 20,
+         *  mirroring imageOffloadCountQuantum). */
+        countQuantum?: number;
+    };
     /** [#651] Drop oversized reasoning (thinking) from closed-turn `compress`
      *  tool calls at request time (src/reasoning-drop.ts, aligned with
      *  billion-context-pi #336/#339 and opencode-acp #377). Compress turns
@@ -377,7 +417,7 @@ export type CompressSettings = {
     /** [#739] Opt-in guard against gpt-5.x/gpt-6.x "lattice" reasoning truncation
      *  (reasoning stops at exactly base*n+offset tokens, default 518n-2 -> 516,
      *  1034, ..., mid-thought). When engaged on a matched-model terminal round that
-     *  hits the lattice AND carries an encrypted_content blob, bili buffers the
+     *  hits the lattice AND carries an encrypted_content blob, sophialin buffers the
      *  response, replays its own reasoning plus a continue nudge (up to maxContinue
      *  rounds), and folds to ONE response with true summed usage. Merged sub-field-wise
      *  across the three levels like `absorb`/`reasoning`; off unless enabled at some
@@ -392,7 +432,7 @@ export type CompressSettings = {
      *  Off unless enabled at some level. See src/output-steering.ts. */
     outputSteering?: Partial<OutputSteeringConfig>;
     /** [#1279] Price profile for the session cache-economics report
-     *  (`acp_cache` / `/acp-cache` / `GET /__bili/cache-report`). Normalized
+     *  (`acp_cache` / `/acp-cache` / `GET /__sophialin/cache-report`). Normalized
      *  multipliers over the input-token unit (p_in = 1): `w` = cacheWrite/input,
      *  `r` = cacheRead/input, `q` = output/input — e.g. Anthropic ≈ {w:1, r:0.1,
      *  q:4}, DeepSeek-V3 ≈ {w:1, r:0.1, q:1.5}. Drives ONLY the per-fold
@@ -486,7 +526,7 @@ export const FALLBACK_EFFECTIVE_WINDOW_FLOOR = 100_000;
 /** Resolve the context-window limit for a request. Priority:
  *  1. Per-URL per-model declaration in config (user-controlled, most accurate).
  *     The upstreamUrl is matched against config keys by **longest-prefix wins**
- *     (the key is a string the user wrote, identical to what follows /bili/ in
+ *     (the key is a string the user wrote, identical to what follows /sophialin/ in
  *     the zero-config baseURL). A shallow key like "https://open.bigmodel.cn"
  *     matches all paths on that host; a deep key like
  *     "https://open.bigmodel.cn/api/anthropic" matches only that endpoint.
@@ -558,10 +598,10 @@ export type ProxyOptions = {
      *  Empty string explicitly disables environment/system proxy fallback. */
     proxy?: string;
     proxyMode?: UpstreamProxyMode;
-    proxySource?: "bili-env" | "web-manual" | "config" | "auto" | "direct";
+    proxySource?: "sophialin-env" | "web-manual" | "config" | "auto" | "direct";
     proxyFallback?: ProxyFallbackOptions;
     /** Auxiliary-egress fallback (#1012): same shape as proxyFallback but its
-     *  env tier is filled from the launcher-forwarded BILI_INHERITED_* vars.
+     *  env tier is filled from the launcher-forwarded SOPHIALIN_INHERITED_* vars.
      *  Consumed ONLY by the MITM blind-tunnel resolver — client-side aux
      *  traffic (MCP/web) regains the user's shell proxy, while model egress
      *  keeps the clean-env direct semantics (e1c6c92). */
@@ -585,11 +625,11 @@ export type ProxyOptions = {
     /** #1455: how upstream stream failures are presented to the client on the
      *  anthropic/openai wire — "protocol" (default) = protocol-native error
      *  frames; "completion" = legacy synthesized-completion shape for hosts
-     *  whose SDK cannot surface in-band errors. Env BILI_STREAM_ERROR_SHAPE
+     *  whose SDK cannot surface in-band errors. Env SOPHIALIN_STREAM_ERROR_SHAPE
      *  wins over the file's compat.streamErrorShape. */
     streamErrorShape: "protocol" | "completion";
     /** Global-level image billing mode (#767); per-provider route entries
-     *  override it, env BILI_IMAGE_BILLING overrides both. undefined = auto. */
+     *  override it, env SOPHIALIN_IMAGE_BILLING overrides both. undefined = auto. */
     imageBilling?: ImageBillingMode;
     sessionHeader: string;
     log: boolean;
@@ -610,7 +650,7 @@ export type ProxyOptions = {
      *  autoUpdate and force-installs the owner-recommended version when the
      *  local version falls inside an affected range. Default ON. */
     advisoryCheck: boolean;
-    /** Override for the advisory document URL (env BILI_ADVISORY_URL wins). */
+    /** Override for the advisory document URL (env SOPHIALIN_ADVISORY_URL wins). */
     advisoryUrl?: string;
     logFile?: string;
     /** MITM transparent-proxy mode. When enabled, an HTTP CONNECT handler is
@@ -620,18 +660,18 @@ export type ProxyOptions = {
      *  pipeline; all other hosts are blind-tunnelled. */
     mitm: { enabled: boolean; domains: string[] };
     /** Mask non-public target hosts in proxy logs (#255, default on when
-     *  omitted). Opt out for local debugging with env BILI_LOG_MASK_HOSTS=0
+     *  omitted). Opt out for local debugging with env SOPHIALIN_LOG_MASK_HOSTS=0
      *  or `maskHosts: false` (#897); credential masking stays on either way. */
     maskHosts?: boolean;
     /** Split Claude Code subagent requests (parent+agent header pair) into
      *  their own session id so they don't queue on the main session's lock
-     *  (#970, default on). Opt out with env BILI_SUBAGENT_SPLIT=0 or
+     *  (#970, default on). Opt out with env SOPHIALIN_SUBAGENT_SPLIT=0 or
      *  `subagentSplit: false` in the config file (env wins). */
     subagentSplit?: boolean;
     /** Opt-in fork block-adoption (#629, default off). Anonymous clients
      *  (prefix-affinity) that fork their history inherit the parent's
      *  fully-present compression blocks instead of restarting at zero.
-     *  Enable with `forkAdoption: true` or env BILI_FORK_ADOPTION=1. */
+     *  Enable with `forkAdoption: true` or env SOPHIALIN_FORK_ADOPTION=1. */
     forkAdoption?: boolean;
     /** Resume-fork inheritance (#1486, default ON). Identified clients that
      *  resume a conversation under a NEW client-provided session id (Claude
@@ -642,36 +682,36 @@ export type ProxyOptions = {
      *  tracked chains and inherits the parent's ref assignments, its
      *  fully-present compression blocks (when forkAdoption is on), and the
      *  derivedFrom lineage. Disable with `resumeInheritance: false` or env
-     *  BILI_RESUME_INHERITANCE=0. */
+     *  SOPHIALIN_RESUME_INHERITANCE=0. */
     resumeInheritance?: boolean;
-    /** Body-content detection of the bili→bili chain awareness: when an inbound
-     *  request carries ACP artifacts / a `<bili-chain …/>` checkpoint in the
-     *  BODY but no x-bili-hop header, record an advisory observation and/or apply
+    /** Body-content detection of the sophialin→sophialin chain awareness: when an inbound
+     *  request carries ACP artifacts / a `<sophialin-chain …/>` checkpoint in the
+     *  BODY but no x-sophialin-hop header, record an advisory observation and/or apply
      *  first-processor-wins passthrough (#1086/#1421). OFF by default (#1683
      *  follow-up): scanning the body can false-positive on CCR/file-introduced
-     *  text and model-echoed tags, so by default ONLY the x-bili-hop header drives
-     *  chain recognition. Re-enable via env BILI_CHAIN_CONTENT=1 or
+     *  text and model-echoed tags, so by default ONLY the x-sophialin-hop header drives
+     *  chain recognition. Re-enable via env SOPHIALIN_CHAIN_CONTENT=1 or
      *  `chainContentDetection: true` in the config file (env wins). The
-     *  x-bili-hop signal is unaffected by this switch. */
+     *  x-sophialin-hop signal is unaffected by this switch. */
     chainContentDetection?: boolean;
-    /** Egress emission of the model-visible `<bili-chain …/>` checkpoint
+    /** Egress emission of the model-visible `<sophialin-chain …/>` checkpoint
      *  carrier (#1683): when set, every request THIS instance processes leaves
-     *  with a digest-bearing stamp so a downstream bili applies first-processor-
-     *  wins even if x-bili-hop was stripped in transit (#1421). The carrier
+     *  with a digest-bearing stamp so a downstream sophialin applies first-processor-
+     *  wins even if x-sophialin-hop was stripped in transit (#1421). The carrier
      *  lands in a slot the terminal MODEL also reads (trailing user message on
      *  openai/responses; trailing text part on anthropic/google), so models
      *  treat it as phantom user input and burn tokens commenting on it — hence
-     *  OFF by default. Enable it for the narrow multi-bili + hop-header-
-     *  stripped-middlebox case via env BILI_CHAIN_STAMP=1 or
+     *  OFF by default. Enable it for the narrow multi-sophialin + hop-header-
+     *  stripped-middlebox case via env SOPHIALIN_CHAIN_STAMP=1 or
      *  `chainEgressStamp: true` in the config file (env wins). Independent of
      *  chainContentDetection (inbound body-detection is also default OFF); the
-     *  x-bili-hop passthrough is unaffected either way. */
+     *  x-sophialin-hop passthrough is unaffected either way. */
     chainEgressStamp?: boolean;
     /** #1085: freeze the client's head-system text into a per-session sticky
      *  anchor and append detected changes to the conversation as trailing
      *  notes, keeping the forwarded prefix byte-stable for the provider's
      *  prefix cache when instruction files (AGENTS.md & co.) change mid-
-     *  session. Default OFF; enable with env BILI_STABLE_SYSTEM_ANCHOR=1 or
+     *  session. Default OFF; enable with env SOPHIALIN_STABLE_SYSTEM_ANCHOR=1 or
      *  `stableSystemAnchor: true` in the config file (env wins). */
     stableSystemAnchor?: boolean;
 };
@@ -755,7 +795,7 @@ function fillRouteGaps(winner: unknown, filler: unknown): unknown {
 
 /** Re-read ONLY the routes from the current config sources, returning a fresh
  *  ProviderRoutes object. Used by the web UI's "Apply" (hot-reload) button so
- *  provider/route changes take effect without restarting bili. Only routes are
+ *  provider/route changes take effect without restarting sophialin. Only routes are
  *  re-read — port/host/upstream can't change on a running server (the listen
  *  socket is already bound), so those stay as they were at startup. Mirrors the
  *  exact precedence of loadOptions: external ACP_PROVIDERS path > inline
@@ -938,7 +978,7 @@ function withForkNudgeBand(c: Config): Config {
 }
 
 export function loadOptions(env: NodeJS.ProcessEnv = process.env): ProxyOptions {
-    // --- Source 1: JSON config file (~/.config/billion-context/billion-context.json) ---
+    // --- Source 1: JSON config file (~/.config/sophialin-context/sophialin-context.json) ---
     // The canonical, user-editable config. Loaded first so env vars below can
     // override it (env wins for environment-specific overrides).
     const fileConfig = loadConfigFile();
@@ -956,23 +996,23 @@ export function loadOptions(env: NodeJS.ProcessEnv = process.env): ProxyOptions 
     warnCcrPluginDivergences(routes, fileConfig.compress);
     const passthrough = passthroughState(env);
     const modelContextLimit = parseInt(env.ACP_MODEL_CONTEXT_LIMIT ?? `${fileConfig.modelContextLimit ?? 200000}`, 10);
-    const biliProxy = nonEmpty(env.BILI_UPSTREAM_PROXY);
+    const sophialinProxy = nonEmpty(env.SOPHIALIN_UPSTREAM_PROXY);
     const webProxy = nonEmpty(fileConfig.upstreamProxy);
     const configProxy = nonEmpty(fileConfig.proxy);
-    const rawProxyMode = env.BILI_UPSTREAM_PROXY_MODE ?? fileConfig.upstreamProxyMode ?? (webProxy ? "manual" : undefined);
+    const rawProxyMode = env.SOPHIALIN_UPSTREAM_PROXY_MODE ?? fileConfig.upstreamProxyMode ?? (webProxy ? "manual" : undefined);
     // Unset mode means "direct" (matches the web UI's 直连（默认） and ZCode's
     // default), NOT auto-detect. To follow the system/env proxy, set mode "auto".
     const effectiveMode = rawProxyMode ?? "direct";
     const proxyMode = parseUpstreamProxyMode(effectiveMode);
     // explicitDirect short-circuits an EMPTY global proxy to "direct" (instead of
     // env/system auto-detect). It is true for the unset-defaults-to-direct case and
-    // explicit "direct" mode, but false when an explicit proxy (BILI_UPSTREAM_PROXY)
+    // explicit "direct" mode, but false when an explicit proxy (SOPHIALIN_UPSTREAM_PROXY)
     // is set so that proxy still wins (globalProxy is non-empty, so the short-circuit
     // is skipped regardless).
-    const explicitDirect = proxyMode === "direct" && !biliProxy;
-    const proxy = biliProxy ?? (proxyMode === "direct" ? "" : proxyMode === "manual" ? webProxy ?? configProxy : configProxy);
-    const proxySource: ProxyOptions["proxySource"] = biliProxy
-        ? "bili-env"
+    const explicitDirect = proxyMode === "direct" && !sophialinProxy;
+    const proxy = sophialinProxy ?? (proxyMode === "direct" ? "" : proxyMode === "manual" ? webProxy ?? configProxy : configProxy);
+    const proxySource: ProxyOptions["proxySource"] = sophialinProxy
+        ? "sophialin-env"
         : proxyMode === "direct"
           ? "direct"
           : proxyMode === "manual" && webProxy
@@ -989,37 +1029,37 @@ export function loadOptions(env: NodeJS.ProcessEnv = process.env): ProxyOptions 
         ...(httpsProxy ? { httpsProxy } : {}),
         ...(allProxy ? { allProxy } : {}),
         ...(noProxy ? { noProxy } : {}),
-        biliPort: port,
+        sophialinPort: port,
         globalSource: proxySource,
         explicitDirect,
     };
     // #1012: the launcher forwards the user's pre-strip proxy vars under
-    // BILI_INHERITED_* (the child's own env tier is intentionally empty —
+    // SOPHIALIN_INHERITED_* (the child's own env tier is intentionally empty —
     // e1c6c92). They feed ONLY the aux (blind-tunnel) fallback; explicit
     // routes / global config / explicitDirect keep outranking them, and the
-    // biliPort loop guard inside parseFallbackProxy still drops self-loops.
-    const inheritedHttpProxy = nonEmpty(env.BILI_INHERITED_HTTP_PROXY);
-    const inheritedHttpsProxy = nonEmpty(env.BILI_INHERITED_HTTPS_PROXY);
-    const inheritedAllProxy = nonEmpty(env.BILI_INHERITED_ALL_PROXY);
-    const inheritedNoProxy = nonEmpty(env.BILI_INHERITED_NO_PROXY);
+    // sophialinPort loop guard inside parseFallbackProxy still drops self-loops.
+    const inheritedHttpProxy = nonEmpty(env.SOPHIALIN_INHERITED_HTTP_PROXY);
+    const inheritedHttpsProxy = nonEmpty(env.SOPHIALIN_INHERITED_HTTPS_PROXY);
+    const inheritedAllProxy = nonEmpty(env.SOPHIALIN_INHERITED_ALL_PROXY);
+    const inheritedNoProxy = nonEmpty(env.SOPHIALIN_INHERITED_NO_PROXY);
     const auxProxyFallback: ProxyFallbackOptions = {
         ...proxyFallback,
         // #1012 review catch: the DEFAULT (unset) mode resolves to "direct"
         // too (explicitDirect=true + empty global) which short-circuits
         // resolveProxyDecision BEFORE the env tier — killing the inherited
         // aux tier for every default-config user. Only an EXPLICIT "direct"
-        // mode (upstreamProxyMode / BILI_UPSTREAM_PROXY_MODE) opts aux egress
+        // mode (upstreamProxyMode / SOPHIALIN_UPSTREAM_PROXY_MODE) opts aux egress
         // out of the inherited tier; unset means "no preference".
-        explicitDirect: rawProxyMode === "direct" && !biliProxy,
+        explicitDirect: rawProxyMode === "direct" && !sophialinProxy,
         ...(httpProxy ? {} : inheritedHttpProxy ? { httpProxy: inheritedHttpProxy } : {}),
         ...(httpsProxy ? {} : inheritedHttpsProxy ? { httpsProxy: inheritedHttpsProxy } : {}),
         ...(allProxy ? {} : inheritedAllProxy ? { allProxy: inheritedAllProxy } : {}),
         ...(noProxy ? {} : inheritedNoProxy ? { noProxy: inheritedNoProxy } : {}),
     };
-    validateHttpProxy(proxy, proxyFallback.biliPort);
+    validateHttpProxy(proxy, proxyFallback.sophialinPort);
     for (const [url, route] of Object.entries(routes)) {
         try {
-            validateHttpProxy(route.proxy, proxyFallback.biliPort);
+            validateHttpProxy(route.proxy, proxyFallback.sophialinPort);
         } catch (error) {
             throw new Error(`[acp-config] invalid upstream proxy for ${url}: ${String(error)}`);
         }
@@ -1045,7 +1085,7 @@ export function loadOptions(env: NodeJS.ProcessEnv = process.env): ProxyOptions 
             routing: parsePromptCacheRouting(env.ACP_PROMPT_CACHE_ROUTING ?? fileConfig.promptCache?.routing),
         },
         compat: { roles: parseCompatRoles(fileConfig.compat?.roles) ?? {} },
-        streamErrorShape: parseStreamErrorShape(env.BILI_STREAM_ERROR_SHAPE ?? fileConfig.compat?.streamErrorShape),
+        streamErrorShape: parseStreamErrorShape(env.SOPHIALIN_STREAM_ERROR_SHAPE ?? fileConfig.compat?.streamErrorShape),
         imageBilling: parseImageBilling(fileConfig.imageBilling),
         sessionHeader: env.ACP_SESSION_HEADER ?? fileConfig.sessionHeader ?? "x-acp-session",
         log: env.ACP_LOG !== "0" && fileConfig.log !== false,
@@ -1060,41 +1100,41 @@ export function loadOptions(env: NodeJS.ProcessEnv = process.env): ProxyOptions 
         updateTag: (env.ACP_UPDATE_TAG ?? fileConfig.updateTag ?? "latest").trim() || "latest",
         // Default ON: unlike autoRestartOnUpdate, this never touches process
         // liveness — it only installs files and warns (#1481).
-        advisoryCheck: (env.BILI_ADVISORY_CHECK ?? (fileConfig.advisoryCheck === false ? "0" : "1")) !== "0",
-        advisoryUrl: env.BILI_ADVISORY_URL || fileConfig.advisoryUrl || undefined,
+        advisoryCheck: (env.SOPHIALIN_ADVISORY_CHECK ?? (fileConfig.advisoryCheck === false ? "0" : "1")) !== "0",
+        advisoryUrl: env.SOPHIALIN_ADVISORY_URL || fileConfig.advisoryUrl || undefined,
         logFile: env.ACP_LOG_FILE !== undefined ? (env.ACP_LOG_FILE || undefined) : fileConfig.logFile,
         mitm: {
-            enabled: (env.BILI_MITM ?? (fileConfig.mitm?.enabled === false ? "0" : "1")) !== "0",
+            enabled: (env.SOPHIALIN_MITM ?? (fileConfig.mitm?.enabled === false ? "0" : "1")) !== "0",
             domains: dedupeDomains([
                 ...(fileConfig.mitm?.domains ?? []),
-                ...splitCsv(env.BILI_MITM_DOMAINS),
+                ...splitCsv(env.SOPHIALIN_MITM_DOMAINS),
             ]),
         },
-        maskHosts: (env.BILI_LOG_MASK_HOSTS ?? (fileConfig.maskHosts === false ? "0" : "1")) !== "0",
-        subagentSplit: (env.BILI_SUBAGENT_SPLIT ?? (fileConfig.subagentSplit === false ? "0" : "1")) !== "0",
-        forkAdoption: (env.BILI_FORK_ADOPTION ?? (fileConfig.forkAdoption === true ? "1" : "0")) !== "0",
-        resumeInheritance: (env.BILI_RESUME_INHERITANCE ?? (fileConfig.resumeInheritance === false ? "0" : "1")) !== "0",
-        chainContentDetection: (env.BILI_CHAIN_CONTENT ?? (fileConfig.chainContentDetection === true ? "1" : "0")) !== "0",
-        chainEgressStamp: (env.BILI_CHAIN_STAMP ?? (fileConfig.chainEgressStamp === true ? "1" : "0")) !== "0",
-        stableSystemAnchor: (env.BILI_STABLE_SYSTEM_ANCHOR ?? (fileConfig.stableSystemAnchor === true ? "1" : "0")) !== "0",
+        maskHosts: (env.SOPHIALIN_LOG_MASK_HOSTS ?? (fileConfig.maskHosts === false ? "0" : "1")) !== "0",
+        subagentSplit: (env.SOPHIALIN_SUBAGENT_SPLIT ?? (fileConfig.subagentSplit === false ? "0" : "1")) !== "0",
+        forkAdoption: (env.SOPHIALIN_FORK_ADOPTION ?? (fileConfig.forkAdoption === true ? "1" : "0")) !== "0",
+        resumeInheritance: (env.SOPHIALIN_RESUME_INHERITANCE ?? (fileConfig.resumeInheritance === false ? "0" : "1")) !== "0",
+        chainContentDetection: (env.SOPHIALIN_CHAIN_CONTENT ?? (fileConfig.chainContentDetection === true ? "1" : "0")) !== "0",
+        chainEgressStamp: (env.SOPHIALIN_CHAIN_STAMP ?? (fileConfig.chainEgressStamp === true ? "1" : "0")) !== "0",
+        stableSystemAnchor: (env.SOPHIALIN_STABLE_SYSTEM_ANCHOR ?? (fileConfig.stableSystemAnchor === true ? "1" : "0")) !== "0",
     };
 }
 
 /** The resolved mitm.domains tier exactly as loadOptions computes it (config
- *  file ∪ BILI_MITM_DOMAINS, deduped). Exported so launchers can mirror the
+ *  file ∪ SOPHIALIN_MITM_DOMAINS, deduped). Exported so launchers can mirror the
  *  precise whitelist their proxy child will use when deciding MITM vs blind
  *  tunnel (#1403) — pass the env the CHILD will see, not process.env. */
 export function resolveMitmDomains(env: NodeJS.ProcessEnv): string[] {
     return dedupeDomains([
         ...(loadConfigFile().mitm?.domains ?? []),
-        ...splitCsv(env.BILI_MITM_DOMAINS),
+        ...splitCsv(env.SOPHIALIN_MITM_DOMAINS),
     ]);
 }
 
 /** #1392: opted-in non-http(s) baseUrl providers — providers-table entries
  *  (key = provider id) with `compactionOptIn: true` ∪
- *  BILI_NON_HTTP_PROVIDERS, deduped. Exported so launchers can mirror the list
- *  to the client env (BILI_NON_HTTP_PROVIDERS) exactly like resolveMitmDomains. */
+ *  SOPHIALIN_NON_HTTP_PROVIDERS, deduped. Exported so launchers can mirror the list
+ *  to the client env (SOPHIALIN_NON_HTTP_PROVIDERS) exactly like resolveMitmDomains. */
 export function resolveNonHttpProviders(env: NodeJS.ProcessEnv = process.env): string[] {
     const out = new Set<string>();
     // #1392: the opt-in lives in the existing providers table — the KEY is the
@@ -1110,7 +1150,7 @@ export function resolveNonHttpProviders(env: NodeJS.ProcessEnv = process.env): s
             if (key.length > 0 && (v as Record<string, unknown>).compactionOptIn === true) out.add(key);
         }
     }
-    for (const id of splitCsv(env.BILI_NON_HTTP_PROVIDERS)) {
+    for (const id of splitCsv(env.SOPHIALIN_NON_HTTP_PROVIDERS)) {
         out.add(id);
     }
     return [...out];
@@ -1141,9 +1181,9 @@ type FileConfig = {
     /** Dist-tag channel the auto-updater follows (default "latest"). */
     updateTag?: string;
     /** Set `false` to disable the critical-defect advisory watcher (#1481);
-     *  env BILI_ADVISORY_CHECK wins when set. */
+     *  env SOPHIALIN_ADVISORY_CHECK wins when set. */
     advisoryCheck?: boolean;
-    /** Override for the advisory document URL (env BILI_ADVISORY_URL wins). */
+    /** Override for the advisory document URL (env SOPHIALIN_ADVISORY_URL wins). */
     advisoryUrl?: string;
     upstreamProxy?: string;
     upstreamProxyMode?: string;
@@ -1156,34 +1196,34 @@ type FileConfig = {
     promptCache?: { routing?: string };
     mitm?: { enabled?: boolean; domains?: string[] };
     /** Set `false` to log real (non-public) target hosts instead of the
-     *  `<private-host>` placeholder (#897; env BILI_LOG_MASK_HOSTS=0 wins). */
+     *  `<private-host>` placeholder (#897; env SOPHIALIN_LOG_MASK_HOSTS=0 wins). */
     maskHosts?: boolean;
     /** Set `false` to keep Claude Code subagents on the main session (#970;
-     *  env BILI_SUBAGENT_SPLIT=0 wins). */
+     *  env SOPHIALIN_SUBAGENT_SPLIT=0 wins). */
     subagentSplit?: boolean;
     /** Opt-in fork block-adoption (#629): when an anonymous (prefix-affinity)
      *  client forks its history mid-conversation (edit / regenerate), the new
      *  session inherits the parent's compression blocks whose source content
      *  is fully present in the forked request, instead of restarting with
-     *  zero compression state. Default false; env BILI_FORK_ADOPTION=1/0
+     *  zero compression state. Default false; env SOPHIALIN_FORK_ADOPTION=1/0
      *  wins over the file. */
     forkAdoption?: boolean;
     /** Set `false` to disable resume-fork inheritance (#1486, default ON;
-     *  env BILI_RESUME_INHERITANCE=0 wins over the file). */
+     *  env SOPHIALIN_RESUME_INHERITANCE=0 wins over the file). */
     resumeInheritance?: boolean;
-    /** Set `true` to enable body-content detection of the bili→bili chain
-     *  awareness (#1086/#1421); OFF by default — by default only x-bili-hop drives
+    /** Set `true` to enable body-content detection of the sophialin→sophialin chain
+     *  awareness (#1086/#1421); OFF by default — by default only x-sophialin-hop drives
      *  chain recognition, since body scanning can false-positive on CCR/file-
-     *  introduced text and model-echoed tags (#1683). Env BILI_CHAIN_CONTENT=1
+     *  introduced text and model-echoed tags (#1683). Env SOPHIALIN_CHAIN_CONTENT=1
      *  wins over the file. */
     chainContentDetection?: boolean;
     /** Set `true` to enable egress emission of the model-visible
-     *  `<bili-chain …/>` checkpoint carrier (#1683, default OFF; env
-     *  BILI_CHAIN_STAMP=1 wins over the file). Independent of
+     *  `<sophialin-chain …/>` checkpoint carrier (#1683, default OFF; env
+     *  SOPHIALIN_CHAIN_STAMP=1 wins over the file). Independent of
      *  chainContentDetection. */
     chainEgressStamp?: boolean;
     /** Set `true` to enable the sticky head-system anchor (#1085, default
-     *  OFF; env BILI_STABLE_SYSTEM_ANCHOR wins). */
+     *  OFF; env SOPHIALIN_STABLE_SYSTEM_ANCHOR wins). */
     stableSystemAnchor?: boolean;
     /** Global wire-compat block. `roles` maps message roles to the role name
      *  upstreams accept (e.g. `{"developer":"system"}`) — applied to the
@@ -1191,23 +1231,23 @@ type FileConfig = {
      *  `streamErrorShape` (#1455): "protocol" (default) presents upstream
      *  stream failures as protocol-native error frames; "completion" restores
      *  the legacy shape that delivered the failure text inside a synthesized
-     *  successful completion. Env BILI_STREAM_ERROR_SHAPE wins over the file. */
+     *  successful completion. Env SOPHIALIN_STREAM_ERROR_SHAPE wins over the file. */
     compat?: { roles?: Record<string, string>; streamErrorShape?: string };
     /** Global image billing mode (#767): "auto" | "pixels" | "bytes".
-     *  Per-provider `imageBilling` overrides it; env BILI_IMAGE_BILLING wins
+     *  Per-provider `imageBilling` overrides it; env SOPHIALIN_IMAGE_BILLING wins
      *  over both. See ProviderRoute.imageBilling. */
     imageBilling?: string;
     /** Claude-native port override (#964/#1660): an explicit port for the
      *  claude lane — strict-port semantics (EADDRINUSE fails loud). Undefined
      *  (the default) means the lane's sticky zone port (ZONE_PORT_BASE base).
-     *  Env BILI_CLAUDE_NATIVE_PORT wins over the file. */
+     *  Env SOPHIALIN_CLAUDE_NATIVE_PORT wins over the file. */
     claude?: { nativePort?: number };
     /** Native-hook attach policy (#1335): set `true` to let native hooks
-     *  attach to lifecycle-less listeners (a manually started `bili start`
+     *  attach to lifecycle-less listeners (a manually started `sophialin start`
      *  daemon — no session-lifecycle watchdog, outlives every session, often
      *  an older code version). Default false: hooks self-manage and spawn
      *  their own armed session proxy instead (#1322). Env
-     *  BILI_NATIVE_ATTACH_EXTERNAL=1/0 wins over the file. */
+     *  SOPHIALIN_NATIVE_ATTACH_EXTERNAL=1/0 wins over the file. */
     native?: { attachExternal?: boolean };
 };
 
@@ -1250,18 +1290,18 @@ function loadConfigFile(): FileConfig {
  *  (+1 per attempt) resolves collisions deterministically with a sticky
  *  record (instance.ts port-zone.json). 18787 sits below the Linux ephemeral
  *  range (32768–60999) so the ladder never lands on OS-assigned ports; 8787
- *  stays reserved as the USER zone (manual `bili start`). Env BILI_ZONE_PORT
+ *  stays reserved as the USER zone (manual `sophialin start`). Env SOPHIALIN_ZONE_PORT
  *  overrides the base for the whole zone. */
 export const ZONE_PORT_BASE = 18787;
 
 export function resolveZonePortBase(env: NodeJS.ProcessEnv = process.env): number {
-    const fromEnv = Number.parseInt(env.BILI_ZONE_PORT ?? "", 10);
+    const fromEnv = Number.parseInt(env.SOPHIALIN_ZONE_PORT ?? "", 10);
     if (Number.isInteger(fromEnv) && fromEnv > 0 && fromEnv < 65536) return fromEnv;
     return ZONE_PORT_BASE;
 }
 
 /** #1660: an explicit user override of the claude lane's port: env
- *  BILI_CLAUDE_NATIVE_PORT > config `claude.nativePort` > undefined. A
+ *  SOPHIALIN_CLAUDE_NATIVE_PORT > config `claude.nativePort` > undefined. A
  *  DEFINED value means a strict-port launch (an EADDRINUSE at bind fails
  *  loud, #964); undefined means the lane's sticky zone port
  *  (instance.ts lanePreferredPort) with the +1 ladder absorbing collisions.
@@ -1269,7 +1309,7 @@ export function resolveZonePortBase(env: NodeJS.ProcessEnv = process.env): numbe
  *  SessionStart hook rewriting the managed block to the live origin every
  *  session. */
 export function resolveClaudeNativePort(env: NodeJS.ProcessEnv = process.env): number | undefined {
-    const fromEnv = Number.parseInt(env.BILI_CLAUDE_NATIVE_PORT ?? "", 10);
+    const fromEnv = Number.parseInt(env.SOPHIALIN_CLAUDE_NATIVE_PORT ?? "", 10);
     if (Number.isInteger(fromEnv) && fromEnv > 0 && fromEnv < 65536) return fromEnv;
     const fromFile = loadConfigFile().claude?.nativePort;
     if (typeof fromFile === "number" && Number.isInteger(fromFile) && fromFile > 0 && fromFile < 65536) return fromFile;
@@ -1283,13 +1323,13 @@ export function resolveClaudeNativePort(env: NodeJS.ProcessEnv = process.env): n
  *  by the bootstrap's origin-drift repair (routeZcodeConfig rewrites the
  *  store to the live origin). */
 export function resolveZcodeNativePort(env: NodeJS.ProcessEnv = process.env): number | undefined {
-    const fromEnv = Number.parseInt(env.BILI_ZCODE_PORT ?? "", 10);
+    const fromEnv = Number.parseInt(env.SOPHIALIN_ZCODE_PORT ?? "", 10);
     if (Number.isInteger(fromEnv) && fromEnv > 0 && fromEnv < 65536) return fromEnv;
     return undefined;
 }
 
 /** Client-side routing exemptions (#1622): providers whose route declares
- *  `direct: true` are never pointed through bili by store-rewriting native
+ *  `direct: true` are never pointed through sophialin by store-rewriting native
  *  lanes. Returns the normalized URL keys (the same key space findRoute
  *  matches against). */
 export function zcodeDirectPrefixes(env: NodeJS.ProcessEnv = process.env): string[] {
@@ -1299,11 +1339,11 @@ export function zcodeDirectPrefixes(env: NodeJS.ProcessEnv = process.env): strin
 
 /** #1335: the native-hook attach-gate escape hatch. True when the user
  *  deliberately runs lifecycle-less resident daemons for native hooks to ride:
- *  env BILI_NATIVE_ATTACH_EXTERNAL (1/true vs 0/false) wins over the file's
+ *  env SOPHIALIN_NATIVE_ATTACH_EXTERNAL (1/true vs 0/false) wins over the file's
  *  `native.attachExternal`, which must be exactly `true` (any other value —
  *  including garbage — leaves the gate closed). Default false. */
 export function resolveNativeAttachExternal(env: NodeJS.ProcessEnv = process.env): boolean {
-    const fromEnv = (env.BILI_NATIVE_ATTACH_EXTERNAL ?? "").trim().toLowerCase();
+    const fromEnv = (env.SOPHIALIN_NATIVE_ATTACH_EXTERNAL ?? "").trim().toLowerCase();
     if (fromEnv === "1" || fromEnv === "true") return true;
     if (fromEnv === "0" || fromEnv === "false") return false;
     return loadConfigFile().native?.attachExternal === true;
@@ -1313,7 +1353,7 @@ export function resolveNativeAttachExternal(env: NodeJS.ProcessEnv = process.env
 /** Template written on first run so the user has a file to edit instead
  *  of having to invent the path/schema. Left empty on purpose: the proxy
  *  can't guess your provider, so we don't put a fake one. Fill it in per
- *  the README Quickstart, then restart `bili`. */
+ *  the README Quickstart, then restart `sophialin`. */
 const TEMPLATE_CONFIG = `{
   "providers": {
   }
@@ -1346,7 +1386,7 @@ export function normalizeUrlKey(key: string): string {
 
 export function parseRouteEntry(v: unknown): ProviderRoute | undefined {
     // The value describes per-model context overrides. The upstream URL itself
-    // is the KEY in the providers map (identical to the /bili/<url> string),
+    // is the KEY in the providers map (identical to the /sophialin/<url> string),
     // so it is NOT repeated inside the value.
     if (v && typeof v === "object" && !Array.isArray(v)) {
         const obj = v as { models?: Record<string, ModelEntry>; proxy?: string; compressProtocol?: string; compress?: CompressSettings; compat?: { roles?: unknown }; passthrough?: boolean; direct?: boolean; imageBilling?: unknown };
@@ -1560,6 +1600,27 @@ export function parseCompressSettings(v: unknown): (CompressSettings & { injectT
                 }
             }
             if (ok) out.imageCompression = cleaned;
+        }
+    }
+    if ("imageOffload" in obj && obj.imageOffload !== undefined) {
+        const c = obj.imageOffload;
+        if (!c || typeof c !== "object" || Array.isArray(c)) {
+            ok = false;
+        } else {
+            const co = c as Record<string, unknown>;
+            const cleaned: NonNullable<CompressSettings["imageOffload"]> = {};
+            for (const key of ["enabled", "maxBytes", "maxImages", "byteQuantum", "countQuantum"] as const) {
+                if (!(key in co)) continue;
+                const v = co[key];
+                if (key === "enabled") {
+                    if (typeof v !== "boolean") { ok = false; continue; }
+                    cleaned.enabled = v;
+                } else {
+                    if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) { ok = false; continue; }
+                    cleaned[key] = v;
+                }
+            }
+            if (ok) out.imageOffload = cleaned;
         }
     }
     if ("prompts" in obj && obj.prompts !== undefined) {

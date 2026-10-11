@@ -1,7 +1,7 @@
-// E2E: REAL `dsh` (native profile lane, headless one-shot) through bili's
+// E2E: REAL `dsh` (native profile lane, headless one-shot) through sophialin's
 // native extension (#1268, split from #1239). Mirrors e2e-native-pi.test.ts:
 // a deterministic fake chat-completions upstream scripts the model, so the
-// whole native chain — proxy bootstrap, fetch interception, x-bili-plugin
+// whole native chain — proxy bootstrap, fetch interception, x-sophialin-plugin
 // stamping, ACP tool registration, plugin-tool execution (acp_status /
 // compress) and real compression — runs in-process with zero tokens and no
 // network. Gated by ACP_TEST_E2E_DSH_NATIVE=1 (needs `npm i -g
@@ -22,20 +22,20 @@
 //   an undici global dispatcher from proxy env (@deepseek-ai/dsh-http-proxy,
 //   installProxyFromEnvironment). This suite exports dead loopback proxy URLs
 //   so the non-direct policy path is active while LOOPBACK_NO_PROXY keeps
-//   fixture traffic direct; every hop staying stamped proves bili's fetch
+//   fixture traffic direct; every hop staying stamped proves sophialin's fetch
 //   patch chain survives the third-party dispatcher layer (not just hop 1).
 //   The guarded-accessor re-arm itself is unit-pinned in
 //   tests/native-intercept-selfheal.test.ts.
 //
 // Assertions map 1:1 to #1239's acceptance list:
-//   1. traffic is intercepted + plugin-mode claimed (x-bili-plugin: dsh,
+//   1. traffic is intercepted + plugin-mode claimed (x-sophialin-plugin: dsh,
 //      native session-<uuid> conversation id, every hop incl. R1)
 //   2. /acp session binding + status reachable (live GET
-//      /__bili/plugin/status?conversationId=... answers ok:true mid-run)
+//      /__sophialin/plugin/status?conversationId=... answers ok:true mid-run)
 //   3. acp_status executes client-side and its result is re-sent in history
 //   4. compress really folds (persisted block + pluginAgent=dsh binding)
 //
-// The bili config zeroes compress.preserveRecentTokens: after the big filler
+// The sophialin config zeroes compress.preserveRecentTokens: after the big filler
 // message only a few hundred tokens follow in a one-shot run, so the kernel's
 // default token window (5000) would pin the filler inside the protected zone
 // and no scripted compress could ever fold it. Preflight already relaxes
@@ -59,7 +59,7 @@ const TMO = Number(process.env.E2E_TMO ?? 150_000);
 const WORK_ROOT = path.join(process.cwd(), "tmp");
 // dsh walks up from cwd looking for workspace markers — keep the client cwd
 // OUTSIDE the repo so this project's own tree never leaks into the run.
-const CWD_ROOT = path.join(os.tmpdir(), "billion-context-e2e-dsh-native");
+const CWD_ROOT = path.join(os.tmpdir(), "sophialin-context-e2e-dsh-native");
 const ACP_TOOLS = [
   "compress",
   "decompress",
@@ -193,14 +193,14 @@ const PROXY_ENV_KEYS = [
 ];
 
 function cleanEnv(): NodeJS.ProcessEnv {
-  // This suite may run INSIDE a bili-driven shell (BILLION_CONTEXT_PROXY et
-  // al. preset): the native lane must bootstrap its OWN proxy, so every bili
+  // This suite may run INSIDE a sophialin-driven shell (SOPHIALIN_CONTEXT_PROXY et
+  // al. preset): the native lane must bootstrap its OWN proxy, so every sophialin
   // side-channel has to go. Host proxy env leaks a real dispatcher policy.
   const env: NodeJS.ProcessEnv = { ...process.env };
   for (const key of Object.keys(env)) {
     if (
-      key.startsWith("BILI") ||
-      key.startsWith("BILLION_CONTEXT") ||
+      key.startsWith("SOPHIALIN") ||
+      key.startsWith("SOPHIALIN_CONTEXT") ||
       key.startsWith("ACP_")
     )
       delete env[key];
@@ -274,12 +274,12 @@ async function startCtx(): Promise<Ctx> {
 }
 
 // Headless profile wiring — the production lane shape
-// (`bili plugin install dsh` territory, #949/#966) without a package manager:
+// (`sophialin plugin install dsh` territory, #949/#966) without a package manager:
 // the profile's node_modules carries the built local package exactly as a
 // registry install would (published files: dist + dsh.bundle.patch.yml).
 function wireProfile(ctx: Ctx): void {
   const profileDir = path.join(ctx.dshHome, "profiles", "headless");
-  const pkgDir = path.join(profileDir, "node_modules", "billion-context");
+  const pkgDir = path.join(profileDir, "node_modules", "sophialin-context");
   fs.mkdirSync(pkgDir, { recursive: true });
   fs.copyFileSync(path.join(REPO_ROOT, "package.json"), path.join(pkgDir, "package.json"));
   fs.cpSync(path.join(REPO_ROOT, "dist"), path.join(pkgDir, "dist"), { recursive: true });
@@ -288,7 +288,7 @@ function wireProfile(ctx: Ctx): void {
     path.join(pkgDir, "dsh.bundle.patch.yml"),
   );
 
-  const biliVersion = JSON.parse(
+  const sophialinVersion = JSON.parse(
     fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8"),
   ).version as string;
   fs.writeFileSync(
@@ -297,13 +297,13 @@ function wireProfile(ctx: Ctx): void {
       {
         name: "e2e-dsh-profile-headless",
         private: true,
-        dependencies: { "billion-context": biliVersion },
+        dependencies: { "sophialin-context": sophialinVersion },
         dsh: {
           profile: {
             bundles: [
               "@deepseek-ai/dsh-base",
               "@deepseek-ai/dsh-headless",
-              "billion-context",
+              "sophialin-context",
             ],
             patchReload: "startup",
           },
@@ -344,12 +344,12 @@ function wireProfile(ctx: Ctx): void {
 }
 
 function writeBiliConfig(ctx: Ctx): void {
-  const dir = path.join(ctx.xdg.config, "billion-context");
+  const dir = path.join(ctx.xdg.config, "sophialin-context");
   fs.mkdirSync(dir, { recursive: true });
   // preserveRecentTokens: 0 — see the file header for why a one-shot run
   // cannot fold under the kernel's default protected-zone token window.
   fs.writeFileSync(
-    path.join(dir, "billion-context.json"),
+    path.join(dir, "sophialin-context.json"),
     JSON.stringify({ providers: {}, compress: { preserveRecentTokens: 0 } }, null, 2) + "\n",
   );
 }
@@ -357,7 +357,7 @@ function writeBiliConfig(ctx: Ctx): void {
 // Graceful-stop the hermetic native proxy (SIGTERM — the server flushes
 // dirty sessions on shutdown) so persisted state is observable on disk.
 async function stopProxiesGracefully(ctx: Ctx): Promise<void> {
-  const instancesDir = path.join(ctx.xdg.state, "billion-context", "instances");
+  const instancesDir = path.join(ctx.xdg.state, "sophialin-context", "instances");
   try {
     for (const f of fs.readdirSync(instancesDir)) {
       try {
@@ -391,7 +391,7 @@ function teardown(ctx: Ctx): void {
   }
   // The native proxy is parent-watched and dies with its dsh; kill any
   // survivor recorded in the hermetic instance dir so nothing lingers.
-  const instancesDir = path.join(ctx.xdg.state, "billion-context", "instances");
+  const instancesDir = path.join(ctx.xdg.state, "sophialin-context", "instances");
   try {
     for (const f of fs.readdirSync(instancesDir)) {
       try {
@@ -500,10 +500,10 @@ function dshRun(
   });
 }
 
-function biliLog(ctx: Ctx): string {
+function sophialinLog(ctx: Ctx): string {
   try {
     return fs.readFileSync(
-      path.join(ctx.xdg.state, "billion-context", "bili.log"),
+      path.join(ctx.xdg.state, "sophialin-context", "sophialin.log"),
       "utf8",
     );
   } catch {
@@ -521,7 +521,7 @@ type SessionFile = {
 };
 
 function sessionFiles(ctx: Ctx): { file: string; parsed: SessionFile }[] {
-  const dir = path.join(ctx.xdg.data, "billion-context", "sessions");
+  const dir = path.join(ctx.xdg.data, "sophialin-context", "sessions");
   const out: { file: string; parsed: SessionFile }[] = [];
   try {
     for (const prov of fs.readdirSync(dir)) {
@@ -530,7 +530,7 @@ function sessionFiles(ctx: Ctx): { file: string; parsed: SessionFile }[] {
       try {
         entries = fs.readdirSync(provDir);
       } catch {
-        continue; // not a directory (e.g. .bili-migration markers)
+        continue; // not a directory (e.g. .sophialin-migration markers)
       }
       for (const f of entries) {
         if (!f.endsWith(".json")) continue;
@@ -557,7 +557,7 @@ function sessionFiles(ctx: Ctx): { file: string; parsed: SessionFile }[] {
 // shutdown). The instance record appears when the native bootstrap spawns the
 // proxy — before the first request can land.
 async function probePluginStatus(ctx: Ctx, conv: string): Promise<void> {
-  const instancesDir = path.join(ctx.xdg.state, "billion-context", "instances");
+  const instancesDir = path.join(ctx.xdg.state, "sophialin-context", "instances");
   let origin: string | undefined;
   const deadline = Date.now() + 30_000;
   while (!origin && Date.now() < deadline) {
@@ -578,9 +578,9 @@ async function probePluginStatus(ctx: Ctx, conv: string): Promise<void> {
   }
   assert.ok(origin, "instance record with proxy origin must exist mid-run");
   const res = await fetch(
-    `${origin}/__bili/plugin/status?conversationId=${encodeURIComponent(conv)}`,
+    `${origin}/__sophialin/plugin/status?conversationId=${encodeURIComponent(conv)}`,
   );
-  assert.equal(res.status, 200, `/__bili/plugin/status must answer 200 (got ${res.status})`);
+  assert.equal(res.status, 200, `/__sophialin/plugin/status must answer 200 (got ${res.status})`);
   const body = (await res.json()) as { ok?: boolean; conversationId?: string };
   assert.equal(
     body.ok,
@@ -604,11 +604,11 @@ test(
       ),
     ) as { dsh?: { profile?: { bundles?: string[] } } };
     assert.ok(
-      profilePkg.dsh?.profile?.bundles?.includes("billion-context"),
-      "headless profile must bundle billion-context",
+      profilePkg.dsh?.profile?.bundles?.includes("sophialin-context"),
+      "headless profile must bundle sophialin-context",
     );
     assert.ok(
-      fs.existsSync(path.join(ctx.dshHome, "profiles", "headless", "node_modules", "billion-context", "dist", "agent", "dsh-native.js")),
+      fs.existsSync(path.join(ctx.dshHome, "profiles", "headless", "node_modules", "sophialin-context", "dist", "agent", "dsh-native.js")),
       "profile node_modules must carry the built dsh-native entry",
     );
     const oracle = readOracle(ctx.reqLog);
@@ -659,11 +659,11 @@ if (checkOnly) {
         assert.equal(
           o.plugin,
           "dsh",
-          `request must be plugin-stamped (x-bili-plugin), got ${o.plugin} (nmsg=${o.nmsg})`,
+          `request must be plugin-stamped (x-sophialin-plugin), got ${o.plugin} (nmsg=${o.nmsg})`,
         );
         assert.ok(
           o.conv && o.conv.length > 0,
-          "request must carry x-bili-plugin-conversation",
+          "request must carry x-sophialin-plugin-conversation",
         );
         assert.match(
           o.conv!,
@@ -717,7 +717,7 @@ if (checkOnly) {
         `compress result must report the fold, got: ${compressResult.slice(0, 200)}`,
       );
       assert.match(
-        biliLog(ctx),
+        sophialinLog(ctx),
         /tool compress executed via plugin/,
         "proxy must log the plugin-channel compress execution",
       );

@@ -72,7 +72,7 @@ function mockRes(): { res: http.ServerResponse; status: number; body: string } {
 }
 
 await test("boot restore: lastSeen=savedAt, restored flag, freshness-keyed truncation, fallback=latest skips restored (#404)", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "bili-404-boot-"));
+    const dir = mkdtempSync(join(tmpdir(), "sophialin-404-boot-"));
     const store = new SessionStore({ dir, debounceMs: 5, enabled: true });
     _setStoreForTest(store);
     try {
@@ -122,7 +122,7 @@ await test("boot restore: lastSeen=savedAt, restored flag, freshness-keyed trunc
 });
 
 await test("writeNow → loadAll round-trip keeps savedAt as lastSeen (#404)", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "bili-404-rt-"));
+    const dir = mkdtempSync(join(tmpdir(), "sophialin-404-rt-"));
     const store = new SessionStore({ dir, debounceMs: 5, enabled: true });
     try {
         const s = makeSession("roundtrip-1");
@@ -141,7 +141,7 @@ await test("writeNow → loadAll round-trip keeps savedAt as lastSeen (#404)", a
 });
 
 await test("memory-miss reload counts as real activity: restored cleared, lastSeen stamped now (#404)", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "bili-404-miss-"));
+    const dir = mkdtempSync(join(tmpdir(), "sophialin-404-miss-"));
     const store = new SessionStore({ dir, debounceMs: 5, enabled: true });
     _setStoreForTest(store);
     try {

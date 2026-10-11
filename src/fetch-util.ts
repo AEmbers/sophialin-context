@@ -49,18 +49,18 @@ export function _resetIdleTimerSeamsForTest(): void {
 }
 
 /** Idle-timeout budget for upstream requests; overridable via
- *  BILI_UPSTREAM_TIMEOUT_MS (milliseconds). Read on each call so tests can
+ *  SOPHIALIN_UPSTREAM_TIMEOUT_MS (milliseconds). Read on each call so tests can
  *  tune it live. Local-model deployments with very large contexts can need
  *  prefills longer than the 12-minute default before their first token.
  *
  *  This budget is the SOLE silence bound by design: there is deliberately no
  *  finer-grained mid-stream stall detector. A #1452-era opt-in guard
- *  (BILI_STREAM_STALL_MS) was retired in #1706/#1714 — local-model
+ *  (SOPHIALIN_STREAM_STALL_MS) was retired in #1706/#1714 — local-model
  *  deployments legitimately go silent for minutes mid-stream (thinking
  *  phases, long prefills), so any finite sub-budget false-positived healthy
  *  turns into truncations. Do not re-add a shorter timer here. */
 export function upstreamTimeoutMs(): number {
-    const raw = Number(process.env.BILI_UPSTREAM_TIMEOUT_MS);
+    const raw = Number(process.env.SOPHIALIN_UPSTREAM_TIMEOUT_MS);
     return Number.isInteger(raw) && raw > 0 ? raw : UPSTREAM_TIMEOUT_MS;
 }
 
@@ -177,7 +177,7 @@ export async function fetchWithTimeout(
             // undici's default (follow) downgrades POST→GET and drops the body
             // on 301/302/303, so a redirecting upstream (CDN/WAF) turns a valid
             // POST into a 405 at the redirect target. Pass the 3xx through to
-            // the client, which follows it with its own policy. Internal bili
+            // the client, which follows it with its own policy. Internal sophialin
             // fetches that want to follow (registry, upstream test) opt in.
             redirect: opts.redirect ?? "manual",
         };
@@ -275,18 +275,18 @@ export function isTransientUpstreamError(status: number, body: string): boolean 
 /** Total requests per replay attempt (initial + retries). */
 export const REPLAY_MAX_ATTEMPTS = 3;
 
-/** Total requests per replay attempt; overridable via BILI_REPLAY_RETRY_MAX
+/** Total requests per replay attempt; overridable via SOPHIALIN_REPLAY_RETRY_MAX
  *  (1 = legacy fail-fast behavior, no retry). Read on each call so tests can
  *  tune it live. */
 export function replayMaxAttempts(): number {
-    const raw = Number(process.env.BILI_REPLAY_RETRY_MAX);
+    const raw = Number(process.env.SOPHIALIN_REPLAY_RETRY_MAX);
     return Number.isInteger(raw) && raw >= 1 ? raw : REPLAY_MAX_ATTEMPTS;
 }
 
-/** Base backoff delay in ms; overridable via BILI_REPLAY_RETRY_BASE_MS
+/** Base backoff delay in ms; overridable via SOPHIALIN_REPLAY_RETRY_BASE_MS
  *  (0 disables the delay). Read on each call so tests can tune it live. */
 export function replayBaseDelayMs(): number {
-    const raw = Number(process.env.BILI_REPLAY_RETRY_BASE_MS);
+    const raw = Number(process.env.SOPHIALIN_REPLAY_RETRY_BASE_MS);
     return Number.isFinite(raw) && raw >= 0 ? raw : 1500;
 }
 
@@ -297,7 +297,7 @@ export function replayBaseDelayMs(): number {
  *  transition gentle and the prefix cache alive. Unset (or out of range) =
  *  no steering (legacy behavior). Read on each call so tests can tune it live. */
 export function maxShrinkPerCompress(): number | undefined {
-    const raw = Number(process.env.BILI_MAX_SHRINK_PER_COMPRESS);
+    const raw = Number(process.env.SOPHIALIN_MAX_SHRINK_PER_COMPRESS);
     return Number.isFinite(raw) && raw > 0 && raw <= 1 ? raw : undefined;
 }
 
@@ -380,8 +380,8 @@ export async function fetchWithRetry(
  *  DNS/reset/refused blip killed the whole round while acp-loop/preflight
  *  already replayed. Unlike fetchWithRetry this retries ONLY pre-response
  *  network deaths (isFailFastUpstreamKind — nothing reached the upstream, so a
- *  replay cannot double-deliver) under the same BILI_REPLAY_RETRY_MAX /
- *  BILI_REPLAY_RETRY_BASE_MS budget and backoff; it NEVER touches HTTP-level
+ *  replay cannot double-deliver) under the same SOPHIALIN_REPLAY_RETRY_MAX /
+ *  SOPHIALIN_REPLAY_RETRY_BASE_MS budget and backoff; it NEVER touches HTTP-level
  *  verdicts — any response (ok, 4xx, 5xx alike) is returned to the caller
  *  untouched, because the main path passes upstream error bodies through
  *  verbatim and must not convert them into proxy-side errors (fetchWithRetry

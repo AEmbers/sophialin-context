@@ -37,7 +37,7 @@ describe("#1685 tool-ring unit", () => {
         assert.equal(normalizeToolName("compress"), "compress");
         assert.equal(normalizeToolName("mcp__bili__compress"), "compress");
         assert.equal(normalizeToolName("host__pkg__acp_status"), "acp_status");
-        assert.equal(normalizeToolName("mcp__bili-compress"), "bili-compress", "non-standard single-underscore pkg form does not fully strip");
+        assert.equal(normalizeToolName("mcp__sophialin-compress"), "sophialin-compress", "non-standard single-underscore pkg form does not fully strip");
     });
 
     it("record → lookup round-trip names the session", () => {

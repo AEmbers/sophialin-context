@@ -14,7 +14,7 @@ import { type ResolvedImageBilling } from "../image-tokens.js";
 // #1699: explicit host intent outranks the budget heuristic. opencode v2 sends
 // title-gen WITHOUT max_tokens (options {} for kind==="title"), so the budget
 // path below can never see it; the host stamps its persona id
-// (x-bili-plugin-agent) and a known side-request agent is a side req by
+// (x-sophialin-plugin-agent) and a known side-request agent is a side req by
 // definition regardless of budget.
 export const SIDE_REQUEST_MAX_TOKENS = 200;
 // Persona ids whose requests are side requests by intent (#1699). Main personas
@@ -99,7 +99,7 @@ export function restoreOutputBudget(
     // client that sizes its budget from RAW history decays through small
     // positive values (…, 680, 234) before starving at <=200, so "last
     // non-starved wins" ends holding a death rattle; a session first opened
-    // into bili with an already-oversized history never seeds anything at all.
+    // into sophialin with an already-oversized history never seeds anything at all.
     // Floor the restore target at the operator-declared model output limit
     // (ModelEntry.output, #924 surface) so a broken client cannot pin the
     // session at a few hundred tokens forever. The #453 clamp downstream

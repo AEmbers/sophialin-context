@@ -13,7 +13,7 @@ import { _setForTest as setRegistryForTest } from "../src/registry.ts";
 import { recordBlindTunnel, getBlindTunnelStats, _resetBlindTunnelStatsForTest } from "../src/mitm.ts";
 import { rmrf } from "./tmp-rm.ts";
 
-/** #897: /__bili/health and /__bili/stats must expose the blind-tunnel counter
+/** #897: /__sophialin/health and /__sophialin/stats must expose the blind-tunnel counter
  *  (loopback-only admin endpoints), so an operator can see which CONNECT
  *  targets were relayed opaquely and never entered the compression pipeline. */
 
@@ -27,7 +27,7 @@ function close(server: http.Server): Promise<void> {
 }
 
 test("health + stats expose blindTunnels counts with real hosts (#897)", async () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bili-blind-stats-"));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-blind-stats-"));
     const prevXdg = process.env.XDG_STATE_HOME;
     const prevData = process.env.XDG_DATA_HOME;
     process.env.XDG_STATE_HOME = tmpRoot;
@@ -62,18 +62,18 @@ test("health + stats expose blindTunnels counts with real hosts (#897)", async (
         await once(proxy, "listening");
         const port = (proxy.address() as { port: number }).port;
 
-        const emptyHealth = (await (await fetch(`http://127.0.0.1:${port}/__bili/health`)).json()) as { blindTunnels: BlindTunnels };
+        const emptyHealth = (await (await fetch(`http://127.0.0.1:${port}/__sophialin/health`)).json()) as { blindTunnels: BlindTunnels };
         assert.deepEqual(emptyHealth.blindTunnels, { total: 0, hosts: {} }, "fresh instance reports zero blind tunnels");
 
         recordBlindTunnel("copilot.tencent.com");
         recordBlindTunnel("copilot.tencent.com");
         recordBlindTunnel("relay.internal");
 
-        const health = (await (await fetch(`http://127.0.0.1:${port}/__bili/health`)).json()) as { blindTunnels: BlindTunnels };
+        const health = (await (await fetch(`http://127.0.0.1:${port}/__sophialin/health`)).json()) as { blindTunnels: BlindTunnels };
         assert.equal(health.blindTunnels.total, 3);
         assert.deepEqual(health.blindTunnels.hosts, { "copilot.tencent.com": 2, "relay.internal": 1 }, "real host names on the loopback-only endpoint");
 
-        const stats = (await (await fetch(`http://127.0.0.1:${port}/__bili/stats`)).json()) as { sessions: unknown[]; blindTunnels: BlindTunnels };
+        const stats = (await (await fetch(`http://127.0.0.1:${port}/__sophialin/stats`)).json()) as { sessions: unknown[]; blindTunnels: BlindTunnels };
         assert.ok(Array.isArray(stats.sessions), "sessions array still present");
         assert.equal(stats.blindTunnels.total, 3);
         assert.deepEqual(stats.blindTunnels.hosts, getBlindTunnelStats().hosts);

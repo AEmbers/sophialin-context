@@ -1,11 +1,11 @@
 // #964 claude native bootstrap — the SessionStart hook command written into
-// ~/.claude/settings.json by `bili plugin install claude`. Claude Code has no
+// ~/.claude/settings.json by `sophialin plugin install claude`. Claude Code has no
 // in-process extension point (hooks and MCP servers are child processes), so
 // the native posture is a documented hybrid:
 //
 //   1. the installer pins env.ANTHROPIC_BASE_URL to a STABLE loopback port
-//      (resolveClaudeNativePort: BILI_CLAUDE_NATIVE_PORT > config
-//      claude.nativePort > 48787) with a /bili/-wrapped upstream — full
+//      (resolveClaudeNativePort: SOPHIALIN_CLAUDE_NATIVE_PORT > config
+//      claude.nativePort > 48787) with a /sophialin/-wrapped upstream — full
 //      traffic visibility without MITM;
 //   2. THIS hook (fired before the first model request) makes sure a proxy
 //      is listening there: attach to a healthy compatible one, else spawn one
@@ -18,11 +18,11 @@
 //      x-claude-code-session-id on every request — the proxy's existing
 //      plugin-mode gating, #162/#268; zero new protocol surface).
 //
-// Opt-out BILI_NATIVE_CLAUDE=0 (or the global BILLION_CONTEXT_PLUGIN=0):
+// Opt-out SOPHIALIN_NATIVE_CLAUDE=0 (or the global SOPHIALIN_CONTEXT_PLUGIN=0):
 // the hook still answers the now-static URL — by spawning a PASSTHROUGH-mode
 // proxy on the same port (verbatim forward, compression off) so claude stays
 // fully functional (#964 Q2). A launch that already owns routing
-// (BILLION_CONTEXT_PROXY set — `bili claude` overrides the static URL with
+// (SOPHIALIN_CONTEXT_PROXY set — `sophialin claude` overrides the static URL with
 // its own ephemeral proxy) needs nothing: exit 0 immediately.
 //
 // The hook must NEVER fail claude: every error prints to stderr and exits 0.
@@ -45,18 +45,18 @@ function proxyScriptPath(): string {
 }
 
 function log(msg: string): void {
-    process.stderr.write(`[bili-claude-bootstrap] ${msg}\n`);
+    process.stderr.write(`[sophialin-claude-bootstrap] ${msg}\n`);
 }
 
 /** Pure decision (#964): what this hook does under the given environment.
  *  Exported for tests.
- *   - "exit": someone else owns routing (BILLION_CONTEXT_PROXY /
- *     BILI_PROVIDER_REWRITES) — spawn nothing.
- *   - "passthrough": opted out (BILI_NATIVE_CLAUDE=0 /
- *     BILLION_CONTEXT_PLUGIN=0) — serve the static URL verbatim-forward.
+ *   - "exit": someone else owns routing (SOPHIALIN_CONTEXT_PROXY /
+ *     SOPHIALIN_PROVIDER_REWRITES) — spawn nothing.
+ *   - "passthrough": opted out (SOPHIALIN_NATIVE_CLAUDE=0 /
+ *     SOPHIALIN_CONTEXT_PLUGIN=0) — serve the static URL verbatim-forward.
  *   - "start": bring up (or attach to) the compression proxy. */
 export function planClaudeNativeBootstrap(env: NodeJS.ProcessEnv): { action: "exit" | "passthrough" | "start"; port: number; strict: boolean } {
-    // #1660 zone semantics: an EXPLICIT override (BILI_CLAUDE_NATIVE_PORT /
+    // #1660 zone semantics: an EXPLICIT override (SOPHIALIN_CLAUDE_NATIVE_PORT /
     // claude.nativePort) keeps strict-port behavior (#964 — refuse a squatter
     // rather than serve through it); otherwise the claude lane's zone
     // preference (sticky record > 18787 base), with the proxy child's
@@ -65,8 +65,8 @@ export function planClaudeNativeBootstrap(env: NodeJS.ProcessEnv): { action: "ex
     const port = explicit ?? lanePreferredPort("claude", env);
     const strict = explicit !== undefined;
     if (proxyEnvOrigin(env) !== undefined) return { action: "exit", port, strict };
-    if (env.BILLION_CONTEXT_PLUGIN === "0" || env.BILI_NATIVE_CLAUDE === "0") return { action: "passthrough", port, strict };
-    if (!nativeBootstrapGate(env, "BILI_NATIVE_CLAUDE")) return { action: "exit", port, strict };
+    if (env.SOPHIALIN_CONTEXT_PLUGIN === "0" || env.SOPHIALIN_NATIVE_CLAUDE === "0") return { action: "passthrough", port, strict };
+    if (!nativeBootstrapGate(env, "SOPHIALIN_NATIVE_CLAUDE")) return { action: "exit", port, strict };
     return { action: "start", port, strict };
 }
 
@@ -351,18 +351,18 @@ async function run(): Promise<void> {
             log(`managed settings repin failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
         }
         if (handle.refusedWatcher) {
-            // #1322: attach landed on a daemon proxy (no BILI_PARENT_PID) whose
+            // #1322: attach landed on a daemon proxy (no SOPHIALIN_PARENT_PID) whose
             // watchdog refused our owner — the README's "lives and dies with the
             // session" contract is void here. Say so loudly instead of silently
             // serving a proxy that will outlive every session.
             log(
-                `WARNING: proxy at ${handle.origin} has NO session-lifecycle watchdog (it was started without BILI_PARENT_PID, e.g. manually on this port) — it will outlive every session, and config edits only apply after that process is restarted. Kill it or start a session-owned proxy to restore the lifecycle contract (#1322).`,
+                `WARNING: proxy at ${handle.origin} has NO session-lifecycle watchdog (it was started without SOPHIALIN_PARENT_PID, e.g. manually on this port) — it will outlive every session, and config edits only apply after that process is restarted. Kill it or start a session-owned proxy to restore the lifecycle contract (#1322).`,
             );
         }
     } catch (err) {
         log(
             `proxy bring-up failed on port ${plan.port} — ${err instanceof Error ? err.message : String(err)}` +
-                (plan.action === "start" ? ` — this port is NOT served by a session-managed proxy: model calls ride whatever answers there (an unmanaged or stale bili daemon has no lifecycle guarantees) or fail outright. Fix: kill the listener on this port or set BILI_CLAUDE_NATIVE_PORT, then reinstall (bili plugin install claude)` : ""),
+                (plan.action === "start" ? ` — this port is NOT served by a session-managed proxy: model calls ride whatever answers there (an unmanaged or stale sophialin daemon has no lifecycle guarantees) or fail outright. Fix: kill the listener on this port or set SOPHIALIN_CLAUDE_NATIVE_PORT, then reinstall (sophialin plugin install claude)` : ""),
         );
     }
 }

@@ -61,7 +61,7 @@ type ExtensionAPI = {
 
 function agentName(override: string | undefined): string {
     if (override) return override;
-    return process.env.BILLION_CONTEXT_PLUGIN_AGENT === "omp" ? "omp" : "pi";
+    return process.env.SOPHIALIN_CONTEXT_PLUGIN_AGENT === "omp" ? "omp" : "pi";
 }
 
 function proxyBaseForCtx(ctx: Ctx | undefined): string | undefined {
@@ -134,7 +134,7 @@ export function parentConversationIdOf(ctx: Ctx): string | undefined {
 // anthropic wire — excluding it meant the target shape was never stamped
 // (#268). The anthropic wire gets stamped too: the proxy records the mapping
 // from the body pck there as well and strips the field before forwarding to
-// the real Anthropic. pi is untouched (it stamps x-bili-plugin-conversation in
+// the real Anthropic. pi is untouched (it stamps x-sophialin-plugin-conversation in
 // before_provider_headers, which outranks the body field).
 // #1403: stamp ONLY when the destination will actually be seen by the proxy —
 // the pck's sole consumer is the proxy itself (identity bind + strip-before-
@@ -149,11 +149,11 @@ export function stampPromptCacheKey(event: unknown, ctx: Ctx, agent: string): Re
     if (!destinationRoutedThroughProxy(ctx.model?.baseUrl)) {
         // #1579: native omp mode routes at the FETCH layer — the model
         // baseUrl stays the real upstream, so the launcher-shaped checks
-        // (a /bili/-wrapped URL, the BILLION_CONTEXT_PROXY origin, the MITM
+        // (a /sophialin/-wrapped URL, the SOPHIALIN_CONTEXT_PROXY origin, the MITM
         // whitelist) can never match and #1403's gate silently killed the
         // identity stamp for EVERY native session. Mirror the interceptor's
         // own predicate instead: when the native intercept is installed it
-        // WILL rewrite any isModelApiUrl request URL to <proxy>/bili/<url>.
+        // WILL rewrite any isModelApiUrl request URL to <proxy>/sophialin/<url>.
         // The interceptor judges the FULL request URL while ctx carries only
         // the baseUrl prefix (".../v1" — not suffix-matched by itself), so
         // probe both the bare baseUrl and its natural chat-completions
@@ -162,7 +162,7 @@ export function stampPromptCacheKey(event: unknown, ctx: Ctx, agent: string): Re
         // rewrite keeps #1403's guarantee — never stamp where the proxy
         // cannot see it. The install flag alone is not routing evidence — it
         // outlives routing (failed bootstrap, or proxy death + respawn
-        // give-up: onGiveUp clears BILLION_CONTEXT_PROXY but not the flag),
+        // give-up: onGiveUp clears SOPHIALIN_CONTEXT_PROXY but not the flag),
         // and an un-routed stamped request rides verbatim into strict-schema
         // upstreams (#1403's 400). Live claim = same env-keyed signal
         // ownsCompaction / registerTools / runtime-info use; bootstrap
@@ -231,20 +231,20 @@ function manifestToTool(proxyBase: string, tool: ManifestTool, agent: string): T
                 const output = await forwardTool(proxyBase, conversationId, tool.name, params, signal);
                 return { content: [{ type: "text", text: output }] };
             } catch (err) {
-                return { content: [{ type: "text", text: `bili tool error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+                return { content: [{ type: "text", text: `sophialin tool error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
             }
         },
     };
 }
 
 function parseProviderRewrites(env: NodeJS.ProcessEnv): Record<string, string> | undefined {
-    const raw = env.BILI_PROVIDER_REWRITES;
+    const raw = env.SOPHIALIN_PROVIDER_REWRITES;
     if (raw === undefined || raw.trim().length === 0) return undefined;
     let parsed: unknown;
     try {
         parsed = JSON.parse(raw);
     } catch {
-        console.error("bili-plugin: BILI_PROVIDER_REWRITES is not valid JSON — provider URLs left untouched");
+        console.error("sophialin-plugin: SOPHIALIN_PROVIDER_REWRITES is not valid JSON — provider URLs left untouched");
         return undefined;
     }
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
@@ -261,11 +261,11 @@ function parseProviderRewrites(env: NodeJS.ProcessEnv): Record<string, string> |
 // in-process instead), so offer both exits instead of assuming proxy intent.
 function noProxyWarning(agent: string): string {
     const removeHint = agent === "pi"
-        ? ", or remove this plugin (`bili plugin remove pi`) if you use billion-context-pi or don't want a proxy"
+        ? ", or remove this plugin (`sophialin plugin remove pi`) if you use billion-context-pi or don't want a proxy"
         : agent === "omp"
-            ? ", or remove this plugin (`bili plugin remove omp`) if you don't want a proxy"
+            ? ", or remove this plugin (`sophialin plugin remove omp`) if you don't want a proxy"
             : "";
-    return `bili: no proxy detected — run via \`bili ${agent}\` (or set a /bili/ baseURL) to use proxy mode${removeHint}`;
+    return `sophialin: no proxy detected — run via \`sophialin ${agent}\` (or set a /sophialin/ baseURL) to use proxy mode${removeHint}`;
 }
 
 const RETRY_INTERVAL_MS = 10000;
@@ -298,7 +298,7 @@ async function registerTools(pi: ExtensionAPI, ctx: Ctx, state: RegisterState, a
                 tools = await fetchManifest(proxyBase);
             } catch (err) {
                 state.retryAt = Date.now() + wait;
-                console.error(`bili-plugin(${agent}): manifest fetch failed: ${err instanceof Error ? err.message : String(err)} — retrying in ${wait / 1000}s`);
+                console.error(`sophialin-plugin(${agent}): manifest fetch failed: ${err instanceof Error ? err.message : String(err)} — retrying in ${wait / 1000}s`);
                 return;
             }
         }
@@ -317,7 +317,7 @@ async function registerTools(pi: ExtensionAPI, ctx: Ctx, state: RegisterState, a
             // conversation so the proxy can record a read-only inheritance
             // link (decompress/search_context fall back to the parent chain —
             // no state is copied). Plain pi sessions never identity-register:
-            // their plugin-mode binding rides the x-bili-plugin-conversation
+            // their plugin-mode binding rides the x-sophialin-plugin-conversation
             // header stamped per request below, so the extra register only
             // fires when derivation is actually declared. omp ALWAYS registers
             // (its wire carries no other conversation signal), so it reports
@@ -334,7 +334,7 @@ async function registerTools(pi: ExtensionAPI, ctx: Ctx, state: RegisterState, a
                     // wire mode forever (the early return above blocks every
                     // retry).
                     state.retryAt = Date.now() + wait;
-                    console.error(`bili-plugin(${agent}): identity register failed (${err instanceof Error ? err.message : String(err)}) — retrying in ${wait / 1000}s`);
+                    console.error(`sophialin-plugin(${agent}): identity register failed (${err instanceof Error ? err.message : String(err)}) — retrying in ${wait / 1000}s`);
                     return;
                 }
             }
@@ -343,7 +343,7 @@ async function registerTools(pi: ExtensionAPI, ctx: Ctx, state: RegisterState, a
             state.sid = undefined;
             state.toolsFor = undefined;
             state.retryAt = Date.now() + wait;
-            console.error(`bili-plugin(${agent}): tool registration deferred (${err instanceof Error ? err.message : String(err)}) — retrying in ${wait / 1000}s`);
+            console.error(`sophialin-plugin(${agent}): tool registration deferred (${err instanceof Error ? err.message : String(err)}) — retrying in ${wait / 1000}s`);
         }
     })();
     try {
@@ -354,7 +354,7 @@ async function registerTools(pi: ExtensionAPI, ctx: Ctx, state: RegisterState, a
 }
 
 export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalMs?: number }): (pi: ExtensionAPI) => void {
-    return function biliPlugin(pi: ExtensionAPI): void {
+    return function sophialinPlugin(pi: ExtensionAPI): void {
         const agent = agentName(agentOverride);
         const state: RegisterState = { retryIntervalMs: opts?.retryIntervalMs ?? RETRY_INTERVAL_MS };
         // #1217: -p single-shot fires round 1 before session_start's manifest
@@ -362,7 +362,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
         // proxy-mode session. Prime the fetch at load time: the launcher
         // health-checks the proxy before spawning pi, so by session_start the
         // prime has almost always settled and toolsReady flips in microtasks
-        // — ahead of round 1. Native mode (#519) sets BILLION_CONTEXT_PROXY
+        // — ahead of round 1. Native mode (#519) sets SOPHIALIN_CONTEXT_PROXY
         // only after async bootstrap, so no prime exists there and round 1
         // stays on wire mode (residual; the host would have to await us).
         const primeBase = detectProxyBase(undefined);
@@ -376,8 +376,8 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
         const rewrites = parseProviderRewrites(process.env);
         if (rewrites !== undefined && typeof pi.registerProvider !== "function") {
             console.error(
-                "bili-plugin: BILI_PROVIDER_REWRITES is set but this pi build has no registerProvider API — " +
-                    "provider traffic goes DIRECT (uncompressed). Update pi, or reinstall the bili plugin: `bili plugin install pi`.",
+                "sophialin-plugin: SOPHIALIN_PROVIDER_REWRITES is set but this pi build has no registerProvider API — " +
+                    "provider traffic goes DIRECT (uncompressed). Update pi, or reinstall the sophialin plugin: `sophialin plugin install pi`.",
             );
         }
         if (rewrites !== undefined && typeof pi.registerProvider === "function") {
@@ -385,12 +385,12 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
                 try {
                     pi.registerProvider(key, { baseUrl: url });
                 } catch (err) {
-                    console.error(`bili-plugin: registerProvider(${key}) failed: ${err instanceof Error ? err.message : String(err)} — traffic for this provider goes direct`);
+                    console.error(`sophialin-plugin: registerProvider(${key}) failed: ${err instanceof Error ? err.message : String(err)} — traffic for this provider goes direct`);
                 }
             }
         }
         // #535: cancel the host's NATIVE compaction so its summarizer never
-        // fires alongside bili's ACP compression — the in-extension
+        // fires alongside sophialin's ACP compression — the in-extension
         // replacement for the old compaction-off config injection. pi's event
         // carries `reason`: cancel only threshold + overflow so manual
         // /compact stays user-owned. omp (#851): session_before_compact
@@ -405,13 +405,13 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
         // blocks on session_compact (#395).
         // Whether we own compression is decided at EVENT time, not load time:
         // in native mode (#519) the proxy origin lands in
-        // BILLION_CONTEXT_PROXY only after the async bootstrap finishes, so a
+        // SOPHIALIN_CONTEXT_PROXY only after the async bootstrap finishes, so a
         // load-time check would leave the cancel disarmed for the whole
         // session. Plain pi/omp with the plugin installed but NO reachable
         // proxy (incl. a failed bootstrap) stays fully native.
         // #1382: a proxy EXISTING is not enough — the evidence must be that
         // THIS conversation's traffic reaches it. Native mode sets
-        // BILLION_CONTEXT_PROXY for the whole process, but extension-provided
+        // SOPHIALIN_CONTEXT_PROXY for the whole process, but extension-provided
         // models like pi-claude-bridge run their own child processes (the
         // model's baseUrl is literally "claude-bridge") and call upstream
         // directly: the fetch intercept never sees those requests, so the
@@ -420,11 +420,11 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
         // takes over Pi's in its own session_before_compact handler, which
         // never runs once an earlier handler returned cancel. Accepted
         // evidence, in order: (1) local — we stamped
-        // x-bili-plugin-conversation for this session id (tools registered
+        // x-sophialin-plugin-conversation for this session id (tools registered
         // AND a request routed through the proxy), or omp's identity register
         // succeeded; (2) remote — the proxy confirms it carries the
-        // conversation id (/__bili/plugin/status ok). A non-http(s) baseUrl
-        // vetoes by default (opt-in via BILI_NON_HTTP_PROVIDERS below only
+        // conversation id (/__sophialin/plugin/status ok). A non-http(s) baseUrl
+        // vetoes by default (opt-in via SOPHIALIN_NON_HTTP_PROVIDERS below only
         // widens the candidate set; carriage evidence still decides). Hosts
         // exposing no stable session id keep the
         // historical cancel (the proxy may carry them under a derived
@@ -441,7 +441,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
             if (typeof baseUrl === "string" && baseUrl.length > 0 && !/^https?:\/\//i.test(baseUrl)) {
                 // #1392: an opaque-scheme baseUrl (e.g. pi-claude-bridge's "claude-bridge")
                 // vetoes compaction ownership UNLESS its provider is explicitly opted in via
-                // BILI_NON_HTTP_PROVIDERS. Opt-in only widens the candidate set — the carriage
+                // SOPHIALIN_NON_HTTP_PROVIDERS. Opt-in only widens the candidate set — the carriage
                 // evidence below (carriedSids / status probe) still decides, so unrouted traffic
                 // never cancels and #1382 cannot recur for a newly-opted-in provider class.
                 const provider = ctx?.model?.provider;
@@ -453,7 +453,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
             try {
                 return (await fetchStatus(proxyBase, sid)) !== undefined;
             } catch (err) {
-                console.error(`bili-plugin(${agent}): compaction ownership probe failed (${err instanceof Error ? err.message : String(err)}) — leaving native compaction enabled`);
+                console.error(`sophialin-plugin(${agent}): compaction ownership probe failed (${err instanceof Error ? err.message : String(err)}) — leaving native compaction enabled`);
                 return false;
             }
         };
@@ -504,10 +504,10 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
                 try {
                     const switched = await pi.setModel?.({ ...model, baseUrl: rewritten });
                     if (switched === false) {
-                        console.error(`bili-plugin: omp setModel(${provider}/${String(model.id)}) rejected (no API key) — traffic for this provider goes direct`);
+                        console.error(`sophialin-plugin: omp setModel(${provider}/${String(model.id)}) rejected (no API key) — traffic for this provider goes direct`);
                     }
                 } catch (err) {
-                    console.error(`bili-plugin: omp setModel failed: ${err instanceof Error ? err.message : String(err)} — traffic goes direct`);
+                    console.error(`sophialin-plugin: omp setModel failed: ${err instanceof Error ? err.message : String(err)} — traffic goes direct`);
                 }
             };
             pi.on("session_start", (_event, ctx) => repin(ctx));
@@ -534,7 +534,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
                     try {
                         status = await fetchStatus(proxyBase, conversationId);
                     } catch (err) {
-                        notify(`bili: status fetch failed: ${err instanceof Error ? err.message : String(err)}`, "error");
+                        notify(`sophialin: status fetch failed: ${err instanceof Error ? err.message : String(err)}`, "error");
                         return;
                     }
                     if (status === undefined) {
@@ -564,10 +564,10 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
                     // sendMessage (older pi).
                     if (typeof pi.sendMessage === "function") {
                         try {
-                            pi.sendMessage({ customType: "bili-acp-status", content: text, display: true });
+                            pi.sendMessage({ customType: "sophialin-acp-status", content: text, display: true });
                             return;
                         } catch (err) {
-                            console.error(`bili-plugin(${agent}): sendMessage failed (${err instanceof Error ? err.message : String(err)}) — falling back to notify`);
+                            console.error(`sophialin-plugin(${agent}): sendMessage failed (${err instanceof Error ? err.message : String(err)}) — falling back to notify`);
                         }
                     }
                     notify(text, "info");
@@ -598,7 +598,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
                     try {
                         text = await forwardTool(proxyBase, conversationId, "acp_cache", toolArgs);
                     } catch (err) {
-                        notify(`bili: cache report failed: ${err instanceof Error ? err.message : String(err)}`, "error");
+                        notify(`sophialin: cache report failed: ${err instanceof Error ? err.message : String(err)}`, "error");
                         return;
                     }
                     // Persistent transcript output (TUI + web hosts like pi-web). The proxy strips
@@ -607,10 +607,10 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
                     // for hosts without sendMessage (older pi).
                     if (typeof pi.sendMessage === "function") {
                         try {
-                            pi.sendMessage({ customType: "bili-acp-cache", content: wrapCacheReport(text), display: true });
+                            pi.sendMessage({ customType: "sophialin-acp-cache", content: wrapCacheReport(text), display: true });
                             return;
                         } catch (err) {
-                            console.error(`bili-plugin(${agent}): sendMessage failed (${err instanceof Error ? err.message : String(err)}) — falling back to notify`);
+                            console.error(`sophialin-plugin(${agent}): sendMessage failed (${err instanceof Error ? err.message : String(err)}) — falling back to notify`);
                         }
                     }
                     notify(text, "info");
@@ -659,14 +659,14 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
                     try {
                         text = await forwardTool(proxyBase, conversationId, "acp_rule", toolArgs);
                     } catch (err) {
-                        notify(`bili: acp_rule failed: ${err instanceof Error ? err.message : String(err)}`, "error");
+                        notify(`sophialin: acp_rule failed: ${err instanceof Error ? err.message : String(err)}`, "error");
                         return;
                     }
                     // #1192 note channel (disabledOptionalToolNote): the feature is off in
                     // this session's effective config — surface the enablement hint instead
                     // of echoing the model-facing note into the transcript.
                     if (text.startsWith("acp_rule is not enabled")) {
-                        notify("bili: acp_rule is not enabled on this bili proxy — set compress.rules.enabled: true in your bili config", "warning");
+                        notify("sophialin: acp_rule is not enabled on this sophialin proxy — set compress.rules.enabled: true in your sophialin config", "warning");
                         return;
                     }
                     // Persistent transcript output (TUI + web hosts like pi-web). The proxy strips
@@ -675,10 +675,10 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
                     // for hosts without sendMessage (older pi).
                     if (typeof pi.sendMessage === "function") {
                         try {
-                            pi.sendMessage({ customType: "bili-acp-rule", content: wrapRuleReport(text), display: true });
+                            pi.sendMessage({ customType: "sophialin-acp-rule", content: wrapRuleReport(text), display: true });
                             return;
                         } catch (err) {
-                            console.error(`bili-plugin(${agent}): sendMessage failed (${err instanceof Error ? err.message : String(err)}) — falling back to notify`);
+                            console.error(`sophialin-plugin(${agent}): sendMessage failed (${err instanceof Error ? err.message : String(err)}) — falling back to notify`);
                         }
                     }
                     notify(text, "info");
@@ -688,7 +688,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
         pi.on("before_provider_headers", async (event, ctx) => {
             try {
                 // #1243: on the native lane the proxy origin lands via an async
-                // bootstrap that writes BILLION_CONTEXT_PROXY only after the spawn;
+                // bootstrap that writes SOPHIALIN_CONTEXT_PROXY only after the spawn;
                 // a one-shot (-p) fires this event exactly once, inside that
                 // window. Await the writer's ready promise instead of racing it —
                 // hosts without a native entry register no waiter and fall
@@ -709,47 +709,47 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
                 try {
                     await registerTools(pi, ctx, state, agent);
                 } catch (err) {
-                    console.error(`bili-plugin(${agent}): tool registration failed (${err instanceof Error ? err.message : String(err)}) — riding wire mode for this request`);
+                    console.error(`sophialin-plugin(${agent}): tool registration failed (${err instanceof Error ? err.message : String(err)}) — riding wire mode for this request`);
                 }
-                // The x-bili-plugin marker tells the proxy "the client owns the
+                // The x-sophialin-plugin marker tells the proxy "the client owns the
                 // ACP tools natively — skip wire-level injection". Ownership is
                 // claimed only once tools are registered (#162). In launcher mode
                 // the manifest fetch is primed at extension load time (#1217), so
                 // by round 1 registration has almost always completed.
                 if (state.toolsReady === true) {
                     const sid = sessionIdOf(ctx);
-                    if (sid !== undefined) headers["x-bili-plugin-conversation"] = sid;
+                    if (sid !== undefined) headers["x-sophialin-plugin-conversation"] = sid;
                     if (sid !== undefined && sid.length > 0) {
                         state.carriedSids ??= new Set();
                         state.carriedSids.add(sid);
                     }
-                    headers["x-bili-plugin"] = agent;
+                    headers["x-sophialin-plugin"] = agent;
                     const window = ctx.model?.contextWindow;
                     if (typeof window === "number" && Number.isFinite(window) && window > 0) {
-                        headers["x-bili-plugin-context-window"] = String(Math.floor(window));
+                        headers["x-sophialin-plugin-context-window"] = String(Math.floor(window));
                     }
                     // Runtime-info (#955): model id + configured max output.
                     // pi's model config exposes id / contextWindow / baseUrl;
                     // maxTokens lives on the model object when configured.
                     const modelId = ctx.model?.id;
                     if (typeof modelId === "string" && modelId.length > 0) {
-                        headers["x-bili-plugin-model"] = modelId;
+                        headers["x-sophialin-plugin-model"] = modelId;
                         const maxOut = (ctx.model as { maxTokens?: unknown } | undefined)?.maxTokens;
-                        if (typeof maxOut === "number" && Number.isFinite(maxOut) && maxOut > 0) headers["x-bili-plugin-max-output"] = String(Math.floor(maxOut));
+                        if (typeof maxOut === "number" && Number.isFinite(maxOut) && maxOut > 0) headers["x-sophialin-plugin-max-output"] = String(Math.floor(maxOut));
                         reportRuntimeInfoOnChange(proxyBase, { agent, model: modelId, contextWindow: typeof window === "number" && window > 0 ? Math.floor(window) : undefined, maxOutput: typeof maxOut === "number" && maxOut > 0 ? Math.floor(maxOut) : undefined, baseURL: ctx.model?.baseUrl, source: "client-config" });
                     }
                 }
             } catch (err) {
-                console.error(`bili-plugin(${agent}): header stamp skipped (${err instanceof Error ? err.message : String(err)})`);
+                console.error(`sophialin-plugin(${agent}): header stamp skipped (${err instanceof Error ? err.message : String(err)})`);
             }
         });
         // omp never emits before_provider_headers — where pi stamps the
-        // x-bili-plugin-* headers and reports runtime info (#955) — so omp's
+        // x-sophialin-plugin-* headers and reports runtime info (#955) — so omp's
         // report rides this per-request event instead: POST only, deduped per
         // config change, gated on toolsReady like pi's header path (ownership
         // claim = ACP tools registered; round 1 rides wire mode). #1531: the
         // report carries the session id as conversationId and is AWAITED
-        // before the request dispatches — omp sends no x-bili-plugin header,
+        // before the request dispatches — omp sends no x-sophialin-plugin header,
         // so the proxy resolves this report by the prompt_cache_key identity
         // stamped below, and the first request must not outrun its own
         // report. Worst hold = native-origin wait (bounded by the bootstrap
@@ -759,7 +759,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
             if (state.toolsReady !== true) return;
             const modelId = ctx.model?.id;
             if (typeof modelId !== "string" || modelId.length === 0) return;
-            // #1243 pattern: native bootstrap writes BILLION_CONTEXT_PROXY
+            // #1243 pattern: native bootstrap writes SOPHIALIN_CONTEXT_PROXY
             // asynchronously — await the writer instead of racing it.
             let proxyBase = proxyBaseForCtx(ctx);
             if (proxyBase === undefined) proxyBase = await awaitNativeProxyOrigin();
@@ -787,7 +787,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
             try {
                 await registerTools(pi, ctx, state, agent);
             } catch (err) {
-                console.error(`bili-plugin(${agent}): tool registration failed (${err instanceof Error ? err.message : String(err)}) — riding wire mode for this request`);
+                console.error(`sophialin-plugin(${agent}): tool registration failed (${err instanceof Error ? err.message : String(err)}) — riding wire mode for this request`);
             }
             if (agent === "omp") {
                 // #1531: awaited so the report lands BEFORE this request's
@@ -795,7 +795,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
                 try {
                     await reportOmpRuntimeInfo(ctx);
                 } catch (err) {
-                    console.error(`bili-plugin(omp): runtime-info report failed (${err instanceof Error ? err.message : String(err)}) — riding legacy window resolution`);
+                    console.error(`sophialin-plugin(omp): runtime-info report failed (${err instanceof Error ? err.message : String(err)}) — riding legacy window resolution`);
                 }
             }
             return stampPromptCacheKey(event, ctx, agent);
@@ -810,7 +810,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
             // per-event handlers below get a fresh ctx each time and are the
             // ones that await the origin (#1243 pattern); launcher mode is
             // unaffected (its base resolves synchronously).
-            void registerTools(pi, ctx, state, agent, false).catch((err: unknown) => console.error(`bili-plugin(${agent}): ${err instanceof Error ? err.message : String(err)}`));
+            void registerTools(pi, ctx, state, agent, false).catch((err: unknown) => console.error(`sophialin-plugin(${agent}): ${err instanceof Error ? err.message : String(err)}`));
         });
         // omp fires session_compact on in-session native compaction (sid does
         // not rotate), so the proxy reuses stale state — notify it to archive
@@ -821,7 +821,7 @@ export function createBiliPlugin(agentOverride?: string, opts?: { retryIntervalM
             if (proxyBase === undefined) return;
             const sid = sessionIdOf(ctx);
             if (sid === undefined || sid.length === 0) return;
-            fetch(`${proxyBase}/__bili/plugin/compact`, {
+            fetch(`${proxyBase}/__sophialin/plugin/compact`, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ conversationId: sid }),

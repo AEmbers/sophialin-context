@@ -79,7 +79,7 @@ async function startRig(): Promise<Rig> {
         new Promise((resolve, reject) => s.close((e) => (e ? reject(e) : resolve())));
     return {
         proxyUrl: (path) => `http://127.0.0.1:${proxyPort}${path}`,
-        messagesUrl: () => `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`,
+        messagesUrl: () => `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`,
         closeAll: async () => {
             await closeOne(proxy);
             await closeOne(upstream);
@@ -96,7 +96,7 @@ function postMessages(rig: Rig, headers: Record<string, string>): Promise<Respon
 }
 
 async function status(rig: Rig, conversationId: string): Promise<{ ok: boolean }> {
-    const res = await fetch(rig.proxyUrl(`/__bili/plugin/status?conversationId=${encodeURIComponent(conversationId)}`));
+    const res = await fetch(rig.proxyUrl(`/__sophialin/plugin/status?conversationId=${encodeURIComponent(conversationId)}`));
     return (await res.json()) as { ok: boolean };
 }
 

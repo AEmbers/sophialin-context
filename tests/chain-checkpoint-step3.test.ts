@@ -22,7 +22,7 @@ import {
 /** #1421 (step 3 of #1395): generation + enforcement. Pins the three per-wire
  *  stamp shapes the owner approved (google merge mandatory / anthropic merge /
  *  openai+responses append), the must-fail case (the pre-fix google append
- *  shape dies inside bili's OWN pipeline via coreToGoogle's alternation
+ *  shape dies inside sophialin's OWN pipeline via coreToGoogle's alternation
  *  fusion), the round-trip invariant on every wire × trailing shape, and the
  *  enforcement behavior through a real proxy (valid/recent-mismatch/stale-
  *  matched forward verbatim; stale-unmatched strips + processes; every
@@ -33,7 +33,7 @@ const R = "\x3e";
 const T0 = 1_758_864_000_000;
 const MIN = 60 * 1000;
 const GOOD_DIGEST = "sha256:" + "ab".repeat(32);
-const FIELDS = { v: 1, processor: "bili-a", issuedAt: T0, requestId: "req-1" };
+const FIELDS = { v: 1, processor: "sophialin-a", issuedAt: T0, requestId: "req-1" };
 
 function tag(over: Partial<typeof FIELDS> & { digest?: string } = {}): string {
     return renderChainCheckpoint({ ...FIELDS, digest: GOOD_DIGEST, ...over });
@@ -79,7 +79,7 @@ test("stamp shape: openai/responses keep the standalone trailing user entry", ()
 
 test("restamp replaces the trailing carrier instead of stacking (all wires)", () => {
     const t1 = tag();
-    const t2 = tag({ processor: "bili-b", requestId: "req-2" });
+    const t2 = tag({ processor: "sophialin-b", requestId: "req-2" });
     const bases: [WireProtocol, unknown][] = [
         ["openai", { model: "m", messages: [{ role: "user", content: "hi" }] }],
         ["anthropic", { model: "m", messages: [{ role: "user", content: "hi" }] }],
@@ -91,7 +91,7 @@ test("restamp replaces the trailing carrier instead of stacking (all wires)", ()
         const twice = insertCheckpointCarrier(onceStamped, wire, t2)!;
         const cands = extractChainCarriers(twice, wire).candidates;
         assert.equal(cands.length, 1, `${wire}: restamp must not stack`);
-        assert.equal(cands[0]!.processor, "bili-b");
+        assert.equal(cands[0]!.processor, "sophialin-b");
     }
 });
 
@@ -121,14 +121,14 @@ test("recognition: anthropic last-part / google any-part are carriers; mid-posit
     assert.deepEqual(f.stripped, { contents: [{ role: "model", parts: [{ text: "a" }] }] });
     f = extractChainCarriers({ contents: [{ role: "user", parts: [{ text: t, thoughtSignature: "s" }] }] }, "google");
     assert.equal(f.candidates.length, 0, "google: extra field on the part disqualifies");
-    f = extractChainCarriers({ model: "m", messages: [{ role: "user", content: [{ type: "text", text: L + "bili-chain broken" + R }] }] }, "anthropic");
+    f = extractChainCarriers({ model: "m", messages: [{ role: "user", content: [{ type: "text", text: L + "sophialin-chain broken" + R }] }] }, "anthropic");
     assert.equal(f.malformed, 1);
 });
 
 // ---------- must-fail: the pre-fix shape inside our own pipeline ----------
 
-test("must-fail: the pre-#1421 google append shape loses the carrier through bili's own coreToGoogle", () => {
-    // bili rebuilds google bodies via coreToGoogle on every processed request;
+test("must-fail: the pre-#1421 google append shape loses the carrier through sophialin's own coreToGoogle", () => {
+    // sophialin rebuilds google bodies via coreToGoogle on every processed request;
     // it enforces Gemini's strict alternation by FUSING consecutive same-side
     // runs into one content. A standalone appended user content (the old stamp
     // shape) therefore arrives fused into the preceding user content's parts —
@@ -288,7 +288,7 @@ const BASE_BODY = {
 
 test("#1421 E1: valid checkpoint → forwarded byte-identical, pipeline skipped", async () => {
     await withRig(async ({ port, logs, captured }) => {
-        const sentJson = JSON.stringify(stampOutbound(BASE_BODY, "openai", "upstream-bili", Date.now() - 5_000)!);
+        const sentJson = JSON.stringify(stampOutbound(BASE_BODY, "openai", "upstream-sophialin", Date.now() - 5_000)!);
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "chain-step3-valid" },
@@ -309,7 +309,7 @@ test("#1421 E1: valid checkpoint → forwarded byte-identical, pipeline skipped"
 
 test("#1421 E2: recent-mismatch → interop: forwarded byte-identical + warn", async () => {
     await withRig(async ({ port, logs, captured }) => {
-        const stamped = stampOutbound(BASE_BODY, "openai", "other-bili", Date.now() - 5_000)!;
+        const stamped = stampOutbound(BASE_BODY, "openai", "other-sophialin", Date.now() - 5_000)!;
         const sentJson = JSON.stringify(stamped).replace(/sha256:[0-9a-f]{64}/, "sha256:" + "cd".repeat(32));
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
             method: "POST",
@@ -330,7 +330,7 @@ test("#1421 E2: recent-mismatch → interop: forwarded byte-identical + warn", a
 
 test("#1421 E3: stale-unmatched → stripped, processed normally, re-stamped on egress", async () => {
     await withRig(async ({ port, logs, captured }) => {
-        const staleTagged = insertCheckpointCarrier(BASE_BODY, "openai", renderChainCheckpoint({ v: 1, processor: "old-bili", issuedAt: Date.now() - 11 * MIN, requestId: "r-old", digest: "sha256:" + "cd".repeat(32) }))!;
+        const staleTagged = insertCheckpointCarrier(BASE_BODY, "openai", renderChainCheckpoint({ v: 1, processor: "old-sophialin", issuedAt: Date.now() - 11 * MIN, requestId: "r-old", digest: "sha256:" + "cd".repeat(32) }))!;
         const sentJson = JSON.stringify(staleTagged);
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
             method: "POST",
@@ -348,7 +348,7 @@ test("#1421 E3: stale-unmatched → stripped, processed normally, re-stamped on 
         const outParsed = JSON.parse(captured[0]!.body);
         const outCtx = evaluateChain(outParsed, "openai");
         assert.equal(outCtx.verdict, "valid", "outbound carries this instance's fresh self-verifying stamp");
-        assert.notEqual(outCtx.selected?.processor, "old-bili");
+        assert.notEqual(outCtx.selected?.processor, "old-sophialin");
         assert.equal(extractChainCarriers(outParsed, "openai").candidates.length, 1, "stale carrier stripped, not stacked");
     }, { chainEgressStamp: true });
 });
@@ -366,7 +366,7 @@ test("#1421 E4: plain request → processed AND outbound carries a self-verifyin
         assert.equal(logs.filter((l) => l.msg.includes("[chain]")).length, 0, "no inbound checkpoint, no [chain] log");
         assert.equal(captured.length, 1);
         assert.ok(captured[0]!.body.includes('"compress"'));
-        assert.ok(captured[0]!.body.includes(L + "bili-chain "), "outbound stamped");
+        assert.ok(captured[0]!.body.includes(L + "sophialin-chain "), "outbound stamped");
         const outParsed = JSON.parse(captured[0]!.body);
         const outCtx = evaluateChain(outParsed, "openai");
         assert.equal(outCtx.verdict, "valid", "self-verifying stamp");
@@ -376,7 +376,7 @@ test("#1421 E4: plain request → processed AND outbound carries a self-verifyin
 
 test("#1421 E5: kill switch disables both enforcement and outbound stamping", async () => {
     await withRig(async ({ port, logs, captured }) => {
-        const sentJson = JSON.stringify(stampOutbound(BASE_BODY, "openai", "upstream-bili", Date.now() - 5_000)!);
+        const sentJson = JSON.stringify(stampOutbound(BASE_BODY, "openai", "upstream-sophialin", Date.now() - 5_000)!);
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "chain-step3-off" },
@@ -387,7 +387,7 @@ test("#1421 E5: kill switch disables both enforcement and outbound stamping", as
         assert.equal(logs.filter((l) => l.msg.includes("[chain]")).length, 0, "no detection at all");
         assert.equal(captured.length, 1);
         assert.ok(captured[0]!.body.includes('"compress"'), "still processes despite the valid checkpoint");
-        assert.ok(captured[0]!.body.split(L + "bili-chain ").length - 1 <= 1, "no fresh outbound stamp added");
+        assert.ok(captured[0]!.body.split(L + "sophialin-chain ").length - 1 <= 1, "no fresh outbound stamp added");
     }, { chainContentDetection: false });
 });
 
@@ -402,7 +402,7 @@ test("#1421 E7: side request (max_tokens<=200) bypasses the kernel and is NOT st
         assert.equal(resp.status, 200);
         await resp.text();
         assert.equal(captured.length, 1);
-        assert.ok(!captured[0]!.body.includes(L + "bili-chain "), "no kernel pass → no processing claim");
+        assert.ok(!captured[0]!.body.includes(L + "sophialin-chain "), "no kernel pass → no processing claim");
     });
 });
 
@@ -422,12 +422,12 @@ test("#1421 E6: google wire — plain request leaves a MERGED stamp (one user co
         assert.equal(out.contents.length, 1, "no appended second user content (alternation-safe merged stamp)");
         assert.equal(out.contents[0]!.role, "user");
         const parts = out.contents[0]!.parts;
-        const tagParts = parts.filter((p) => typeof p.text === "string" && p.text.startsWith(L + "bili-chain "));
+        const tagParts = parts.filter((p) => typeof p.text === "string" && p.text.startsWith(L + "sophialin-chain "));
         assert.equal(tagParts.length, 1);
         assert.equal(parts[parts.length - 1].text, tagParts[0]!.text, "tag is the trailing part of the single user content");
         assert.equal(evaluateChain(out, "google").verdict, "valid");
 
-        const sent2 = JSON.stringify(stampOutbound(gBody, "google", "upstream-bili", Date.now() - 5_000)!);
+        const sent2 = JSON.stringify(stampOutbound(gBody, "google", "upstream-sophialin", Date.now() - 5_000)!);
         const resp2 = await fetch(url, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "chain-step3-google2" },

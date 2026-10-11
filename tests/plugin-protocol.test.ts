@@ -164,13 +164,13 @@ async function callPluginAnthropic(
     messages: AnthropicMessage[],
     opts: { tools?: unknown[]; stream?: boolean; contextWindow?: number } = {},
 ): Promise<{ raw: string; events: SseEvent[]; json: Record<string, unknown> | undefined }> {
-    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/bili/http://127.0.0.1:${h.upstreamPort}/v1/messages`, {
+    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/sophialin/http://127.0.0.1:${h.upstreamPort}/v1/messages`, {
         method: "POST",
         headers: {
             "content-type": "application/json",
-            "x-bili-plugin": "pi-plugin/0.0.1",
-            "x-bili-plugin-conversation": conversationId,
-            ...(opts.contextWindow !== undefined ? { "x-bili-plugin-context-window": String(opts.contextWindow) } : {}),
+            "x-sophialin-plugin": "pi-plugin/0.0.1",
+            "x-sophialin-plugin-conversation": conversationId,
+            ...(opts.contextWindow !== undefined ? { "x-sophialin-plugin-context-window": String(opts.contextWindow) } : {}),
         },
         body: JSON.stringify({
             model: "claude-test",
@@ -194,7 +194,7 @@ async function callPluginAnthropic(
 }
 
 async function claudeIdentityRequest(h: Harness, sessionId: string, messages: AnthropicMessage[]): Promise<number> {
-    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/bili/http://127.0.0.1:${h.upstreamPort}/v1/messages`, {
+    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/sophialin/http://127.0.0.1:${h.upstreamPort}/v1/messages`, {
         method: "POST",
         headers: {
             "content-type": "application/json",
@@ -215,7 +215,7 @@ async function claudeIdentityRequest(h: Harness, sessionId: string, messages: An
 test("plugin manifest serves the exact wire tool schemas, headers and version", async () => {
     const h = await startHarness([textScript()]);
     try {
-        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/manifest`);
+        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/manifest`);
         assert.equal(resp.status, 200);
         const manifest = (await resp.json()) as {
             ok: boolean;
@@ -251,9 +251,9 @@ test("plugin manifest serves the exact wire tool schemas, headers and version", 
         assert.equal(openaiProps?.conversation_id, undefined, "#1685: no conversation_id advertised (openai)");
         const responsesProps = ((searchEntry("responses")?.parameters ?? {}) as { properties?: Record<string, unknown> }).properties;
         assert.equal(responsesProps?.conversation_id, undefined, "#1685: no conversation_id advertised (responses)");
-        assert.equal(manifest.headers.agent, "x-bili-plugin");
-        assert.equal(manifest.headers.conversation, "x-bili-plugin-conversation");
-        assert.equal(manifest.toolEndpoint, "/__bili/plugin/tool");
+        assert.equal(manifest.headers.agent, "x-sophialin-plugin");
+        assert.equal(manifest.headers.conversation, "x-sophialin-plugin-conversation");
+        assert.equal(manifest.toolEndpoint, "/__sophialin/plugin/tool");
     } finally {
         await h.close();
     }
@@ -265,7 +265,7 @@ test("plugin manifest serves the exact wire tool schemas, headers and version", 
 test("plugin manifest: absorb and acp_rule advertised when enabled in config", async () => {
     const h = await startHarness([textScript()], { ...defaultConfig(400_000), absorb: { enabled: true }, rules: { enabled: true } });
     try {
-        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/manifest`);
+        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/manifest`);
         assert.equal(resp.status, 200);
         const manifest = (await resp.json()) as { toolNames: string[]; tools: Record<string, Array<Record<string, unknown>>> };
         assert.deepEqual([...manifest.toolNames].sort(), ["absorb", "acp_cache", "acp_rule", "acp_status", "compress", "decompress", "search_context"]);
@@ -291,7 +291,7 @@ test("plugin manifest: absorb and acp_rule advertised when enabled in config", a
 test("plugin manifest: absorb advertised when enabled in the global compress block", async () => {
     const h = await startHarness([textScript()], undefined, { absorb: { enabled: true } });
     try {
-        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/manifest`);
+        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/manifest`);
         assert.equal(resp.status, 200);
         const manifest = (await resp.json()) as { toolNames: string[]; tools: Record<string, Array<Record<string, unknown>>> };
         assert.deepEqual([...manifest.toolNames].sort(), ["absorb", "acp_cache", "acp_status", "compress", "decompress", "search_context"]);
@@ -313,7 +313,7 @@ test("plugin manifest: absorb advertised when enabled in the global compress blo
 test("plugin manifest: absorb omitted when the global compress block disables it", async () => {
     const h = await startHarness([textScript()], undefined, { absorb: { enabled: false } });
     try {
-        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/manifest`);
+        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/manifest`);
         assert.equal(resp.status, 200);
         const manifest = (await resp.json()) as { toolNames: string[] };
         assert.deepEqual([...manifest.toolNames].sort(), ["acp_cache", "acp_status", "compress", "decompress", "search_context"]);
@@ -379,7 +379,7 @@ test("plugin tool API executes compress under the session lock; next request fol
         }
         await callPluginAnthropic(h, conv, history);
 
-        const toolResp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+        const toolResp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
@@ -433,7 +433,7 @@ test("plugin tool API executes compress under the session lock; next request fol
         // (stripKernelSummaries drops acp_summary_* messages — same as wire
         // mode); it lives in block state and must be retrievable via the
         // plugin tool API, which is what the model's search_context sees.
-        const searchResp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+        const searchResp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: conv, tool: "search_context", args: { query: "plugin" } }),
@@ -467,14 +467,14 @@ test("plugin status panel recomputes the nudge after a mid-turn compress (#387)"
         }
         await callPluginAnthropic(h, conv, history);
 
-        const before = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/status?conversationId=${conv}`)).json()) as { panel?: string };
+        const before = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status?conversationId=${conv}`)).json()) as { panel?: string };
         assert.match(before.panel ?? "", /m00001/, "pre-compress panel recommends the head range");
 
         // Compress the head through the plugin tool API — it mutates session
         // state WITHOUT re-running prepare, which is exactly the window where
         // the remembered prepare-time nudge goes stale: the old panel mixed
         // the (live) new block with (stale) already-compressed ranges.
-        const toolResp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+        const toolResp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
@@ -486,7 +486,7 @@ test("plugin status panel recomputes the nudge after a mid-turn compress (#387)"
         const toolJson = (await toolResp.json()) as { ok: boolean; result: string };
         assert.equal(toolJson.ok, true, `compress tool failed: ${toolJson.result}`);
 
-        const after = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/status?conversationId=${conv}`)).json()) as { panel?: string };
+        const after = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status?conversationId=${conv}`)).json()) as { panel?: string };
         const panel = after.panel ?? "";
         assert.match(panel, /panel-fresh-topic/, "live state: the new block is listed");
         assert.doesNotMatch(panel, /m00001\.\.m00002/, "fresh nudge: the just-compressed range is no longer recommended");
@@ -498,7 +498,7 @@ test("plugin status panel recomputes the nudge after a mid-turn compress (#387)"
 test("plugin tool API error paths: bad JSON, unknown tool, unknown conversation", async () => {
     const h = await startHarness([textScript()]);
     try {
-        const badJson = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+        const badJson = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: "{not json",
@@ -506,14 +506,14 @@ test("plugin tool API error paths: bad JSON, unknown tool, unknown conversation"
         assert.equal(badJson.status, 400);
 
         const { raw } = await callPluginAnthropic(h, "err-conv", [{ role: "user", content: "hello" }]);
-        const badTool = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+        const badTool = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: "err-conv", tool: "rm-rf", args: {} }),
         });
         assert.equal(badTool.status, 400);
 
-        const unknownConv = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+        const unknownConv = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: "never-seen", tool: "acp_status", args: {} }),
@@ -540,7 +540,7 @@ test("#656: status fallback=latest resolves the active conversation for a stale 
 
         // Shim adoption step 1: status asked with the stale id falls back to
         // the latest active conversation and reports the adoption.
-        const statusResp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/status?conversationId=stale-shim-id&fallback=latest`);
+        const statusResp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status?conversationId=stale-shim-id&fallback=latest`);
         assert.equal(statusResp.status, 200);
         const status = (await statusResp.json()) as { ok: boolean; conversationId: string; fallback?: boolean };
         assert.equal(status.ok, true);
@@ -548,7 +548,7 @@ test("#656: status fallback=latest resolves the active conversation for a stale 
         assert.equal(status.conversationId, conv);
 
         // Shim adoption step 2: the retry with the adopted id succeeds.
-        const adopted = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+        const adopted = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: conv, tool: "acp_status", args: {} }),
@@ -573,7 +573,7 @@ test("#656 identity binding: a stale x-claude-code-session-id recovers via statu
         queuePluginRegister(NEW, "mcp", true);
         assert.equal(await claudeIdentityRequest(h, NEW, [{ role: "user", content: "after resume" }]), 200);
 
-        const toolOld = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+        const toolOld = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: OLD, tool: "acp_status", args: {} }),
@@ -585,7 +585,7 @@ test("#656 identity binding: a stale x-claude-code-session-id recovers via statu
 
         // Adoption step 1: status with the stale id falls back to the latest
         // active conversation and reports NEW (the resolved id), not the stale one.
-        const statusResp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/status?conversationId=${OLD}&fallback=latest`);
+        const statusResp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status?conversationId=${OLD}&fallback=latest`);
         assert.equal(statusResp.status, 200);
         const status = (await statusResp.json()) as { ok: boolean; conversationId: string; fallback?: boolean };
         assert.equal(status.ok, true);
@@ -593,7 +593,7 @@ test("#656 identity binding: a stale x-claude-code-session-id recovers via statu
         assert.equal(status.conversationId, NEW);
 
         // Adoption step 2: the retry with the adopted id succeeds.
-        const toolNew = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+        const toolNew = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: NEW, tool: "acp_status", args: {} }),
@@ -613,7 +613,7 @@ test("plugin mode: streamed response forwards verbatim while usage is sniffed in
         const { raw } = await callPluginAnthropic(h, conv, [{ role: "user", content: "hello" }]);
         assert.match(raw, /plain answer/);
 
-        const stats = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/stats`)).json()) as {
+        const stats = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/stats`)).json()) as {
             sessions?: Array<{ label?: string; inputTokens?: number; requests?: number }>;
         };
         const mine = (stats.sessions ?? []).find((s) => s.label === conv);
@@ -647,7 +647,7 @@ test("plugin mode: relay-echoed message_delta input_tokens:0 must not zero the s
         const conv = "plug-conv-delta-zero";
         await callPluginAnthropic(h, conv, [{ role: "user", content: "hello" }]);
 
-        const stats = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/stats`)).json()) as {
+        const stats = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/stats`)).json()) as {
             sessions?: Array<{ label?: string; inputTokens?: number; cachedTokens?: number }>;
         };
         const mine = (stats.sessions ?? []).find((s) => s.label === conv);
@@ -666,7 +666,7 @@ test("plugin mode: non-streaming JSON response passes through and usage is sniff
         const { json } = await callPluginAnthropic(h, conv, [{ role: "user", content: "hello" }], { stream: false });
         assert.equal((json as { content?: Array<{ text?: string }> }).content?.[0]?.text, "non-stream answer");
 
-        const stats = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/stats`)).json()) as {
+        const stats = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/stats`)).json()) as {
             sessions?: Array<{ label?: string; inputTokens?: number }>;
         };
         const mine = (stats.sessions ?? []).find((s) => s.label === conv);
@@ -677,39 +677,39 @@ test("plugin mode: non-streaming JSON response passes through and usage is sniff
     }
 });
 
-test("plugin-protocol headers are honored only from requests announcing x-bili-plugin", () => {
-    // x-bili-plugin-context-window: a plain client must not be able to
+test("plugin-protocol headers are honored only from requests announcing x-sophialin-plugin", () => {
+    // x-sophialin-plugin-context-window: a plain client must not be able to
     // rewrite the nudge denominator by sending a plugin-protocol header.
     assert.equal(
-        pluginReportedContextWindow({ "x-bili-plugin-context-window": "50000" }),
+        pluginReportedContextWindow({ "x-sophialin-plugin-context-window": "50000" }),
         undefined,
         "context-window header without the plugin marker is ignored",
     );
     assert.equal(
-        pluginReportedContextWindow({ "x-bili-plugin": "pi-plugin/0.0.1", "x-bili-plugin-context-window": "50000" }),
+        pluginReportedContextWindow({ "x-sophialin-plugin": "pi-plugin/0.0.1", "x-sophialin-plugin-context-window": "50000" }),
         50000,
         "plugin marker + reported window is honored",
     );
     assert.equal(
-        pluginReportedContextWindow({ "x-bili-plugin": "pi-plugin/0.0.1", "x-bili-plugin-context-window": "junk" }),
+        pluginReportedContextWindow({ "x-sophialin-plugin": "pi-plugin/0.0.1", "x-sophialin-plugin-context-window": "junk" }),
         undefined,
         "non-numeric reported window falls back to the cascade",
     );
 
-    // x-bili-plugin-conversation: likewise gated on the marker, while the
+    // x-sophialin-plugin-conversation: likewise gated on the marker, while the
     // legacy client headers keep working without any marker.
     assert.equal(
-        clientConversationHeader({ "x-bili-plugin-conversation": "steal-me" }),
+        clientConversationHeader({ "x-sophialin-plugin-conversation": "steal-me" }),
         undefined,
         "plugin conversation header without the marker is ignored",
     );
     assert.equal(
-        clientConversationHeader({ "x-bili-plugin": "pi-plugin/0.0.1", "x-bili-plugin-conversation": "steal-me" }),
+        clientConversationHeader({ "x-sophialin-plugin": "pi-plugin/0.0.1", "x-sophialin-plugin-conversation": "steal-me" }),
         "steal-me",
         "plugin conversation header honored with the marker",
     );
     assert.equal(
-        clientConversationHeader({ "x-bili-plugin-conversation": "steal-me", "x-claude-code-session-id": "legacy-1" }),
+        clientConversationHeader({ "x-sophialin-plugin-conversation": "steal-me", "x-claude-code-session-id": "legacy-1" }),
         "legacy-1",
         "falls through to the legacy client header",
     );
@@ -725,23 +725,23 @@ test("plugin-reported context window becomes the nudge denominator and is visibl
         // route value (authoritative native source).
         await callPluginAnthropic(h, conv, [{ role: "user", content: "hello" }], { contextWindow: 50000 });
 
-        const missing = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/status`);
+        const missing = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status`);
         assert.equal(missing.status, 400);
 
-        const unknown = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/status?conversationId=never-seen`);
+        const unknown = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status?conversationId=never-seen`);
         assert.equal(unknown.status, 404);
 
         // fallback=latest: an unknown conversation resolves to the most
         // recently active session (opencode's thin plugin can't stamp headers,
         // so /acp rides the latest-session fallback).
         const fb = (await (await fetch(
-            `http://127.0.0.1:${h.proxyPort}/__bili/plugin/status?conversationId=never-seen&fallback=latest`,
+            `http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status?conversationId=never-seen&fallback=latest`,
         )).json()) as { ok: boolean; fallback?: boolean; requests: number };
         assert.equal(fb.ok, true);
         assert.equal(fb.fallback, true);
         assert.ok(fb.requests >= 1);
 
-        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/status?conversationId=${conv}`);
+        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status?conversationId=${conv}`);
         assert.equal(resp.status, 200);
         const status = (await resp.json()) as {
             ok: boolean;
@@ -759,7 +759,7 @@ test("plugin-reported context window becomes the nudge denominator and is visibl
         // Without the header the route-configured window (400000) applies.
         const conv2 = "plug-conv-window-default";
         await callPluginAnthropic(h, conv2, [{ role: "user", content: "hello" }]);
-        const status2 = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/status?conversationId=${conv2}`)).json()) as {
+        const status2 = (await (await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status?conversationId=${conv2}`)).json()) as {
             contextLimit: number | null;
         };
         assert.equal(status2.contextLimit, 400000);

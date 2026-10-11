@@ -1,4 +1,4 @@
-window.__ModuleLoader__.load({ id: "billion-context", factory: (require) => {
+window.__ModuleLoader__.load({ id: "sophialin-context", factory: (require) => {
 var module = { exports: {} };
 var exports = module.exports;
 
@@ -30,20 +30,20 @@ __export(dsh_native_client_exports, {
 module.exports = __toCommonJS(dsh_native_client_exports);
 var import_react = require("react");
 var inject = ["slots", "locale"];
-var NS = "bili";
+var NS = "sophialin";
 var zh = {
-  "nav": "bili\u8BBE\u7F6E",
-  "title": "billion-context \u538B\u7F29\u4EE3\u7406",
+  "nav": "sophialin\u8BBE\u7F6E",
+  "title": "sophialin-context \u538B\u7F29\u4EE3\u7406",
   "open": "\u6253\u5F00 Web UI",
   "hint": "\u67E5\u770B\u538B\u7F29\u72B6\u6001\u3001\u4F1A\u8BDD\u4E0E\u4E0A\u4E0B\u6587\u7A97\u53E3\u3002",
-  "degraded": "\u5F53\u524D dsh \u8FDB\u7A0B\u672A\u7ED1\u5B9A bili \u4EE3\u7406\uFF08\u672A\u7ECF bili dsh \u542F\u52A8\uFF0C\u6216\u4EE3\u7406\u5C1A\u672A\u5C31\u7EEA\uFF09\u2014\u2014\u5148\u8FD0\u884C /acp\uFF0C\u6216\u6539\u7528 bili dsh \u542F\u52A8\u3002"
+  "degraded": "\u5F53\u524D dsh \u8FDB\u7A0B\u672A\u7ED1\u5B9A sophialin \u4EE3\u7406\uFF08\u672A\u7ECF sophialin dsh \u542F\u52A8\uFF0C\u6216\u4EE3\u7406\u5C1A\u672A\u5C31\u7EEA\uFF09\u2014\u2014\u5148\u8FD0\u884C /acp\uFF0C\u6216\u6539\u7528 sophialin dsh \u542F\u52A8\u3002"
 };
 var en = {
-  "nav": "bili",
-  "title": "billion-context compression proxy",
+  "nav": "sophialin",
+  "title": "sophialin-context compression proxy",
   "open": "Open Web UI",
   "hint": "Inspect compression status, sessions and context windows.",
-  "degraded": "This dsh process is not bound to a bili proxy (not launched via bili dsh, or the proxy is not up yet) \u2014 run /acp first, or launch through bili dsh."
+  "degraded": "This dsh process is not bound to a sophialin proxy (not launched via sophialin dsh, or the proxy is not up yet) \u2014 run /acp first, or launch through sophialin dsh."
 };
 function readOrigin() {
   const g = globalThis;
@@ -59,7 +59,7 @@ function apply(ctx) {
   const enDict = en;
   ctx.effect(
     () => ctx.locale.register(NS, { zh: zhDict, en: enDict }),
-    "bili: dictionaries"
+    "sophialin: dictionaries"
   );
   const t = ctx.locale.bind(NS);
   const section = () => {
@@ -72,7 +72,7 @@ function apply(ctx) {
         "button",
         {
           type: "button",
-          onClick: () => openExternal(`${origin}/__bili/`),
+          onClick: () => openExternal(`${origin}/__sophialin/`),
           style: {
             alignSelf: "flex-start",
             cursor: "pointer",
@@ -93,7 +93,7 @@ function apply(ctx) {
   };
   ctx.slots.inject(
     "settings.section",
-    () => ctx.slots.register({ name: "settings.section", id: "bili", order: 100, label: () => t("nav"), locale: NS }, section)
+    () => ctx.slots.register({ name: "settings.section", id: "sophialin", order: 100, label: () => t("nav"), locale: NS }, section)
   );
 }
 

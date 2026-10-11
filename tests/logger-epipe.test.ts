@@ -83,14 +83,14 @@ test("isBenignSocketRaceError matches the #1574 signature and nothing else", () 
 // handler logged it through the logger, and the feedback loop spammed the log
 // file (77MB observed) until rotation wiped the forensic window.
 test("closed stderr pipe: no uncaughtException storm, file-only logging, one warn (#1233)", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-epipe-"));
-    const logFile = path.join(dir, "bili.log");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-epipe-"));
+    const logFile = path.join(dir, "sophialin.log");
     const childScript = path.join(dir, "child.ts");
     const loggerPath = path.join(root, "src", "logger.ts");
 
     fs.writeFileSync(childScript, [
         `import { configureLogger, closeLogger, log, isStreamWriteError } from ${JSON.stringify(loggerPath)};`,
-        `configureLogger(process.env.BILI_EPIPE_LOG_FILE!);`,
+        `configureLogger(process.env.SOPHIALIN_EPIPE_LOG_FILE!);`,
         `let fired = 0;`,
         `let suppressedWriteErrors = 0;`,
         `process.on("uncaughtException", (err) => {`,
@@ -118,7 +118,7 @@ test("closed stderr pipe: no uncaughtException storm, file-only logging, one war
     const child = spawn(process.execPath, ["--import", "tsx", childScript], {
         cwd: root,
         stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env, BILI_EPIPE_LOG_FILE: logFile },
+        env: { ...process.env, SOPHIALIN_EPIPE_LOG_FILE: logFile },
     });
 
     let out = "";

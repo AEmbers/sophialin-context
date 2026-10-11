@@ -297,7 +297,7 @@ export function createGoogleAdapter(
                     }),
                 ),
                 createBiliArtifactFilter((snippet) => {
-                    loggerLog("warn", `[bili-artifact] stripped model-emitted internal artifact: ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
+                    loggerLog("warn", `[sophialin-artifact] stripped model-emitted internal artifact: ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
                 }),
             );
             const flushFilter = function* (): Generator<ParsedStreamEvent> {

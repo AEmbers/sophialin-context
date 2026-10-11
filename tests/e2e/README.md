@@ -1,7 +1,7 @@
-# E2E: real codex client through bili against a real upstream
+# E2E: real codex client through sophialin against a real upstream
 
 This suite runs the **real `codex` CLI** against a **real Responses-compatible
-upstream** through the bili proxy, and asserts the full context-management
+upstream** through the sophialin proxy, and asserts the full context-management
 lifecycle end-to-end:
 
 1. **warmup** — one turn; plants a known contamination value (`1400`) that the
@@ -35,12 +35,12 @@ By default the suite **skips** (`set ACP_TEST_E2E=1`) so `npm test` stays free.
 | Variable | Default | Purpose |
 |---|---|---|
 | `ACP_TEST_E2E` | – | `1` enables the suite |
-| `E2E_UPSTREAM_URL` | `http://127.0.0.1:8199/v1` | Responses-compatible upstream (no `/bili/` prefix) |
-| `E2E_UPSTREAM_KEY` | `bili-local-test` | API key passed via codex `env_key` |
+| `E2E_UPSTREAM_URL` | `http://127.0.0.1:8199/v1` | Responses-compatible upstream (no `/sophialin/` prefix) |
+| `E2E_UPSTREAM_KEY` | `sophialin-local-test` | API key passed via codex `env_key` |
 | `E2E_MODEL` | `qwen3.8-27b` | model name |
 | `E2E_BILI_DIST` | repo `dist/index.js` | proxy entry under test — point at any build for capability-matrix runs |
 | `E2E_CODEX_BIN` | `codex` | codex binary |
-| `E2E_FORGE` | – | `1` runs the forge phase (needs a dist with `BILI_CODEX_COMPACT` support, i.e. #325+) |
+| `E2E_FORGE` | – | `1` runs the forge phase (needs a dist with `SOPHIALIN_CODEX_COMPACT` support, i.e. #325+) |
 | `E2E_TMO` | `300000` | per-turn timeout ms |
 
 Preflight (no tokens): `E2E_CHECK=1 node --import tsx --test tests/e2e/e2e-codex.test.ts`
@@ -51,18 +51,18 @@ prints codex version, dist path, and an upstream `/models` probe.
 - Full isolation: `CODEX_HOME`, `XDG_{CONFIG,CACHE,STATE}_HOME` and the work
   dir (`tmp/e2e-codex-*` in the repo — **not** `/tmp`, codex refuses TMPDIR
   homes) are throwaway. Codex's **spawn cwd** is deliberately OUTSIDE the repo
-  tree (`$TMPDIR/billion-context-e2e*`): codex discovers `AGENTS.md` by walking
+  tree (`$TMPDIR/sophialin-context-e2e*`): codex discovers `AGENTS.md` by walking
   up from its cwd, so an in-repo cwd folds the entire repo doc into every
   request payload and couples CI to doc size (#815). A stub `AGENTS.md` does
   NOT help — codex concatenates every level on the way up.
-- The bili window is forced via the `BILI_LAUNCHER_MODEL_WINDOWS` env
+- The sophialin window is forced via the `SOPHIALIN_LAUNCHER_MODEL_WINDOWS` env
   (per-model override; wins over registry peek) so compression triggers
   deterministically on every run, independent of the upstream's advertised
   window and of which window-alignment PRs are merged.
 - Provider `name = "OpenAI"` in `config.toml` keeps codex on the remote
   compaction path (V2) so the forge phase exercises the real interception.
-- Assertions scrape bili's own log lines (`[acp-usage]`, `preflight
-  compressed`, `codex compact intercepted`, `stripped … bili compaction
+- Assertions scrape sophialin's own log lines (`[acp-usage]`, `preflight
+  compressed`, `codex compact intercepted`, `stripped … sophialin compaction
   item(s)`) plus codex exit codes, `--output-last-message` answers, and the
   rollout JSONL.
 
@@ -104,7 +104,7 @@ free (the `npm test` glob doesn't cover `tests/e2e/` anyway).
 | Variable | Default | Purpose |
 |---|---|---|
 | `ACP_TEST_REGISTRY` | – | `1` enables the suite |
-| `BILI_UPDATE_REGISTRY` | `https://registry.npmjs.org` | set by the suite per child process to the local registry URL |
+| `SOPHIALIN_UPDATE_REGISTRY` | `https://registry.npmjs.org` | set by the suite per child process to the local registry URL |
 
 ## Mechanics
 
@@ -126,7 +126,7 @@ free (the `npm test` glob doesn't cover `tests/e2e/` anyway).
   (the path shape matters: `isNpmInstallForm` keys off `node_modules`). The
   child process runs `dist/index.js update` with fully isolated
   `HOME`/`XDG_*` homes, so nothing touches the host.
-- **Assertions scrape bili's real log lines** (`[update] checking npm
+- **Assertions scrape sophialin's real log lines** (`[update] checking npm
   registry for …`, `new version found: … downloading…`, `installed … → ….
   Restart to finish.`) plus the on-disk `package.json` flip, leftover
   staging/backup dirs, and lock release.
@@ -145,15 +145,15 @@ no secrets, `npm ci` + `npm run build` + the gated suite.
 
 `ACP_TEST_E2E_NATIVE=1` gates the suite (`npm test` stays free). It drives the
 **real `pi` CLI** in package-native mode (the repo root installed as a pi
-package — the `bili plugin install pi` lane) through a **deterministic
+package — the `sophialin plugin install pi` lane) through a **deterministic
 chat-completions fake upstream** (`fake-upstream-chat.mjs`, zero tokens), and
 asserts the four user-facing guarantees of #1239:
 
 1. **interception + plugin-mode claim** — every upstream request carries
-   `x-bili-plugin: pi` + `x-bili-plugin-conversation` (the #1243 one-shot
+   `x-sophialin-plugin: pi` + `x-sophialin-plugin-conversation` (the #1243 one-shot
    stamp race is asserted per request, not just on the first);
 2. **`/acp` command works** — exit 0, no error strings, and the
-   `/__bili/plugin/status` endpoint it consumes answers JSON;
+   `/__sophialin/plugin/status` endpoint it consumes answers JSON;
 3. **the model can call `acp_status`** — the tool is registered from request 2
    onward and its result (the status report) is re-sent in history;
 4. **the model can call `compress` and compression actually happens** — the
@@ -174,8 +174,8 @@ asserts the four user-facing guarantees of #1239:
   `compress` call.
 - The suite spawns pi with a **hermetic `PI_CODING_AGENT_DIR`** (models.json
   pointing at the fake, settings.json loading the repo root as a package) and
-  hermetic XDG dirs. `cleanEnv()` strips every bili side-channel
-  (`BILLION_CONTEXT_PROXY`, `BILI_*`, `ACP_*`, host pi overrides) **and
+  hermetic XDG dirs. `cleanEnv()` strips every sophialin side-channel
+  (`SOPHIALIN_CONTEXT_PROXY`, `SOPHIALIN_*`, `ACP_*`, host pi overrides) **and
   `NODE_TEST_CONTEXT`** — pi-native deliberately stands down inside
   node:test, and the runner exports that variable into every spawned child.
 - The spawn cwd is outside the repo (#815, same reason as codex).
@@ -197,16 +197,16 @@ the codex pin (#815).
 ## Native-lane suite (`e2e-native-opencode.test.ts`) — real `opencode` plugin-native vs deterministic fake
 
 `ACP_TEST_E2E_OC_NATIVE=1` gates the suite (`npm test` stays free). It drives
-the **real `opencode` CLI** in headless `run` mode with bili's native plugin
+the **real `opencode` CLI** in headless `run` mode with sophialin's native plugin
 (`dist/agent/opencode-native.js` — the self-spawn lane; V1 `.server()` on 1.x,
 V2 `setup` on 2.x; `E2E_OC_BIN` picks the binary) through the **same
 deterministic fake** (`fake-upstream-chat.mjs`, zero tokens), asserting the
 same four #1239 guarantees on the opencode surface:
 
 1. **interception + plugin-mode claim** — every upstream request (including
-   the title side-channel call) carries `x-bili-plugin: opencode` +
-   `x-bili-plugin-conversation: ses_…`;
-2. **session binding + status reachable** — `/__bili/plugin/status` answers
+   the title side-channel call) carries `x-sophialin-plugin: opencode` +
+   `x-sophialin-plugin-conversation: ses_…`;
+2. **session binding + status reachable** — `/__sophialin/plugin/status` answers
    `{ok:true}` for the bound conversation while the proxy is alive (the `/acp`
    slash command itself is TUI-only — `run` dispatches no commands);
 3. **the model can call `acp_status`** — host-side registration (zod interop

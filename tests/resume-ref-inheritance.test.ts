@@ -211,7 +211,7 @@ async function runResumeScenario(flags: { forkAdoption: boolean; resumeInheritan
     const proxy = await startServer(opts);
     await listen(proxy);
     const proxyPort = (proxy.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${relayPort}/v1/chat/completions`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${relayPort}/v1/chat/completions`;
     try {
         // Parent conversation grown past the mock's one-shot fold trigger.
         const history: ChatMsg[] = [];
@@ -323,7 +323,7 @@ test("unrelated history under a new id does not inherit anything (#1486)", async
     const proxy = await startServer(opts);
     await listen(proxy);
     const proxyPort = (proxy.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${relayPort}/v1/chat/completions`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${relayPort}/v1/chat/completions`;
     try {
         const filler = "an entirely different conversation about mountains and rivers. ";
         const history: ChatMsg[] = [];

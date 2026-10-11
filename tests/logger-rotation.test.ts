@@ -34,8 +34,8 @@ async function settle(file: string, timeoutMs = 3000): Promise<void> {
 }
 
 test("external rename: subsequent lines land in the new file, .old frozen", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-logger-"));
-    const file = path.join(dir, "bili.log");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-logger-"));
+    const file = path.join(dir, "sophialin.log");
     configureLogger(file);
     try {
         log("info", "before-1");
@@ -50,7 +50,7 @@ test("external rename: subsequent lines land in the new file, .old frozen", asyn
         log("info", "after-2");
         await settle(file);
 
-        assert.ok(fs.existsSync(file), "new bili.log must be recreated");
+        assert.ok(fs.existsSync(file), "new sophialin.log must be recreated");
         const content = fs.readFileSync(file, "utf8");
         assert.ok(content.includes("after-1"), "new file must receive post-rename lines");
         assert.ok(content.includes("after-2"));
@@ -63,8 +63,8 @@ test("external rename: subsequent lines land in the new file, .old frozen", asyn
 });
 
 test("reopen failure: degrades to stderr-only with one [warn], no crash", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-logger-"));
-    const file = path.join(dir, "sub", "bili.log");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-logger-"));
+    const file = path.join(dir, "sub", "sophialin.log");
     fs.mkdirSync(path.join(dir, "sub"));
     configureLogger(file);
     const warns: string[] = [];
@@ -84,7 +84,7 @@ test("reopen failure: degrades to stderr-only with one [warn], no crash", async 
         log("info", "still-alive"); // must not throw, must not re-warn
 
         assert.equal(warns.length, 1, "exactly one [warn] per degradation episode");
-        assert.match(warns[0], /bili\.log/);
+        assert.match(warns[0], /sophialin\.log/);
         assert.match(warns[0], /stderr-only/);
         assert.ok(!fs.existsSync(file), "degraded logging must not resurrect the file");
     } finally {
@@ -95,8 +95,8 @@ test("reopen failure: degrades to stderr-only with one [warn], no crash", async 
 });
 
 test("internal 10MB rotation: post-rotation line lands in the fresh file", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-logger-"));
-    const file = path.join(dir, "bili.log");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-logger-"));
+    const file = path.join(dir, "sophialin.log");
     const stderrSink = fs.createWriteStream(path.join(dir, "stderr.txt"));
     const origStderr = process.stderr;
     Object.defineProperty(process, "stderr", { value: stderrSink, configurable: true });

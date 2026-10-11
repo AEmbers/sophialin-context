@@ -69,11 +69,11 @@ test("registers both /acp and /acp-cache (#1146)", async () => {
 
 test("/acp renders the live panel", async () => {
     const { outcome } = await runHandler(
-        { BILLION_CONTEXT_PROXY: "http://127.0.0.1:8787", BILLION_CONTEXT_PLUGIN: undefined },
+        { SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8787", SOPHIALIN_CONTEXT_PLUGIN: undefined },
         {
-            "http://127.0.0.1:8787/__bili/plugin/status": {
+            "http://127.0.0.1:8787/__sophialin/plugin/status": {
                 status: 200,
-                body: { ok: true, panel: "ACP Context Analysis\nbillion-context@9.9.9" },
+                body: { ok: true, panel: "ACP Context Analysis\nsophialin-context@9.9.9" },
             },
         },
     );
@@ -83,18 +83,18 @@ test("/acp renders the live panel", async () => {
 
 test("/acp on an armed-but-idle proxy renders the idle notice", async () => {
     const { outcome } = await runHandler(
-        { BILLION_CONTEXT_PROXY: "http://127.0.0.1:8787", BILLION_CONTEXT_PLUGIN: undefined },
+        { SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8787", SOPHIALIN_CONTEXT_PLUGIN: undefined },
         {
-            "http://127.0.0.1:8787/__bili/plugin/manifest": { status: 200, body: { version: "9.9.9" } },
+            "http://127.0.0.1:8787/__sophialin/plugin/manifest": { status: 200, body: { version: "9.9.9" } },
         },
     );
     assert.equal(outcome.kind, "success");
-    assert.match(outcome.text, /billion-context@9\.9\.9 — proxy connected, compression armed/);
+    assert.match(outcome.text, /sophialin-context@9\.9\.9 — proxy connected, compression armed/);
 });
 
 test("/acp when the proxy is unreachable reports an error", async () => {
     const { outcome } = await runHandler(
-        { BILLION_CONTEXT_PROXY: "http://127.0.0.1:8787", BILLION_CONTEXT_PLUGIN: undefined },
+        { SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8787", SOPHIALIN_CONTEXT_PLUGIN: undefined },
         {},
     );
     assert.equal(outcome.kind, "error");
@@ -102,9 +102,9 @@ test("/acp when the proxy is unreachable reports an error", async () => {
 });
 
 test("/acp without a proxy env gives the launch hint", async () => {
-    const { outcome } = await runHandler({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, {});
+    const { outcome } = await runHandler({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, {});
     assert.equal(outcome.kind, "error");
-    assert.match(outcome.text, /launch dsh through `bili dsh`/);
+    assert.match(outcome.text, /launch dsh through `sophialin dsh`/);
 });
 
 // — #1146: /acp-cache — resolves the latest conversation id via the status
@@ -112,27 +112,27 @@ test("/acp without a proxy env gives the launch hint", async () => {
 
 test("/acp-cache forwards acp_cache bound to the latest conversation", async () => {
     const { outcome, calls } = await runHandler(
-        { BILLION_CONTEXT_PROXY: "http://127.0.0.1:8787", BILLION_CONTEXT_PLUGIN: undefined },
+        { SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8787", SOPHIALIN_CONTEXT_PLUGIN: undefined },
         {
-            "http://127.0.0.1:8787/__bili/plugin/status": {
+            "http://127.0.0.1:8787/__sophialin/plugin/status": {
                 status: 200,
                 body: { ok: true, conversationId: "conv_1", panel: "PANEL" },
             },
-            "http://127.0.0.1:8787/__bili/plugin/tool": { status: 200, body: { ok: true, result: "CACHE-BODY" } },
+            "http://127.0.0.1:8787/__sophialin/plugin/tool": { status: 200, body: { ok: true, result: "CACHE-BODY" } },
         },
         "acp-cache",
     );
     assert.equal(outcome.kind, "success");
     assert.equal(outcome.text, "CACHE-BODY");
-    const toolCall = calls.find((c) => c.url.endsWith("/__bili/plugin/tool"));
+    const toolCall = calls.find((c) => c.url.endsWith("/__sophialin/plugin/tool"));
     assert.deepEqual(toolCall?.body, { conversationId: "conv_1", tool: "acp_cache", args: {} });
 });
 
 test("/acp-cache on an armed-but-idle proxy says to send a request first", async () => {
     const { outcome } = await runHandler(
-        { BILLION_CONTEXT_PROXY: "http://127.0.0.1:8787", BILLION_CONTEXT_PLUGIN: undefined },
+        { SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8787", SOPHIALIN_CONTEXT_PLUGIN: undefined },
         {
-            "http://127.0.0.1:8787/__bili/plugin/manifest": { status: 200, body: { version: "9.9.9" } },
+            "http://127.0.0.1:8787/__sophialin/plugin/manifest": { status: 200, body: { version: "9.9.9" } },
         },
         "acp-cache",
     );
@@ -142,7 +142,7 @@ test("/acp-cache on an armed-but-idle proxy says to send a request first", async
 
 test("/acp-cache when the proxy is unreachable reports an error", async () => {
     const { outcome } = await runHandler(
-        { BILLION_CONTEXT_PROXY: "http://127.0.0.1:8787", BILLION_CONTEXT_PLUGIN: undefined },
+        { SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8787", SOPHIALIN_CONTEXT_PLUGIN: undefined },
         {},
         "acp-cache",
     );
@@ -151,20 +151,20 @@ test("/acp-cache when the proxy is unreachable reports an error", async () => {
 });
 
 test("/acp-cache without a proxy env gives the launch hint", async () => {
-    const { outcome } = await runHandler({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, {}, "acp-cache");
+    const { outcome } = await runHandler({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, {}, "acp-cache");
     assert.equal(outcome.kind, "error");
-    assert.match(outcome.text, /launch dsh through `bili dsh`/);
+    assert.match(outcome.text, /launch dsh through `sophialin dsh`/);
 });
 
 test("/acp-cache renders proxy-side failures unwrapped", async () => {
     const { outcome } = await runHandler(
-        { BILLION_CONTEXT_PROXY: "http://127.0.0.1:8787", BILLION_CONTEXT_PLUGIN: undefined },
+        { SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8787", SOPHIALIN_CONTEXT_PLUGIN: undefined },
         {
-            "http://127.0.0.1:8787/__bili/plugin/status": {
+            "http://127.0.0.1:8787/__sophialin/plugin/status": {
                 status: 200,
                 body: { ok: true, conversationId: "conv_1", panel: "PANEL" },
             },
-            "http://127.0.0.1:8787/__bili/plugin/tool": { status: 200, body: { ok: false, error: "boom" } },
+            "http://127.0.0.1:8787/__sophialin/plugin/tool": { status: 200, body: { ok: false, error: "boom" } },
         },
         "acp-cache",
     );
@@ -175,13 +175,13 @@ test("/acp-cache renders proxy-side failures unwrapped", async () => {
 
 test("/acp-cache on an unknown conversation renders the friendly no-session notice", async () => {
     const { outcome } = await runHandler(
-        { BILLION_CONTEXT_PROXY: "http://127.0.0.1:8787", BILLION_CONTEXT_PLUGIN: undefined },
+        { SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8787", SOPHIALIN_CONTEXT_PLUGIN: undefined },
         {
-            "http://127.0.0.1:8787/__bili/plugin/status": {
+            "http://127.0.0.1:8787/__sophialin/plugin/status": {
                 status: 200,
                 body: { ok: true, conversationId: "conv_1", panel: "PANEL" },
             },
-            "http://127.0.0.1:8787/__bili/plugin/tool": {
+            "http://127.0.0.1:8787/__sophialin/plugin/tool": {
                 status: 200,
                 body: { ok: false, error: 'unknown plugin conversation id "conv_1" (no model request has arrived with this conversation id yet)' },
             },

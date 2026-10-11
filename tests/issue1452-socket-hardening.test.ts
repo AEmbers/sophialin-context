@@ -28,12 +28,12 @@ interface Harness {
 async function startProxy(upstream: http.Server | net.Server, debug: boolean): Promise<Harness> {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-issue1452-${process.pid}-${Date.now()}`);
-    const biliConfig = path.join(root, "billion-context.json");
+    const root = path.join(tmpdir(), `sophialin-issue1452-${process.pid}-${Date.now()}`);
+    const sophialinConfig = path.join(root, "sophialin-context.json");
     mkdirSync(root, { recursive: true });
-    writeFileSync(biliConfig, "{}", "utf8");
-    const previous = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    writeFileSync(sophialinConfig, "{}", "utf8");
+    const previous = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const upstreamPort = (upstream.address() as { port: number }).port;
     const opts: ProxyOptions = {
         port: 0,
@@ -65,7 +65,7 @@ async function startProxy(upstream: http.Server | net.Server, debug: boolean): P
         port,
         stop: async () => { await close(proxy); },
         cleanup: () => {
-            if (previous === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = previous;
+            if (previous === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = previous;
             rmrf(root);
         },
     };
@@ -86,7 +86,7 @@ function withEnv(name: string, value: string | undefined): () => void {
 }
 
 test("clientError: parse-fail flood is drained and closed with FIN, never destroy-RST (#1452)", async () => {
-    // Upstream is irrelevant — the bytes die in bili's HTTP parser before any
+    // Upstream is irrelevant — the bytes die in sophialin's HTTP parser before any
     // forwarding happens.
     const upstream = http.createServer((_req, res) => res.end("{}"));
     await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", () => r()));
@@ -124,7 +124,7 @@ test("clientError: parse-fail flood is drained and closed with FIN, never destro
 });
 
 test("lifecycle ledger: client FIN first classifies reason=peer-fin (#1452)", async () => {
-    // Keep-alive upstream on purpose: a connection:close upstream makes bili end
+    // Keep-alive upstream on purpose: a connection:close upstream makes sophialin end
     // the client socket itself (prefinish → server-end), which would mask the
     // peer-FIN-first ordering this test pins (#1452).
     const upstream = http.createServer((_req, res) => {
@@ -141,7 +141,7 @@ test("lifecycle ledger: client FIN first classifies reason=peer-fin (#1452)", as
         // req.socket is only attached after the first tick even with agent:false —
         // capture it from the response instead (#1452 test hardening).
         // agent:false also defaults to Connection: close; the explicit keep-alive
-        // header above is required so bili keeps the socket open post-response.
+        // header above is required so sophialin keeps the socket open post-response.
         const closed = new Promise<void>((resolve) => {
             const req = http.request(
                 { host: "127.0.0.1", port: harness.port, path: "/v1/chat/completions", method: "POST", agent: false, headers: { "content-type": "application/json", "content-length": Buffer.byteLength(CHAT_BODY), "connection": "keep-alive" } },
@@ -226,9 +226,9 @@ test("lifecycle ledger: clock-tie between FIN read and prefinish still classifie
 
 test("lifecycle ledger + kat knob: idle keep-alive close classifies reason=idle-timeout as clean FIN (#1452)", async () => {
     const upstream = http.createServer((_req, res) => {
-        // Upstream stays keep-alive so bili keeps the client socket open and
+        // Upstream stays keep-alive so sophialin keeps the client socket open and
         // lets it idle until the kat reaper — that idle window IS the scenario
-        // under test (#1452). A connection:close upstream made bili end the
+        // under test (#1452). A connection:close upstream made sophialin end the
         // client leg right after the response (age≈78ms), never reaching the
         // 300ms reap; teardown-order swap below absorbs any pool redial noise.
         res.writeHead(200, { "content-type": "application/json" });
@@ -237,7 +237,7 @@ test("lifecycle ledger + kat knob: idle keep-alive close classifies reason=idle-
     await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", () => r()));
     const captured: { level: string; msg: string }[] = [];
     setLogCapture((level, msg) => captured.push({ level, msg }));
-    const restoreKat = withEnv("BILI_KEEP_ALIVE_TIMEOUT_MS", "300");
+    const restoreKat = withEnv("SOPHIALIN_KEEP_ALIVE_TIMEOUT_MS", "300");
     let harness: Harness | null = null;
     let sock: net.Socket | null = null;
     try {
@@ -248,7 +248,7 @@ test("lifecycle ledger + kat knob: idle keep-alive close classifies reason=idle-
         assert.ok(katLine, "expected startup keepAliveTimeout=300ms log line (kat knob wired)");
         // Raw socket on purpose — every higher-level client is nondeterministic
         // here (#1452): agent:false closes its own socket right after the body,
-        // and a pooling http.Agent drops the socket because bili's Keep-Alive
+        // and a pooling http.Agent drops the socket because sophialin's Keep-Alive
         // header truncates sub-second kat to whole seconds (timeout=0 → Node
         // treats the connection as done). Only a raw socket that never sends
         // FIN is the pure-idle peer the kat reaper must close.
@@ -302,7 +302,7 @@ test("exposure telemetry: periodic info line with liveConns breakdown (#1452)", 
     await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", () => r()));
     const captured: { level: string; msg: string }[] = [];
     setLogCapture((level, msg) => captured.push({ level, msg }));
-    const restoreExposure = withEnv("BILI_EXPOSURE_LOG_INTERVAL_MS", "100");
+    const restoreExposure = withEnv("SOPHIALIN_EXPOSURE_LOG_INTERVAL_MS", "100");
     let harness: Harness | null = null;
     try {
         harness = await startProxy(upstream, false);
@@ -322,7 +322,7 @@ test("exposure telemetry: periodic info line with liveConns breakdown (#1452)", 
 
 test("retired stall guard: stale export ignored + named at startup; idle budget bounds the silence (#1706/#1714)", async () => {
     // First chunk then silence forever — the #1706 incident shape. The retired
-    // BILI_STREAM_STALL_MS=400 export must NOT cut this stream at ~400ms; only
+    // SOPHIALIN_STREAM_STALL_MS=400 export must NOT cut this stream at ~400ms; only
     // the 3s idle budget may, and the stale value must be named at startup.
     const upstream = http.createServer((_req, res) => {
         res.writeHead(200, { "content-type": "text/event-stream", "connection": "close" });
@@ -330,14 +330,14 @@ test("retired stall guard: stale export ignored + named at startup; idle budget 
         res.write('data: {"choices":[{"delta":{"content":"chunk-1"}}]}\n\n');
     });
     await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", () => r()));
-    const restoreStall = withEnv("BILI_STREAM_STALL_MS", "400");
-    const restoreIdle = withEnv("BILI_UPSTREAM_TIMEOUT_MS", "3000");
+    const restoreStall = withEnv("SOPHIALIN_STREAM_STALL_MS", "400");
+    const restoreIdle = withEnv("SOPHIALIN_UPSTREAM_TIMEOUT_MS", "3000");
     const captured: { level: string; msg: string }[] = [];
     setLogCapture((level, msg) => captured.push({ level, msg }));
     let harness: Harness | null = null;
     try {
         harness = await startProxy(upstream, false);
-        const retireWarn = captured.find((c) => c.level === "warn" && c.msg.includes("BILI_STREAM_STALL_MS=400") && c.msg.includes("no longer read"));
+        const retireWarn = captured.find((c) => c.level === "warn" && c.msg.includes("SOPHIALIN_STREAM_STALL_MS=400") && c.msg.includes("no longer read"));
         assert.ok(retireWarn, `expected startup notice naming the stale export, got: ${captured.map((c) => c.msg).join(" | ").slice(0, 400)}`);
         const ac = new AbortController();
         const guard = setTimeout(() => ac.abort(), 15_000);
@@ -356,7 +356,7 @@ test("retired stall guard: stale export ignored + named at startup; idle budget 
         assert.ok(body.includes("data: [DONE]"), "stream must terminate with the protocol terminal event");
         // >2s proves the stale 400ms export did not fire; <10s proves the 3s
         // idle budget (or its 2x watchdog) still bounds a dead stream.
-        assert.ok(elapsed > 2000, `stale BILI_STREAM_STALL_MS appears to have cut the stream early (${elapsed}ms)`);
+        assert.ok(elapsed > 2000, `stale SOPHIALIN_STREAM_STALL_MS appears to have cut the stream early (${elapsed}ms)`);
         assert.ok(elapsed < 10_000, `idle budget took too long to fire (${elapsed}ms)`);
     } finally {
         restoreStall();
@@ -378,8 +378,8 @@ test("retired stall guard: mid-stream silence survives any short window even wit
     await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", () => r()));
     // The stale-export shape from #1706: the retired var is set, and the
     // stream still goes silent far past its old 400ms window — nothing may cut it.
-    const restoreStall = withEnv("BILI_STREAM_STALL_MS", "400");
-    const restoreIdle = withEnv("BILI_UPSTREAM_TIMEOUT_MS", "60000");
+    const restoreStall = withEnv("SOPHIALIN_STREAM_STALL_MS", "400");
+    const restoreIdle = withEnv("SOPHIALIN_UPSTREAM_TIMEOUT_MS", "60000");
     let harness: Harness | null = null;
     try {
         harness = await startProxy(upstream, false);
@@ -416,7 +416,7 @@ test("clientError backstop: silent peer after drain-end is terminated, reason=cl
     await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", () => r()));
     const captured: { level: string; msg: string }[] = [];
     setLogCapture((level, msg) => captured.push({ level, msg }));
-    const restoreBackstop = withEnv("BILI_CLIENT_ERROR_BACKSTOP_MS", "300");
+    const restoreBackstop = withEnv("SOPHIALIN_CLIENT_ERROR_BACKSTOP_MS", "300");
     let harness: Harness | null = null;
     let sock: net.Socket | null = null;
     try {
@@ -465,8 +465,8 @@ test("clientError backstop: knob off restores hold-until-peer-FIN status quo (#1
     await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", () => r()));
     const captured: { level: string; msg: string }[] = [];
     setLogCapture((level, msg) => captured.push({ level, msg }));
-    const restoreBackstop = withEnv("BILI_CLIENT_ERROR_BACKSTOP_MS", "0");
-    const restoreExposure = withEnv("BILI_EXPOSURE_LOG_INTERVAL_MS", "100");
+    const restoreBackstop = withEnv("SOPHIALIN_CLIENT_ERROR_BACKSTOP_MS", "0");
+    const restoreExposure = withEnv("SOPHIALIN_EXPOSURE_LOG_INTERVAL_MS", "100");
     let harness: Harness | null = null;
     let sock: net.Socket | null = null;
     try {
@@ -524,7 +524,7 @@ test("clientError backstop: knob parse — negative / non-numeric fall back to t
     const captured: { level: string; msg: string }[] = [];
     setLogCapture((level, msg) => captured.push({ level, msg }));
     const bootLine = async (value: string | undefined): Promise<string> => {
-        const restore = withEnv("BILI_CLIENT_ERROR_BACKSTOP_MS", value);
+        const restore = withEnv("SOPHIALIN_CLIENT_ERROR_BACKSTOP_MS", value);
         try {
             const base = captured.length;
             const h = await startProxy(upstream, true);

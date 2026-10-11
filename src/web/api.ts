@@ -99,7 +99,7 @@ export async function handleConfigPut(
     req: IncomingMessage,
     res: ServerResponse,
     onChanged?: () => void,
-    biliPort: number = 8787,
+    sophialinPort: number = 8787,
 ): Promise<void> {
     const raw = await readJsonBody(req);
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return sendError(res, 400, "expected JSON object");
@@ -136,12 +136,12 @@ export async function handleConfigPut(
             for (const [url, value] of Object.entries(next.providers as Record<string, unknown>)) {
                 const route = parseRouteEntry(value);
                 if (!url || !route) return sendError(res, 400, `invalid provider entry: ${url || "(empty)"}`);
-                try { validateHttpProxy(route.proxy, biliPort); } catch (error) { return sendError(res, 400, `invalid provider proxy for ${url}: ${String(error)}`); }
+                try { validateHttpProxy(route.proxy, sophialinPort); } catch (error) { return sendError(res, 400, `invalid provider proxy for ${url}: ${String(error)}`); }
             }
         }
         if (next.upstreamProxy !== undefined) {
             if (next.upstreamProxy !== null && typeof next.upstreamProxy !== "string") return sendError(res, 400, "upstreamProxy must be a string or null");
-            try { validateHttpProxy(typeof next.upstreamProxy === "string" ? next.upstreamProxy.trim() || undefined : undefined, biliPort); } catch (error) { return sendError(res, 400, String(error)); }
+            try { validateHttpProxy(typeof next.upstreamProxy === "string" ? next.upstreamProxy.trim() || undefined : undefined, sophialinPort); } catch (error) { return sendError(res, 400, String(error)); }
         }
         if (next.upstreamProxyMode !== undefined && (typeof next.upstreamProxyMode !== "string" || !["auto", "manual", "direct"].includes(next.upstreamProxyMode))) return sendError(res, 400, "upstreamProxyMode must be auto, manual, or direct");
         if (next.compress !== undefined && next.compress !== null && parseCompressSettings(next.compress) === undefined) return sendError(res, 400, "invalid compress settings");
@@ -174,7 +174,7 @@ export async function handleConfigPut(
             }
             const route = parseRouteEntry(value);
             if (!url || !route) return sendError(res, 400, `invalid provider entry: ${url || "(empty)"}`);
-            try { validateHttpProxy(route.proxy, biliPort); } catch (error) {
+            try { validateHttpProxy(route.proxy, sophialinPort); } catch (error) {
                 return sendError(res, 400, `invalid provider proxy for ${url}: ${String(error)}`);
             }
             rawProviders[url] = value;
@@ -187,7 +187,7 @@ export async function handleConfigPut(
             return sendError(res, 400, "upstreamProxy must be a string or null");
         }
         proxy = typeof body.upstreamProxy === "string" ? body.upstreamProxy.trim() || undefined : undefined;
-        try { validateHttpProxy(proxy, biliPort); } catch (error) {
+        try { validateHttpProxy(proxy, sophialinPort); } catch (error) {
             return sendError(res, 400, String(error));
         }
     }

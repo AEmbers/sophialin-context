@@ -16,7 +16,7 @@
 //           loud 400 naming the ambiguity.
 //
 // The MCP shim leg (codex-style host: no plugin headers, identity only via
-// BILI_MCP_PROXY + BILI_CONVERSATION_ID) is covered by spawning the REAL
+// SOPHIALIN_MCP_PROXY + SOPHIALIN_CONVERSATION_ID) is covered by spawning the REAL
 // src/mcp.ts over stdio JSON-RPC — no codex binary needed, the shim is the
 // client contract codex exercises.
 import test from "node:test";
@@ -79,7 +79,7 @@ function startRelay(): Relay {
         req.on("data", (c: Buffer) => chunks.push(c));
         req.on("end", () => {
             const body = Buffer.concat(chunks).toString("utf8");
-            const conv = req.headers["x-bili-plugin-conversation"];
+            const conv = req.headers["x-sophialin-plugin-conversation"];
             requests.push({ conv: Array.isArray(conv) ? conv[0] : conv, body });
             const marker = /WITNESS:([a-z_]+)/.exec(body)?.[1];
             if (marker) {
@@ -147,7 +147,7 @@ async function boot(): Promise<Harness> {
     const proxyPort = (proxy.address() as { port: number }).port;
     return {
         baseUrl: `http://127.0.0.1:${proxyPort}`,
-        chatUrl: `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${relayPort}/v1/chat/completions`,
+        chatUrl: `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${relayPort}/v1/chat/completions`,
         relay,
         stop: async () => {
             await new Promise<void>((resolve, reject) => proxy.close((e) => (e ? reject(e) : resolve())));
@@ -161,9 +161,9 @@ async function modelTurn(h: Harness, conv: string, userText: string): Promise<vo
         method: "POST",
         headers: {
             "content-type": "application/json",
-            "x-bili-plugin": "pi",
-            "x-bili-plugin-conversation": conv,
-            "x-bili-plugin-model": "gpt-test",
+            "x-sophialin-plugin": "pi",
+            "x-sophialin-plugin-conversation": conv,
+            "x-sophialin-plugin-model": "gpt-test",
         },
         body: JSON.stringify({ model: "gpt-test", stream: false, messages: [{ role: "user", content: userText }] }),
     });
@@ -172,7 +172,7 @@ async function modelTurn(h: Harness, conv: string, userText: string): Promise<vo
 }
 
 async function toolPost(h: Harness, body: Record<string, unknown>): Promise<{ status: number; json: any }> {
-    const res = await fetch(`${h.baseUrl}/__bili/plugin/tool`, {
+    const res = await fetch(`${h.baseUrl}/__sophialin/plugin/tool`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
@@ -221,8 +221,8 @@ function mcpCall(baseUrl: string, conversationId: string, method: string, params
     return new Promise((resolve, reject) => {
         const env: NodeJS.ProcessEnv = {
             ...process.env,
-            BILI_MCP_PROXY: baseUrl,
-            BILI_CONVERSATION_ID: conversationId,
+            SOPHIALIN_MCP_PROXY: baseUrl,
+            SOPHIALIN_CONVERSATION_ID: conversationId,
             CLAUDE_CODE_SESSION_ID: "",
         };
         const child = spawn(process.execPath, ["--import", "tsx", "src/mcp.ts"], {

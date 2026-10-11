@@ -50,9 +50,9 @@ function hermeticEnv(root: string): NodeJS.ProcessEnv {
 
 test("conflictScanEnabled defaults on, honors 0/false", () => {
     assert.equal(conflictScanEnabled({}), true);
-    assert.equal(conflictScanEnabled({ BILI_CONFLICT_SCAN: "1" }), true);
-    assert.equal(conflictScanEnabled({ BILI_CONFLICT_SCAN: "0" }), false);
-    assert.equal(conflictScanEnabled({ BILI_CONFLICT_SCAN: "false" }), false);
+    assert.equal(conflictScanEnabled({ SOPHIALIN_CONFLICT_SCAN: "1" }), true);
+    assert.equal(conflictScanEnabled({ SOPHIALIN_CONFLICT_SCAN: "0" }), false);
+    assert.equal(conflictScanEnabled({ SOPHIALIN_CONFLICT_SCAN: "false" }), false);
 });
 
 test("sniffScanClient identifies clients from wire headers", () => {
@@ -67,10 +67,10 @@ test("sniffScanClient identifies clients from wire headers", () => {
 
 test("opencode scan: known conflict + keyword entries, self/context7 skipped", () => {
     clearScanCache();
-    const root = tmp("bili-1206-oc-");
-    const cwd = tmp("bili-1206-oc-cwd-");
+    const root = tmp("sophialin-1206-oc-");
+    const cwd = tmp("sophialin-1206-oc-cwd-");
     writeFile(path.join(root, ".config", "opencode", "opencode.json"), JSON.stringify({
-        plugin: ["opencode-acp@stable", "@scope/context-compressor", "billion-context", "context7", "context-dashboard", { name: "memory-compactor" }],
+        plugin: ["opencode-acp@stable", "@scope/context-compressor", "sophialin-context", "context7", "context-dashboard", { name: "memory-compactor" }],
     }));
     writeFile(path.join(cwd, ".opencode", "opencode.json"), JSON.stringify({ plugin: ["compact-helper"] }));
     const res = scanClientPlugins("opencode", { env: hermeticEnv(root), cwd });
@@ -79,7 +79,7 @@ test("opencode scan: known conflict + keyword entries, self/context7 skipped", (
     assert.ok(names.includes("@scope/context-compressor"));
     assert.ok(names.includes("memory-compactor"));
     assert.ok(names.includes("compact-helper"), "project-layer entry must be scanned");
-    assert.ok(!names.includes("billion-context"), "bili itself must be skipped");
+    assert.ok(!names.includes("sophialin-context"), "sophialin itself must be skipped");
     assert.ok(!names.some((n) => n === "context7"), "context7 must NOT be keyword-matched");
     assert.ok(!names.some((n) => n === "context-dashboard"), "bare-'context' read-only tool must NOT be flagged (#1736)");
     const known = res.findings.find((f) => f.entry === "opencode-acp@stable");
@@ -90,13 +90,13 @@ test("opencode scan: known conflict + keyword entries, self/context7 skipped", (
 
 test("opencode scan: no config at all yields empty result without throwing", () => {
     clearScanCache();
-    const root = tmp("bili-1206-oc-empty-");
+    const root = tmp("sophialin-1206-oc-empty-");
     const res = scanClientPlugins("opencode", { env: hermeticEnv(root), cwd: root });
     assert.deepEqual(res.findings, []);
 });
 
 test("opencode scan: project walk never climbs past the git root", () => {
-    const base = tmp("bili-1206-oc-repo-");
+    const base = tmp("sophialin-1206-oc-repo-");
     writeFile(path.join(base, "opencode.json"), JSON.stringify({ plugin: ["acp-decoy"] }));
     const repo = path.join(base, "repo");
     fs.mkdirSync(path.join(repo, ".git"), { recursive: true });
@@ -111,7 +111,7 @@ test("opencode scan: project walk never climbs past the git root", () => {
 });
 
 test("opencode scan: without a .git anchor the walk stops at cwd", () => {
-    const tree = tmp("bili-1206-oc-nogit-");
+    const tree = tmp("sophialin-1206-oc-nogit-");
     writeFile(path.join(tree, "opencode.json"), JSON.stringify({ plugin: ["acp-parent"] }));
     const child = path.join(tree, "child");
     fs.mkdirSync(child, { recursive: true });
@@ -139,13 +139,13 @@ test("opencode scan: without a .git anchor the walk stops at cwd", () => {
     }
 });
 
-test("pi scan: legacy bcp entry is known-conflict, keyword entries flagged, bili-self skipped", () => {
+test("pi scan: legacy bcp entry is known-conflict, keyword entries flagged, sophialin-self skipped", () => {
     clearScanCache();
-    const root = tmp("bili-1206-pi-");
-    const cwd = tmp("bili-1206-pi-cwd-");
+    const root = tmp("sophialin-1206-pi-");
+    const cwd = tmp("sophialin-1206-pi-cwd-");
     const home = resolvePiHome(hermeticEnv(root));
     writeFile(path.join(home, "settings.json"), JSON.stringify({
-        packages: ["npm:billion-context-pi", "npm:context-compactor", "npm:context-forge", "/u/node_modules/billion-context/dist/agent/pi.js"],
+        packages: ["npm:billion-context-pi", "npm:context-compactor", "npm:context-forge", "/u/node_modules/sophialin-context/dist/agent/pi.js"],
     }));
     const res = scanClientPlugins("pi", { env: hermeticEnv(root), cwd });
     const bcp = res.findings.find((f) => f.entry === "npm:billion-context-pi");
@@ -153,17 +153,17 @@ test("pi scan: legacy bcp entry is known-conflict, keyword entries flagged, bili
     assert.equal(bcp?.knownId, "billion-context-pi");
     assert.ok(res.findings.some((f) => f.entry === "npm:context-compactor" && f.match === "keyword"), "action-token name still flagged");
     assert.ok(!res.findings.some((f) => f.entry === "npm:context-forge"), "bare-'context' tool must NOT be flagged (#1736)");
-    assert.ok(!res.findings.some((f) => f.entry.includes("dist/agent/pi.js")), "bili's own extension path must be skipped");
+    assert.ok(!res.findings.some((f) => f.entry.includes("dist/agent/pi.js")), "sophialin's own extension path must be skipped");
 });
 
-test("omp scan: extensions block parsed, bili entry skipped, keyword flagged", () => {
+test("omp scan: extensions block parsed, sophialin entry skipped, keyword flagged", () => {
     clearScanCache();
-    const root = tmp("bili-1206-omp-");
+    const root = tmp("sophialin-1206-omp-");
     const home = resolveOmpHome(hermeticEnv(root));
     writeFile(path.join(home, "config.yml"), [
         "model: m",
         "extensions:",
-        "  - /u/node_modules/billion-context/dist/agent/omp-native.js",
+        "  - /u/node_modules/sophialin-context/dist/agent/omp-native.js",
         "  - npm:context-compactor",
         "  - npm:context-forger",
         "providers:",
@@ -175,15 +175,15 @@ test("omp scan: extensions block parsed, bili entry skipped, keyword flagged", (
     assert.equal(res.findings[0]?.match, "keyword");
 });
 
-test("kimi scan: installed.json ids scanned, billion-context skipped", () => {
+test("kimi scan: installed.json ids scanned, sophialin-context skipped", () => {
     clearScanCache();
-    const root = tmp("bili-1206-kimi-");
+    const root = tmp("sophialin-1206-kimi-");
     const env: NodeJS.ProcessEnv = { ...hermeticEnv(root), KIMI_CODE_HOME: path.join(root, "kimi") };
     const pluginsDir = path.join(resolveKimiHome(env), "plugins");
     writeFile(path.join(pluginsDir, "installed.json"), JSON.stringify({
         version: 1,
         plugins: [
-            { id: "billion-context", root: "./managed/billion-context", source: "local-path", enabled: true },
+            { id: "sophialin-context", root: "./managed/sophialin-context", source: "local-path", enabled: true },
             { id: "context-compactor", root: "./managed/context-compactor", source: "local-path", enabled: true },
             { id: "context-keeper", root: "./managed/context-keeper", source: "local-path", enabled: true },
         ],
@@ -193,12 +193,12 @@ test("kimi scan: installed.json ids scanned, billion-context skipped", () => {
     assert.equal(res.findings[0]?.entry, "context-compactor");
 });
 
-test("hermes scan: plugin dirs matched by dir name only, bili skipped", () => {
+test("hermes scan: plugin dirs matched by dir name only, sophialin skipped", () => {
     clearScanCache();
-    const root = tmp("bili-1206-hermes-");
+    const root = tmp("sophialin-1206-hermes-");
     const env: NodeJS.ProcessEnv = { ...hermeticEnv(root), HERMES_HOME: path.join(root, "hermes") };
     const pluginsDir = path.join(resolveHermesHome(env), "plugins");
-    fs.mkdirSync(path.join(pluginsDir, "billion-context"), { recursive: true });
+    fs.mkdirSync(path.join(pluginsDir, "sophialin-context"), { recursive: true });
     fs.mkdirSync(path.join(pluginsDir, "weather"), { recursive: true });
     writeFile(path.join(pluginsDir, "context-compactor", "plugin.yaml"), "name: context-compactor\n");
     // bare-'context' read-only tool: dropped by the tightened keyword set (#1736)
@@ -209,7 +209,7 @@ test("hermes scan: plugin dirs matched by dir name only, bili skipped", () => {
     assert.deepEqual(res.findings.map((f) => f.entry), ["context-compactor"]);
 });
 
-test("#920: opencode-acp is design-absorbed only under bili's own opencode mode", () => {
+test("#920: opencode-acp is design-absorbed only under sophialin's own opencode mode", () => {
     const known: ThirdPartyFinding = { client: "opencode", entry: "opencode-acp", source: "global", match: "known", knownId: "opencode-acp" };
     assert.equal(isDesignAbsorbed(known, "opencode"), true);
     assert.equal(isDesignAbsorbed(known, undefined), false, "wire mode: still a conflict");
@@ -220,11 +220,11 @@ test("#920: opencode-acp is design-absorbed only under bili's own opencode mode"
 
 test("dsh scan: profile deps scanned; bare-'context' dashboard dropped, action-token compressors kept (#1736)", () => {
     clearScanCache();
-    const root = tmp("bili-1206-dsh-");
+    const root = tmp("sophialin-1206-dsh-");
     const env: NodeJS.ProcessEnv = { ...hermeticEnv(root), DSH_HOME: path.join(root, "dsh") };
     writeFile(path.join(root, "dsh", "profiles", "main", "package.json"), JSON.stringify({
         dependencies: {
-            "billion-context": "^0.1.0",
+            "sophialin-context": "^0.1.0",
             "dsh-context": "^0.2.0",
             "@deepseek-ai/dsh-compaction-basic": "0.2.0-rc.2",
             "dsh-context-compressor": "^1.0.0",
@@ -233,14 +233,14 @@ test("dsh scan: profile deps scanned; bare-'context' dashboard dropped, action-t
     const res = scanClientPlugins("dsh", { env, cwd: root });
     const names = res.findings.map((f) => f.entry);
     assert.ok(!names.includes("dsh-context"), "read-only Context Dashboard must NOT be flagged (#1736)");
-    assert.ok(!names.includes("billion-context"), "bili itself must be skipped");
+    assert.ok(!names.includes("sophialin-context"), "sophialin itself must be skipped");
     assert.ok(names.includes("@deepseek-ai/dsh-compaction-basic"), "'compaction' carries the compact action token");
     assert.ok(names.includes("dsh-context-compressor"), "'compressor' carries the compress action token");
 });
 
 test("dsh scan: missing profiles root yields empty result without throwing", () => {
     clearScanCache();
-    const root = tmp("bili-1206-dsh-empty-");
+    const root = tmp("sophialin-1206-dsh-empty-");
     const env: NodeJS.ProcessEnv = { ...hermeticEnv(root), DSH_HOME: path.join(root, "dsh") };
     const res = scanClientPlugins("dsh", { env, cwd: root });
     assert.deepEqual(res.findings, []);
@@ -248,7 +248,7 @@ test("dsh scan: missing profiles root yields empty result without throwing", () 
 
 test("claude scan: enabledPlugins keys + plugins dir scanned", () => {
     clearScanCache();
-    const root = tmp("bili-1206-claude-");
+    const root = tmp("sophialin-1206-claude-");
     const env: NodeJS.ProcessEnv = { ...hermeticEnv(root), CLAUDE_CONFIG_DIR: path.join(root, "claude") };
     writeFile(path.join(root, "claude", "settings.json"), JSON.stringify({
         enabledPlugins: { "context-compressor": true, "theme-dark": true },
@@ -261,15 +261,15 @@ test("claude scan: enabledPlugins keys + plugins dir scanned", () => {
 
 test("unknown client yields empty result", () => {
     clearScanCache();
-    const res = scanClientPlugins("codex", { env: {}, cwd: tmp("bili-1206-unknown-") });
+    const res = scanClientPlugins("codex", { env: {}, cwd: tmp("sophialin-1206-unknown-") });
     assert.deepEqual(res.findings, []);
     assert.equal(res.client, "codex");
 });
 
 test("scan results are cached within TTL and invalidated by clearScanCache", () => {
     clearScanCache();
-    const root = tmp("bili-1206-cache-");
-    const cwd = tmp("bili-1206-cache-cwd-");
+    const root = tmp("sophialin-1206-cache-");
+    const cwd = tmp("sophialin-1206-cache-cwd-");
     const cfgFile = path.join(root, ".config", "opencode", "opencode.json");
     writeFile(cfgFile, JSON.stringify({ plugin: ["opencode-acp"] }));
     const first = scanClientPlugins("opencode", { env: hermeticEnv(root), cwd });
@@ -301,7 +301,7 @@ test("formatConflictSection lists last 10 events with guidance", () => {
     assert.ok(lines.some((l) => l.includes("reaped 11")));
     assert.ok(lines.some((l) => l.includes("reaped 2")));
     assert.ok(!lines.some((l) => l.includes("reaped 0 ")), "only the last 10 events are listed");
-    assert.ok(lines.some((l) => l.includes("/__bili/stats")), "overflow pointer present");
+    assert.ok(lines.some((l) => l.includes("/__sophialin/stats")), "overflow pointer present");
     assert.ok(lines.some((l) => l.toLowerCase().includes("one compressor")), "guidance footer present");
 });
 

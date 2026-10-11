@@ -227,7 +227,7 @@ export function createOpenaiAdapter(requestBody: Record<string, unknown>, client
                     }),
                 ),
                 createBiliArtifactFilter((snippet) => {
-                    loggerLog("warn", `[bili-artifact] stripped model-emitted internal artifact: ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
+                    loggerLog("warn", `[sophialin-artifact] stripped model-emitted internal artifact: ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
                 }),
             );
             const flushFilter = function* (): Generator<ParsedStreamEvent> {
@@ -543,7 +543,7 @@ export function createOpenaiAdapter(requestBody: Record<string, unknown>, client
             // #1455: present the failure AS a failure (see the anthropic twin). The
             // legacy shape — error text + finish_reason "stop" + [DONE] — read as a
             // normal completion to clients and suppressed their retry logic. The
-            // default now rides the top-level `error` frame bili's own parser already
+            // default now rides the top-level `error` frame sophialin's own parser already
             // recognizes (same shape #721's truncation path emits); compat.
             // streamErrorShape="completion" restores the legacy shape.
             if (errorShape === "completion") {

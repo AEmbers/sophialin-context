@@ -149,7 +149,7 @@ test("#897: acp_status surfaces blind-tunneled CONNECT traffic as UNDECRYPTED TR
         assert.ok(out.includes("copilot.tencent.com×2"), "per-host counts with real hosts, most tunnels first");
         assert.ok(out.includes("api.deepseek.com×1"));
         assert.ok(out.includes('add its model domain to "mitm".domains'), "points at the config fix");
-        assert.ok(out.includes("/__bili/stats → blindTunnels"), "points at the stats endpoint");
+        assert.ok(out.includes("/__sophialin/stats → blindTunnels"), "points at the stats endpoint");
     } finally {
         _resetBlindTunnelStatsForTest();
     }
@@ -164,5 +164,5 @@ test("acp_status renders the ACTIVE SURFACE line from the session's pack stamp",
     const report = handleAcpStatus({}, stamped);
     const line = report.split("\n").find((l) => l.startsWith("ACTIVE SURFACE:"));
     assert.ok(line, "ACTIVE SURFACE line present once stamped");
-    assert.ok(line!.startsWith("ACTIVE SURFACE: pack=lean | host=billion-context "), `host identity rendered (got: ${line})`);
+    assert.ok(line!.startsWith("ACTIVE SURFACE: pack=lean | host=sophialin-context "), `host identity rendered (got: ${line})`);
 });

@@ -4,8 +4,8 @@ import http from "node:http";
 import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 
-// The launcher plugin reads BILLION_CONTEXT_PROXY AT IMPORT TIME (the
-// `bili opencode` launcher sets it). Arm it before the dynamic import so this
+// The launcher plugin reads SOPHIALIN_CONTEXT_PROXY AT IMPORT TIME (the
+// `sophialin opencode` launcher sets it). Arm it before the dynamic import so this
 // suite drives the ATTACH lane end-to-end with real local servers standing in
 // for the shared proxy. node --test isolates each file in its own process, so
 // the env mutation cannot leak into other suites.
@@ -14,12 +14,12 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 
 function startFakeProxy(): Promise<{ origin: string; close: () => Promise<void> }> {
     const server = http.createServer((req, res) => {
-        if ((req.url ?? "") === "/__bili/health") {
+        if ((req.url ?? "") === "/__sophialin/health") {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ ok: true }));
             return;
         }
-        if ((req.url ?? "") === "/__bili/plugin/manifest") {
+        if ((req.url ?? "") === "/__sophialin/plugin/manifest") {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ version: "9.9.9-test" }));
             return;
@@ -119,7 +119,7 @@ function makeFakeCtx() {
 
 const proxyA = await startFakeProxy();
 const proxyB = await startFakeProxy();
-process.env.BILLION_CONTEXT_PROXY = proxyA.origin;
+process.env.SOPHIALIN_CONTEXT_PROXY = proxyA.origin;
 
 const mod = await import("../src/agent/opencode.ts");
 const plugin = mod.default;
@@ -150,7 +150,7 @@ test("launcher plugin: steady-state model traffic routes through the attached pr
     fake = makeFakeCtx();
     cleanup = await plugin.setup(fake.ctx as never);
     const req = await fake.fireModelRequest("ses_1", MODEL_URL);
-    assert.equal(req.url, `${proxyA.origin}/bili/${MODEL_URL}`);
+    assert.equal(req.url, `${proxyA.origin}/sophialin/${MODEL_URL}`);
 });
 
 test("launcher plugin: shared-proxy death respawns and re-bakes the overlay URL (#1135)", async () => {
@@ -159,13 +159,13 @@ test("launcher plugin: shared-proxy death respawns and re-bakes the overlay URL 
     _setRespawnForTest(async () => {
         const st = _interceptStateForTest();
         if (st !== undefined) st.origin = proxyB.origin;
-        process.env.BILLION_CONTEXT_PROXY = proxyB.origin;
+        process.env.SOPHIALIN_CONTEXT_PROXY = proxyB.origin;
         return proxyB.origin;
     });
     await proxyA.close();
-    const req = await fake!.fireModelRequest("ses_1", `${proxyA.origin}/bili/${MODEL_URL}`);
-    assert.equal(req.url, `${proxyB.origin}/bili/${MODEL_URL}`, "baked overlay re-routed to the replacement");
-    assert.equal(process.env.BILLION_CONTEXT_PROXY, proxyB.origin);
+    const req = await fake!.fireModelRequest("ses_1", `${proxyA.origin}/sophialin/${MODEL_URL}`);
+    assert.equal(req.url, `${proxyB.origin}/sophialin/${MODEL_URL}`, "baked overlay re-routed to the replacement");
+    assert.equal(process.env.SOPHIALIN_CONTEXT_PROXY, proxyB.origin);
 });
 
 test("launcher plugin: failed respawn degrades to a DIRECT send, stripping the dead hop (#1135)", async () => {
@@ -174,7 +174,7 @@ test("launcher plugin: failed respawn degrades to a DIRECT send, stripping the d
     await proxyB.close();
     const req = await fake!.fireModelRequest("ses_1", MODEL_URL);
     assert.equal(req.url, MODEL_URL, "no live proxy: request goes straight to the upstream");
-    assert.equal(process.env.BILLION_CONTEXT_PROXY, undefined, "onGiveUp cleared the proxy-owned env");
+    assert.equal(process.env.SOPHIALIN_CONTEXT_PROXY, undefined, "onGiveUp cleared the proxy-owned env");
 });
 
 test("launcher plugin: non-model requests are untouched across the whole lifecycle", async () => {

@@ -106,7 +106,7 @@ function upstreamServer(status: number, onBody: (path: string, body: unknown) =>
 interface StartOpts {
     compatJson: string;
     /** G/H drive the #583 ladder with injectTool/injectNudge OFF so the wire is
-     *  the bare conversation — bili's own injected system prompt would otherwise
+     *  the bare conversation — sophialin's own injected system prompt would otherwise
      *  sit at index 0 and muddy the placement asserts. */
     bareWire?: boolean;
 }
@@ -114,12 +114,12 @@ interface StartOpts {
 async function startProxy(upstream: http.Server, { compatJson, bareWire }: StartOpts): Promise<{ port: number; opts: ProxyOptions; stop: () => Promise<void>; cleanup: () => void }> {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-compat-roles-${process.pid}-${Date.now()}`);
-    const biliConfig = path.join(root, "billion-context.json");
+    const root = path.join(tmpdir(), `sophialin-compat-roles-${process.pid}-${Date.now()}`);
+    const sophialinConfig = path.join(root, "sophialin-context.json");
     mkdirSync(root, { recursive: true });
-    writeFileSync(biliConfig, compatJson, "utf8");
-    const previous = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    writeFileSync(sophialinConfig, compatJson, "utf8");
+    const previous = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const upstreamPort = (upstream.address() as { port: number }).port;
     const opts: ProxyOptions = {
         port: 0,
@@ -151,7 +151,7 @@ async function startProxy(upstream: http.Server, { compatJson, bareWire }: Start
         opts,
         stop: async () => { await close(proxy); },
         cleanup: () => {
-            if (previous === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = previous;
+            if (previous === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = previous;
             rmrf(root);
         },
     };

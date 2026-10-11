@@ -94,7 +94,7 @@ async function startHarness(debug: boolean, tmpRoot: string): Promise<{ proxy: h
 }
 
 async function sendRequest(proxyPort: number, upstreamPort: number): Promise<void> {
-    const resp = await fetch(`http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/chat/completions`, {
+    const resp = await fetch(`http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/chat/completions`, {
         method: "POST",
         headers: {
             "content-type": "application/json",
@@ -110,7 +110,7 @@ async function sendRequest(proxyPort: number, upstreamPort: number): Promise<voi
 }
 
 test("body dumps are OFF by default even with --debug (#276)", async () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dump-off-"));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-dump-off-"));
     const prev = saveEnv();
     process.env.XDG_STATE_HOME = tmpRoot;
     delete process.env.ACP_DUMP_BODY;
@@ -118,7 +118,7 @@ test("body dumps are OFF by default even with --debug (#276)", async () => {
     try {
         h = await startHarness(true, tmpRoot);
         await sendRequest(h.proxyPort, h.upstreamPort);
-        const dumpFiles = listFiles(path.join(tmpRoot, "billion-context")).filter((f) => DUMP_FILE_RE.test(f));
+        const dumpFiles = listFiles(path.join(tmpRoot, "sophialin-context")).filter((f) => DUMP_FILE_RE.test(f));
         assert.equal(dumpFiles.length, 0, `expected no body dumps by default, got: ${dumpFiles.join(", ")}`);
     } finally {
         restoreEnv(prev);
@@ -128,7 +128,7 @@ test("body dumps are OFF by default even with --debug (#276)", async () => {
 });
 
 test("ACP_DUMP_BODY=1: dumps written, no credentials, no non-public host (#276)", async () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dump-on-"));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-dump-on-"));
     const prev = saveEnv();
     process.env.XDG_STATE_HOME = tmpRoot;
     process.env.ACP_DUMP_BODY = "1";
@@ -136,7 +136,7 @@ test("ACP_DUMP_BODY=1: dumps written, no credentials, no non-public host (#276)"
     try {
         h = await startHarness(true, tmpRoot);
         await sendRequest(h.proxyPort, h.upstreamPort);
-        const files = listFiles(path.join(tmpRoot, "billion-context"));
+        const files = listFiles(path.join(tmpRoot, "sophialin-context"));
         const dumpFiles = files.filter((f) => DUMP_FILE_RE.test(f));
         assert.ok(dumpFiles.some((f) => /req-.*\.json$/.test(f)), `missing req-*.json dump: ${dumpFiles.join(", ")}`);
         assert.ok(dumpFiles.some((f) => /-REQ\.txt$/.test(f)), `missing *-REQ.txt dump: ${dumpFiles.join(", ")}`);
@@ -161,7 +161,7 @@ test("ACP_DUMP_BODY=1: dumps written, no credentials, no non-public host (#276)"
 });
 
 test("ACP_DUMP_BODY=1 works without --debug (dumps decoupled from verbose logging) (#276)", async () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dump-nodebug-"));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-dump-nodebug-"));
     const prev = saveEnv();
     process.env.XDG_STATE_HOME = tmpRoot;
     process.env.ACP_DUMP_BODY = "1";
@@ -169,7 +169,7 @@ test("ACP_DUMP_BODY=1 works without --debug (dumps decoupled from verbose loggin
     try {
         h = await startHarness(false, tmpRoot);
         await sendRequest(h.proxyPort, h.upstreamPort);
-        const dumpFiles = listFiles(path.join(tmpRoot, "billion-context")).filter((f) => DUMP_FILE_RE.test(f));
+        const dumpFiles = listFiles(path.join(tmpRoot, "sophialin-context")).filter((f) => DUMP_FILE_RE.test(f));
         assert.ok(dumpFiles.some((f) => /-REQ\.txt$/.test(f)), `raw REQ dump missing without --debug: ${dumpFiles.join(", ")}`);
         assert.ok(dumpFiles.some((f) => /-RES\.txt$/.test(f)), `raw RES dump missing without --debug: ${dumpFiles.join(", ")}`);
         assert.ok(dumpFiles.some((f) => /-INCOMING\.txt$/.test(f)), `INCOMING dump missing without --debug: ${dumpFiles.join(", ")}`);

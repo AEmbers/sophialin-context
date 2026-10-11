@@ -1,5 +1,5 @@
 // Native-mode fetch interception (#519): a globalThis.fetch patch that
-// silently routes model-API requests through a bili proxy that the extension
+// silently routes model-API requests through a sophialin proxy that the extension
 // itself spawned (see pi-native.ts). Verified end-to-end on pi 0.83.6: pi's
 // provider stack (pi-stable-ai → Anthropic/OpenAI SDKs) resolves its fetch
 // from the global at FIRST-request client construction, so a patch installed
@@ -9,7 +9,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import { envMillis } from "./native-bootstrap.js";
-import { BILI_PASSTHROUGH_HEADER } from "../util.js";
+import { SOPHIALIN_PASSTHROUGH_HEADER } from "../util.js";
 
 export interface NativeInterceptState {
     /** Proxy origin ("http://127.0.0.1:PORT") once the bootstrap resolved.
@@ -21,15 +21,15 @@ export interface NativeInterceptState {
     respawn?: () => Promise<string | undefined>;
     /** Owner hook: fired once when a respawn attempt fails and the session
      *  degrades to direct sends for good — clear proxy-owned state (e.g. the
-     *  BILLION_CONTEXT_PROXY env) so event-time ownership checks disarm with
+     *  SOPHIALIN_CONTEXT_PROXY env) so event-time ownership checks disarm with
      *  the traffic. */
     onGiveUp?: () => void;
     /** Attach mode (#809): route through a user-supplied external proxy at
      *  state.origin instead of a spawned one. Set by the host entry when a
-     *  BILLION_CONTEXT_ATTACH / launcher-preset BILLION_CONTEXT_PROXY is
+     *  SOPHIALIN_CONTEXT_ATTACH / launcher-preset SOPHIALIN_CONTEXT_PROXY is
      *  present. Rewrites model URLs to the attach origin exactly like spawn
      *  mode (opencode V1's fetch patch and #809's probe+rewrite semantics
-     *  depend on it); already-routed `/bili/` URLs still pass through except
+     *  depend on it); already-routed `/sophialin/` URLs still pass through except
      *  for headersFor stamping. The attached proxy is often owned by ANOTHER
      *  launcher that can exit mid-session (#1130) — hosts arm state.respawn
      *  so an observed death triggers the same runtime recovery as spawn
@@ -39,7 +39,7 @@ export interface NativeInterceptState {
     /** Optional header hook (#941): called synchronously per model-API
      *  request with the (pre-rewrite) target URL. A non-undefined return is
      *  merged into the outgoing request headers — dsh-native uses it to
-     *  stamp x-bili-plugin* once its tools are registered, gating plugin
+     *  stamp x-sophialin-plugin* once its tools are registered, gating plugin
      *  mode exactly like pi.ts's before_provider_headers stamp. Returning
      *  undefined sends the request untouched (wire mode). */
     headersFor?: (url: string) => Record<string, string> | undefined;
@@ -47,7 +47,7 @@ export interface NativeInterceptState {
      *  with the (pre-rewrite) target URL. Returning false means the caller is
      *  NOT the host itself (e.g. a third-party in-process plugin riding the
      *  host's LLM bridge, whose model calls hit the same URLs): the request is
-     *  NOT claimed — raw URLs send direct, already-routed `/bili/` URLs are
+     *  NOT claimed — raw URLs send direct, already-routed `/sophialin/` URLs are
      *  stamped with the passthrough marker instead. Undefined (hosts without
      *  an attribution signal) keeps URL-shape claiming for every caller. */
     takeoverGate?: (url: string) => boolean;
@@ -62,7 +62,7 @@ export interface NativeInterceptState {
      *  (observed live: dsh fires R1 ~90ms before the manifest lands). Undefined
      *  (every lane that does not arm one) = no wait, behavior unchanged. */
     toolsReady?: Promise<unknown>;
-    /** #1365: origin baked into already-routed `/bili/` model URLs observed
+    /** #1365: origin baked into already-routed `/sophialin/` model URLs observed
      *  by this process (sticky; last observation wins). Routed URLs are
      *  STATICALLY pinned to that origin — a spawned replacement can never
      *  carry them — so attach lanes treat this as evidence their model
@@ -79,7 +79,7 @@ export interface NativeInterceptState {
     onDispatch?: (url: string, action: "rewrite" | "direct" | "self" | "retry") => void;
     /** #1290: observability hook — fired for every POST request the fetch patch
      *  lets through WITHOUT routing because its URL is not a recognized model
-     *  endpoint (isModelApiUrl miss). Such requests never reach a bili proxy,
+     *  endpoint (isModelApiUrl miss). Such requests never reach a sophialin proxy,
      *  so without this their "went direct (uncompressed)" outcome was completely
      *  silent — #1158's logging promise only covered the attribution gate below.
      *  #1657: non-POST methods are excluded — a GET/HEAD cannot carry a prompt,
@@ -90,11 +90,11 @@ export interface NativeInterceptState {
     onUnroutedModelUrl?: (url: string) => void;
 }
 
-/** Ownership marker for bili's own chain links (#1410). Every function
+/** Ownership marker for sophialin's own chain links (#1410). Every function
  *  makeChain produces carries this symbol as an OWN property, so a write-back
  *  of our own (possibly stale) link to globalThis.fetch is recognized as ours
  *  — never counted as a third-party evict spending re-arm budget. */
-const CHAIN_MARKER = Symbol.for("billion-context.native-fetch-chain");
+const CHAIN_MARKER = Symbol.for("sophialin-context.native-fetch-chain");
 
 function markOwnChain(fn: typeof globalThis.fetch): void {
     Object.defineProperty(fn, CHAIN_MARKER, { value: true, configurable: true, writable: true, enumerable: false });
@@ -107,15 +107,15 @@ function isOwnChain(v: unknown): boolean {
 // #1410: same-process installs share one identity — Symbol.for keeps the
 // double-load check working across duplicate copies of this module (a plain
 // Symbol would let a second copy re-install on top of the first).
-const INTERCEPT_FLAG = Symbol.for("billion-context.native-fetch-intercept");
+const INTERCEPT_FLAG = Symbol.for("sophialin-context.native-fetch-intercept");
 
-/** #1158 escape hatch: `BILI_RECLAIM_FETCH_PATCH=0` keeps the classic direct
+/** #1158 escape hatch: `SOPHIALIN_RECLAIM_FETCH_PATCH=0` keeps the classic direct
  *  install — a third-party re-arm (dsh-http-proxy refresh) then wins and
- *  bili stops seeing model traffic (documented degradation, visible instead
+ *  sophialin stops seeing model traffic (documented degradation, visible instead
  *  of silently healed) for setups that NEED the third-party chain on top
- *  (e.g. a socks egress bili's upstream proxying does not support). */
+ *  (e.g. a socks egress sophialin's upstream proxying does not support). */
 function shouldReclaimFetchPatch(): boolean {
-    const raw = process.env.BILI_RECLAIM_FETCH_PATCH;
+    const raw = process.env.SOPHIALIN_RECLAIM_FETCH_PATCH;
     if (raw === undefined) return true;
     return !/^(0|false|off|no)$/i.test(raw.trim());
 }
@@ -146,7 +146,7 @@ let warnedReanchor = false;
 
 // #1662: per-request dispatch depth, tracked in an async context — NOT a
 // global counter, because concurrent top-level requests must not see each
-// other. 1 = inside bili's own dispatch body. A re-entry observed at depth
+// other. 1 = inside sophialin's own dispatch body. A re-entry observed at depth
 // 1 is PROOF of accumulated nesting: a link of ours is being called from
 // within our own dispatch, which is only possible through a foreign wrapper
 // that captured one of our older tops (the churn shape of dsh-codex-
@@ -177,7 +177,7 @@ function nextLiveAnchor(dead: typeof globalThis.fetch): typeof globalThis.fetch 
     return observedFetches.find((f) => !knownDeadFetches.has(f));
 }
 
-// Model-API endpoint suffixes across the wires bili proxies: Anthropic
+// Model-API endpoint suffixes across the wires sophialin proxies: Anthropic
 // `/v1/messages`, OpenAI chat `/v1/chat/completions` (and legacy
 // `/v1/completions`), Responses `/v1/responses`, Mistral
 // `/v1/chat/completions`|`/v1/conversations`. Version segment is optional
@@ -186,7 +186,7 @@ function nextLiveAnchor(dead: typeof globalThis.fetch): typeof globalThis.fetch 
 const MODEL_API_SUFFIX = /(?:^|\/)(?:v\d+\/)?(?:messages|chat\/completions|completions|responses|conversations)\/?$/;
 
 /** True when the URL points at a model-API endpoint worth proxying. Never
- *  true for bili's own proxy paths (`/bili/…`, `/__bili/…`) or non-HTTP(S). */
+ *  true for sophialin's own proxy paths (`/sophialin/…`, `/__sophialin/…`) or non-HTTP(S). */
 /** True when this process carries the native fetch intercept (#519) — every
  *  isModelApiUrl request WILL be rewritten to the proxy regardless of what
  *  the model config's baseUrl says. Lets identity stamping mirror the
@@ -198,11 +198,11 @@ export function nativeInterceptInstalled(): boolean {
 
 export function isModelApiUrl(url: string): boolean {
     if (!/^https?:\/\//i.test(url)) return false;
-    if (url.includes("/__bili/") || url.includes("/__acp/")) return false;
+    if (url.includes("/__sophialin/") || url.includes("/__acp/")) return false;
     try {
         const u = new URL(url);
         const segments = u.pathname.split("/").filter((s) => s.length > 0);
-        if (segments[0] === "bili") return false;
+        if (segments[0] === "sophialin") return false;
         const pathname = u.pathname.replace(/\/+$/, "");
         return MODEL_API_SUFFIX.test(pathname);
     } catch {
@@ -210,28 +210,28 @@ export function isModelApiUrl(url: string): boolean {
     }
 }
 
-/** True when the URL addresses bili's own control plane (`/__bili/*`,
- *  `/__acp/*`, or a `/bili/<protocol>/<url>` tunnel) — expected direct
+/** True when the URL addresses sophialin's own control plane (`/__sophialin/*`,
+ *  `/__acp/*`, or a `/sophialin/<protocol>/<url>` tunnel) — expected direct
  *  traffic, not an unrecognized endpoint (#1290): reporting it as "not a
- *  recognized model endpoint" would flag bili's own requests. */
+ *  recognized model endpoint" would flag sophialin's own requests. */
 function isBiliControlUrl(url: string): boolean {
-    if (url.includes("/__bili/") || url.includes("/__acp/")) return true;
+    if (url.includes("/__sophialin/") || url.includes("/__acp/")) return true;
     try {
         const segments = new URL(url).pathname.split("/").filter((s) => s.length > 0);
-        return segments[0] === "bili";
+        return segments[0] === "sophialin";
     } catch {
         return false;
     }
 }
 
-/** A URL already routed by a bili proxy in `/bili/` rewrite form
- *  (`${proxy}/bili/${upstream}`): returns the embedded upstream URL when it
+/** A URL already routed by a sophialin proxy in `/sophialin/` rewrite form
+ *  (`${proxy}/sophialin/${upstream}`): returns the embedded upstream URL when it
  *  is model-API shaped, else undefined. The launcher's settings overlay
  *  produces these; the patch does not rewrite them (routing is already
  *  done) but DOES stamp plugin headers on them. */
 export function routedBiliModelUrl(url: string): string | undefined {
-    if (!/^https?:\/\//i.test(url) || url.includes("/__bili/") || url.includes("/__acp/")) return undefined;
-    const m = /^https?:\/\/[^/]+\/bili\/(https?:\/.+)$/i.exec(url);
+    if (!/^https?:\/\//i.test(url) || url.includes("/__sophialin/") || url.includes("/__acp/")) return undefined;
+    const m = /^https?:\/\/[^/]+\/sophialin\/(https?:\/.+)$/i.exec(url);
     if (m === null) return undefined;
     return isModelApiUrl(m[1]) ? m[1] : undefined;
 }
@@ -309,7 +309,7 @@ async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | undefined>
     } catch (err) {
         // #983: a rejected bootstrap used to vanish silently here — surface
         // the real error so a dead-spawn looks different from a slow one.
-        console.error(`bili-native: proxy bootstrap failed (${err instanceof Error ? err.message : String(err)}) — falling back after timeout`);
+        console.error(`sophialin-native: proxy bootstrap failed (${err instanceof Error ? err.message : String(err)}) — falling back after timeout`);
         return undefined;
     } finally {
         if (timer !== undefined) clearTimeout(timer);
@@ -322,8 +322,8 @@ export async function readyOrigin(state: NativeInterceptState): Promise<string |
 }
 
 // ———— Routed-channel evidence (#1365) ————————————————————————————
-// Already-routed `/bili/` model URLs carry their proxy origin baked into the
-// string; nothing bili does at runtime can move them to a different instance.
+// Already-routed `/sophialin/` model URLs carry their proxy origin baked into the
+// string; nothing sophialin does at runtime can move them to a different instance.
 // Observing one is therefore DIRECT EVIDENCE that this process's model channel
 // is pinned — the attach lanes consume it to decide wait/fail over spawn.
 
@@ -357,9 +357,9 @@ const EVIDENCE_GRACE_POLL_MS = 100;
  *  channel shape declare itself. Returns the observed origin (pinned channel:
  *  never spawn) or undefined (no routed traffic within the window — the
  *  channel is presumed raw and may follow a replacement, legacy behavior).
- *  BILI_ATTACH_EVIDENCE_GRACE_MS overrides the default; unset = unchanged. */
+ *  SOPHIALIN_ATTACH_EVIDENCE_GRACE_MS overrides the default; unset = unchanged. */
 export async function observeRoutedOrigin(state: NativeInterceptState): Promise<string | undefined> {
-    const limit = envMillis(process.env, "BILI_ATTACH_EVIDENCE_GRACE_MS", EVIDENCE_GRACE_DEFAULT_MS);
+    const limit = envMillis(process.env, "SOPHIALIN_ATTACH_EVIDENCE_GRACE_MS", EVIDENCE_GRACE_DEFAULT_MS);
     const startedAt = Date.now();
     for (;;) {
         const observed = state.routedOrigin;
@@ -391,7 +391,7 @@ const RESPAWN_COOLDOWN_MS = 15_000;
 
 export async function probeHealth(origin: string): Promise<boolean> {
     try {
-        const res = await fetch(`${origin}/__bili/health`, { signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS) });
+        const res = await fetch(`${origin}/__sophialin/health`, { signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS) });
         return res.ok;
     } catch {
         return false;
@@ -418,7 +418,7 @@ export function withProbeTtl(probe: (origin: string) => Promise<boolean>, ttlMs:
 }
 
 export interface LiveOriginResolverDeps {
-    /** Injectable health probe (tests); defaults to GET /__bili/health. */
+    /** Injectable health probe (tests); defaults to GET /__sophialin/health. */
     probe?: (origin: string) => Promise<boolean>;
     /** Bootstrap retry interval when no live origin is held (tests shrink it). */
     respawnCooldownMs?: number;
@@ -520,7 +520,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
                     if (next === undefined) throw err;
                     if (!warnedReanchor) {
                         warnedReanchor = true;
-                        console.warn("[bili-native] adopted downstream fetch was torn down by its owner (#1410) — re-anchored the chain onto the oldest live fetch");
+                        console.warn("[sophialin-native] adopted downstream fetch was torn down by its owner (#1410) — re-anchored the chain onto the oldest live fetch");
                     }
                     ds = next;
                     cur = next;
@@ -544,7 +544,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
             const held = Date.now() - t0;
             if (!gateLogged && held >= 50) {
                 gateLogged = true;
-                console.warn(`[bili-native] held model request ${held}ms for ACP tool registration (#1268)`);
+                console.warn(`[sophialin-native] held model request ${held}ms for ACP tool registration (#1268)`);
             }
         };
         // Rebuild a Request-object input against a different target. A
@@ -569,7 +569,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
             return again;
         };
 
-        // Already-routed `/bili/` model requests (launcher settings overlay):
+        // Already-routed `/sophialin/` model requests (launcher settings overlay):
         // routing is done, but plugin headers still decide wire vs plugin
         // mode — stamp and pass through untouched otherwise.
         const routedTarget = routedBiliModelUrl(url);
@@ -583,7 +583,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
             // carries unattributed riders along (still passthrough-marked).
             const unattributed = state.takeoverGate !== undefined && !state.takeoverGate(routedTarget);
             if (unattributed) {
-                const stamped = withHeaders(input, init, { [BILI_PASSTHROUGH_HEADER]: "1" });
+                const stamped = withHeaders(input, init, { [SOPHIALIN_PASSTHROUGH_HEADER]: "1" });
                 state.onDispatch?.(url, "direct");
                 return send(stamped.input, stamped.init);
             }
@@ -633,7 +633,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
                 state.onGiveUp?.();
                 if (!warned) {
                     warned = true;
-                    console.error(`bili-native: no live proxy — model requests go direct (uncompressed): ${routedTarget}`);
+                    console.error(`sophialin-native: no live proxy — model requests go direct (uncompressed): ${routedTarget}`);
                 }
                 state.onDispatch?.(routedTarget, "direct");
                 return send(makeTarget(routedTarget), init);
@@ -649,7 +649,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
         // #1117: URL shape alone cannot claim a request — every model call in
         // the process hits the same endpoints. When the host supplies an
         // attribution gate, an unattributed caller keeps its original URL and
-        // sends direct (never touches a bili proxy).
+        // sends direct (never touches a sophialin proxy).
         if (state.takeoverGate !== undefined && !state.takeoverGate(url)) {
             state.onDispatch?.(url, "direct");
             return send(input, init);
@@ -661,7 +661,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
             // direct (uncompressed) and say so once.
             if (!warned) {
                 warned = true;
-                console.error(`bili-native: proxy not ready — model request goes direct (uncompressed): ${url}`);
+                console.error(`sophialin-native: proxy not ready — model request goes direct (uncompressed): ${url}`);
             }
             state.onDispatch?.(url, "direct");
             return send(input, init);
@@ -669,8 +669,8 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
         // Attach mode rewrites exactly like spawn mode (#809 semantics —
         // opencode's attach probe+rewrite; the V1 fetch patch relies on it to
         // catch providers without an explicit baseURL). For dsh under the
-        // `bili dsh` launcher this is doubly safe: settings-overlay URLs are
-        // already `/bili/`-shaped and take the routed branch above, and
+        // `sophialin dsh` launcher this is doubly safe: settings-overlay URLs are
+        // already `/sophialin/`-shaped and take the routed branch above, and
         // rewriting a raw upstream URL to the loopback proxy bypasses the
         // MITM envs entirely (an http loopback target is never proxied).
         if (url.startsWith(`${origin}/`)) {
@@ -678,8 +678,8 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
             return send(input, init);
         }
         await waitToolsGate();
-        const first = makeTarget(`${origin}/bili/${url}`);
-        state.onDispatch?.(`${origin}/bili/${url}`, "rewrite");
+        const first = makeTarget(`${origin}/sophialin/${url}`);
+        state.onDispatch?.(`${origin}/sophialin/${url}`, "rewrite");
         try {
             const stamped = withHeaders(first, init, state.headersFor?.(url));
             return await send(stamped.input, stamped.init);
@@ -694,8 +694,8 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
             if (err instanceof TypeError && !isDeadClosureError(err)) {
                 const again = await recover(origin);
                 if (again !== undefined) {
-                    const retried = makeTarget(`${again}/bili/${url}`);
-                    state.onDispatch?.(`${again}/bili/${url}`, "retry");
+                    const retried = makeTarget(`${again}/sophialin/${url}`);
+                    state.onDispatch?.(`${again}/sophialin/${url}`, "retry");
                     const stamped = withHeaders(retried, init, state.headersFor?.(url));
                     return await send(stamped.input, stamped.init);
                 }
@@ -706,7 +706,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
                 state.onGiveUp?.();
                 if (!warned) {
                     warned = true;
-                    console.error(`bili-native: proxy respawn failed — model requests go direct (uncompressed): ${url}`);
+                    console.error(`sophialin-native: proxy respawn failed — model requests go direct (uncompressed): ${url}`);
                 }
                 state.onDispatch?.(url, "direct");
                 return send(input, init);
@@ -717,7 +717,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
 
         // #1662: re-entry termination. A coexisting plugin (dsh-codex-
         // subscription shape) that repeatedly wraps the CURRENT top grows the
-        // chain one (wrapper, bili-link) pair per wrap: C_n → w_n → C_{n-1}
+        // chain one (wrapper, sophialin-link) pair per wrap: C_n → w_n → C_{n-1}
         // → … . Pre-fix, every request walked the ENTIRE accumulated history
         // (each stacked link re-running the full dispatch), so stack depth
         // grew with session lifetime until the host process died with
@@ -733,7 +733,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
         // becomes constant no matter how many times the coexisting plugin
         // re-wraps. Degradation cost: with TWO concurrently-LIVE foreign
         // wrappers, the older one's injection is skipped for these requests
-        // (same class as the documented BILI_RECLAIM_FETCH_PATCH=0 escape
+        // (same class as the documented SOPHIALIN_RECLAIM_FETCH_PATCH=0 escape
         // hatch; the churn case — one live wrapper — is fully preserved, its
         // hook still runs below the top link).
         const patched = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
@@ -741,7 +741,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
             if (depth === 1) {
                 if (!warnedReentry) {
                     warnedReentry = true;
-                    console.warn("[bili-native] nested re-entry into the bili fetch chain detected (#1662) — a coexisting plugin re-wrapped bili's own chain; terminating the descent at the oldest live anchor so request depth stays constant");
+                    console.warn("[sophialin-native] nested re-entry into the sophialin fetch chain detected (#1662) — a coexisting plugin re-wrapped sophialin's own chain; terminating the descent at the oldest live anchor so request depth stays constant");
                 }
                 const anchor = observedFetches.find((f) => !knownDeadFetches.has(f));
                 if (anchor !== undefined && anchor !== ds) return dispatchDepth.run(2, () => anchor(input, init));
@@ -758,10 +758,10 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
 
     // #1158 self-heal re-arm: dsh-http-proxy (0.1.3) re-applies by writing its
     // module-load-time frozen originalFetch over globalThis.fetch, silently
-    // un-routing every model request away from bili while the session keeps
+    // un-routing every model request away from sophialin while the session keeps
     // working (observed live on Windows). Guard the property instead of
     // trusting the assignment to survive: any third-party install becomes
-    // our downstream and model traffic keeps routing through bili.
+    // our downstream and model traffic keeps routing through sophialin.
     const desc = Object.getOwnPropertyDescriptor(globalThis, "fetch");
     let rearmCount = 0;
     const REARM_LIMIT = 16;
@@ -791,7 +791,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
                 // so the cap now bounds LOGGING only, and routing authority
                 // never leaves the guard.
                 if (rearmCount < REARM_LIMIT) {
-                    console.warn(`[bili-native] third-party globalThis.fetch install detected (#1158) — re-chaining as downstream (evict attempt ${rearmCount + 1})`);
+                    console.warn(`[sophialin-native] third-party globalThis.fetch install detected (#1158) — re-chaining as downstream (evict attempt ${rearmCount + 1})`);
                 }
                 rearmCount += 1;
                 noteFetch(v);
@@ -802,7 +802,7 @@ export function installNativeFetchIntercept(state: NativeInterceptState): boolea
         Object.defineProperty(globalThis, "fetch", accessor);
     } else {
         // Non-configurable host property or reclaim disabled
-        // (BILI_RECLAIM_FETCH_PATCH=0): keep the classic direct install
+        // (SOPHIALIN_RECLAIM_FETCH_PATCH=0): keep the classic direct install
         // (no guard, the old behavior).
         globalThis.fetch = top;
     }

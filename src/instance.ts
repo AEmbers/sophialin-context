@@ -24,7 +24,7 @@ export interface ProxyInstanceFile {
     modelMaxOutputs?: Record<string, number>;
     launchToken?: string;
     /** #1225: which client/lane the launcher that spawned this instance
-     *  belongs to (BILI_LAUNCHER_LANE). Absent for manual `bili start`
+     *  belongs to (SOPHIALIN_LAUNCHER_LANE). Absent for manual `sophialin start`
      *  daemons and pre-#1225 instances — both stay shareable (wildcard). */
     lane?: string;
     /** #1225: sha256 of the entry script this instance is RUNNING. A missing
@@ -131,8 +131,8 @@ export function writeZonePort(lane: string, port: number, file: string = portZon
 
 /** #1660: the port a lane'd launch should TRY to bind — the lane's sticky
  *  record (a past ladder drift this lane still points at), else the zone
- *  base (BILI_ZONE_PORT override). Explicit user overrides
- *  (BILI_CLAUDE_NATIVE_PORT / BILI_ZCODE_PORT) are resolved separately by
+ *  base (SOPHIALIN_ZONE_PORT override). Explicit user overrides
+ *  (SOPHIALIN_CLAUDE_NATIVE_PORT / SOPHIALIN_ZCODE_PORT) are resolved separately by
  *  the lanes and imply strict-port launches. */
 export function lanePreferredPort(lane: string, env: NodeJS.ProcessEnv = process.env, file: string = portZoneFilePath()): number {
     return readZonePort(lane, file) ?? resolveZonePortBase(env);
@@ -147,7 +147,7 @@ export function lanePreferredPort(lane: string, env: NodeJS.ProcessEnv = process
  *  `port` on `lane` when it runs DIFFERENT code than us (a predecessor being
  *  replaced; missing fingerprints from pre-#1232 markers count as
  *  "different build"). Never returns: no holder, a different/undeclared
- *  lane (a manual `bili start` daemon can serve any client — waiting on it
+ *  lane (a manual `sophialin start` daemon can serve any client — waiting on it
  *  would stall a launch behind a peer that may never leave), or a live peer
  *  running OUR build (genuine contention — waiting cannot help). */
 export function findSameLanePredecessor(
@@ -165,7 +165,7 @@ export function findSameLanePredecessor(
     return undefined;
 }
 
-/** #1225: content identity of a bili entry script (sha256 of its bytes).
+/** #1225: content identity of a sophialin entry script (sha256 of its bytes).
  *  The spawned child records this for ITS script; an attaching launcher
  *  compares it against the hash of the script it would spawn — so "same
  *  version" is never enough: two installs of 0.1.x with different dist
@@ -485,7 +485,7 @@ function reapDeadMarkers(ours: string): void {
 }
 
 /** #1232: two instances' lanes overlap iff either is undeclared (a manual
- *  `bili start` daemon can serve ANY client, so it shares every lane's
+ *  `sophialin start` daemon can serve ANY client, so it shares every lane's
  *  hazard) or both declare the same lane. Different declared lanes serve
  *  disjoint clients/conversations — concurrent use there is legitimate and
  *  must not trigger the "stop one" advice. */
@@ -499,7 +499,7 @@ export function registerInstanceAndWarn(entry: RegistryEntry, warn: (msg: string
         if (!lanesOverlap(entry.lane, other.lane)) continue;
         const laneNote = entry.lane !== undefined && other.lane !== undefined ? ` on lane "${entry.lane}"` : "";
         warn(
-            `another bili instance is running (pid ${other.pid}, ${other.origin})${laneNote} — both processes will write the same sessions directory; stop one to avoid state pollution (#394)`,
+            `another sophialin instance is running (pid ${other.pid}, ${other.origin})${laneNote} — both processes will write the same sessions directory; stop one to avoid state pollution (#394)`,
         );
     }
     reapDeadMarkers(entry.instanceId);

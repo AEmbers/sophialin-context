@@ -69,7 +69,7 @@ export function buildVisibilityMarker(toolName: string, result: string): string 
 // committed to coreMessages/session state.
 const TRUNCATION_CONTINUATION_TAIL_CHARS = 800;
 const truncationContinuationNudge = (tail: string): string =>
-    `[billion-context] Your previous response was cut off mid-transmission by a network failure before the stream could complete. The client already received the response up to and including this text:\n\n---\n${tail}\n---\n\nContinue the response seamlessly from exactly where that text ends (mid-sentence if necessary). Do not repeat any part of the received text and do not start over — just pick up where it stopped and finish the response.`;
+    `[sophialin-context] Your previous response was cut off mid-transmission by a network failure before the stream could complete. The client already received the response up to and including this text:\n\n---\n${tail}\n---\n\nContinue the response seamlessly from exactly where that text ends (mid-sentence if necessary). Do not repeat any part of the received text and do not start over — just pick up where it stopped and finish the response.`;
 
 function isLoopThinking(m: CoreMessage): boolean {
     return m.contentType === "reasoning" && typeof m.id === "string" && m.id.startsWith("acp_loop_");
@@ -177,7 +177,7 @@ export type ParsedStreamEvent =
     | { kind: "reasoning"; delta: string; raw?: Buffer; signature?: string; blockEnd?: boolean }
     | { kind: "tool_call"; name: string; callId: string; arguments: string; passthrough?: boolean; signature?: string }
     | { kind: "usage"; inputTokens?: number; outputTokens?: number; cachedTokens?: number; creationTokens?: number }
-    // #1766: keys on the upstream terminal frame that bili does not model
+    // #1766: keys on the upstream terminal frame that sophialin does not model
     // (e.g. Anthropic's safeguard_results) — the loop replaces that frame with
     // a synthetic completion, so anything not carried here vanishes from the
     // client's view.
@@ -1039,7 +1039,7 @@ export async function* runCompressLoop(
                     ctx.log(`[acp-loop] 400 mentions reasoning_content — learned strict reasoning echo for this session; #651 reasoning-drop disabled (#684)`);
                     loggerLog("warn", `[acp-loop] learned strictReasoningEcho (session ${ctx.session.id}); reasoning-drop disabled (#684)`);
                 }
-                // #762: persist the exact re-requested body on 4xx (env-gated: BILI_DUMP_4XX=1).
+                // #762: persist the exact re-requested body on 4xx (env-gated: SOPHIALIN_DUMP_4XX=1).
                 if (e.status >= 400 && e.status < 500) {
                     dumpRejectedBody(e.status, ctx.session.id ?? "unknown", JSON.stringify(newBody));
                 }

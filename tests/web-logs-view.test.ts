@@ -1,7 +1,7 @@
 // E2E (in-process proxy + mock upstream): proves the full chain — a model
 // request binds its session id into the logger (AsyncLocalStorage), the tag
 // lands in the log FILE with the stable `[sess=<id>]` grammar, and the web
-// endpoint /__bili/logs exposes the discrete / context / time-window views
+// endpoint /__sophialin/logs exposes the discrete / context / time-window views
 // plus the unfiltered full-log download over that file.
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -37,7 +37,7 @@ function okJson(): string {
     });
 }
 
-test("e2e: session requests are log-tagged; /__bili/logs serves ctx + win views", async () => {
+test("e2e: session requests are log-tagged; /__sophialin/logs serves ctx + win views", async () => {
     const upstream = http.createServer((req, res) => {
         req.resume();
         req.on("end", () => {
@@ -49,8 +49,8 @@ test("e2e: session requests are log-tagged; /__bili/logs serves ctx + win views"
     await once(upstream, "listening");
     const upstreamPort = (upstream.address() as { port: number }).port;
 
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-weblogs-"));
-    const logFile = path.join(dir, "bili.log");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-weblogs-"));
+    const logFile = path.join(dir, "sophialin.log");
 
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
@@ -75,7 +75,7 @@ test("e2e: session requests are log-tagged; /__bili/logs serves ctx + win views"
     const proxyPort = (proxy.address() as { port: number }).port;
 
     try {
-        const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/chat/completions`;
+        const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/chat/completions`;
         const headers = { "content-type": "application/json", "x-acp-session": SID };
         for (const turn of ["first-turn", "second-turn"]) {
             const body = JSON.stringify({
@@ -100,7 +100,7 @@ test("e2e: session requests are log-tagged; /__bili/logs serves ctx + win views"
             await sleep(50);
         }
 
-        const base = `http://127.0.0.1:${proxyPort}/__bili/logs`;
+        const base = `http://127.0.0.1:${proxyPort}/__sophialin/logs`;
         const qenc = encodeURIComponent(SID);
 
         // (a) discrete filter: isMatch ⇔ line contains the query.

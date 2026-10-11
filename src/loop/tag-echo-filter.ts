@@ -185,7 +185,7 @@ export interface TagEchoFilter {
 }
 
 // #717: model-emitted ACP CONFIRMATION MARKERS. After executing a proxy tool
-// call bili emits a visibility marker ("\n📦 [ACP] Compressed m00120–m0300 →
+// call sophialin emits a visibility marker ("\n📦 [ACP] Compressed m00120–m0300 →
 // 1 block(s), ~12K tokens saved.") as a standalone text block; in client
 // history it looks like ordinary assistant text. Under sustained context
 // pressure a model was observed writing these markers itself — 17 fake
@@ -288,9 +288,9 @@ export function containsToolCallXmlFragment(s: string): boolean {
     return TOOL_CALL_XML.test(s);
 }
 
-// ─── #1634: bili-owned internal artifacts echoed by the model ───────────────
+// ─── #1634: sophialin-owned internal artifacts echoed by the model ───────────────
 // The proxy injects three artifact families into model-visible payloads: the
-// outbound checkpoint carrier (\x3cbili-chain \u2026/\x3e stamped onto forwarded requests),
+// outbound checkpoint carrier (\x3csophialin-chain \u2026/\x3e stamped onto forwarded requests),
 // the forged-compaction handoff user message, and captured summary blocks (the
 // latter two carry fixed header lines). Under sustained context pressure
 // models were observed restating these verbatim as their answer to the user's
@@ -372,7 +372,7 @@ export function stripBiliArtifacts(text: string): string {
 }
 
 // Raw-wire pre-check (SSE event or JSON body): does it carry anything the
-// bili-artifact stripper would act on? Literal and \u003c-escaped chain opens
+// sophialin-artifact stripper would act on? Literal and \u003c-escaped chain opens
 // plus the two header lines (plain ASCII, survive JSON escaping unscathed).
 export function containsBiliInternalText(s: string): boolean {
     return s.includes(TAG_OPEN)
@@ -408,7 +408,7 @@ const HEAD_PREFIX_TAIL = new RegExp("(?:^|\n)(" + [...new Set([
     ...prefixAlts(FORGED_SUMMARY_HEADER, 1),
 ])].join("|") + ")$");
 
-/** Fast-path gate for the streaming pipes: could this chunk contain a bili
+/** Fast-path gate for the streaming pipes: could this chunk contain a sophialin
  *  internal artifact, or leave one undecidable across the chunk boundary?
  *  Coarse by design — a false positive costs one no-op filter pass, but
  *  skipping a chunk that carries or starts an artifact forwards it raw. */

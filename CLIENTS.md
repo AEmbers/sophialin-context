@@ -1,7 +1,7 @@
 # Client integration deep dives
 
 Per-client mechanics for the clients that need more than one line in the
-[README Quickstart](README.md#quickstart): how each mode (launcher / `/bili/`
+[README Quickstart](README.md#quickstart): how each mode (launcher / `/sophialin/`
 URL prefix / native plugin) wires traffic into the proxy, what gets written
 where, and the known limitations. If you just need "which command do I type",
 start from the [README](README.md) — this file is for when something doesn't
@@ -13,35 +13,35 @@ behave and you want to know why.
 
 Two lanes, same plugin (#941):
 
-- **Launcher:** `bili dsh` injects the full native plugin through a
-  `--patch` overlay (`~/.dsh-bili/.bili-acp.patch.yml`) — every profile
-  boots with the bili tools registered natively, model requests carry
-  `x-bili-plugin` + the dsh session id (plugin mode), and `/acp` is
+- **Launcher:** `sophialin dsh` injects the full native plugin through a
+  `--patch` overlay (`~/.dsh-sophialin/.sophialin-acp.patch.yml`) — every profile
+  boots with the sophialin tools registered natively, model requests carry
+  `x-sophialin-plugin` + the dsh session id (plugin mode), and `/acp` is
   session-bound. dsh's native auto-compaction is disabled in the same patch
   (`compaction-basic` → `auto: false`); manual `/compact` stays available.
-- **Profile install (no launcher) — one lane (#966):** `bili plugin install
-  dsh` runs `dsh plugin --profile <name> add billion-context` for every
+- **Profile install (no launcher) — one lane (#966):** `sophialin plugin install
+  dsh` runs `dsh plugin --profile <name> add sophialin-context` for every
   existing profile — pnpm installs the package into each profile's own
   `node_modules`, and dsh mounts the bundled patch layer
-  (`dsh.bundle.patch.yml`) automatically. The spec follows how bili itself
+  (`dsh.bundle.patch.yml`) automatically. The spec follows how sophialin itself
   was installed (#925): an npm-form install passes the registry name, a
   checkout/dev build passes its absolute path (a `link:` dependency, so
-  local work stays live). Legacy managed blocks (`# bili begin` /
-  `# bili end`, written by pre-#966 installs) are stripped on install and
+  local work stays live). Legacy managed blocks (`# sophialin begin` /
+  `# sophialin end`, written by pre-#966 installs) are stripped on install and
   remove — user entries and comments survive, an emptied file gets its
   placeholder `[]` back. Run dsh once in each profile first so the profile
   dirs exist. The plugin spawns its own proxy at load (attaches to a healthy
   one instead of doubling; parent-pid watchdog), rewrites model-API traffic
-  to `<proxy>/bili/<upstream-url>` via a global fetch patch, registers the
+  to `<proxy>/sophialin/<upstream-url>` via a global fetch patch, registers the
   manifest tools verbatim, and gates plugin-mode headers on tool readiness
-  (round 1 rides wire mode). Opt-out: `BILI_NATIVE_DSH=0`. Remove with
-  `bili plugin remove dsh` or `dsh plugin --profile <name> remove
-  billion-context` — both go through the same channel. Registry installs
+  (round 1 rides wire mode). Opt-out: `SOPHIALIN_NATIVE_DSH=0`. Remove with
+  `sophialin plugin remove dsh` or `dsh plugin --profile <name> remove
+  sophialin-context` — both go through the same channel. Registry installs
   require a published release that carries `dsh.bundle.patch.yml`. If dsh
   fails to boot right after an add with `ERR_MODULE_NOT_FOUND` on
-  `billion-context/dsh`, the profile resolved a pre-bundle copy from a stale
+  `sophialin-context/dsh`, the profile resolved a pre-bundle copy from a stale
   package-metadata cache (#953) — re-add pinned: `dsh plugin --profile
-  <name> add billion-context@latest`.
+  <name> add sophialin-context@latest`.
 - **Desktop app (Electron host):** the same plugin also runs inside the
   deepseek-harness **desktop** app, installed through its in-app plugin
   manager. There the bootstrap spawns its proxy from within the app process,
@@ -51,15 +51,15 @@ Two lanes, same plugin (#941):
   Volta, …) and falls back to the app's own binary run as plain Node
   (`ELECTRON_RUN_AS_NODE=1`, forced into the child env), so compression works
   with zero configuration even without a standalone Node on PATH; set
-  `BILLION_CONTEXT_NODE` to force a specific Node (it beats both). Before
+  `SOPHIALIN_CONTEXT_NODE` to force a specific Node (it beats both). Before
   #1429 this path threw before spawning and every session silently degraded
-  to direct send (uncompressed), visible only in bili.log.
+  to direct send (uncompressed), visible only in sophialin.log.
 - **Auto-update keeps profiles in lockstep:** the refresh has two triggers —
   after a global self-update, AND from the **profile copy's own proxy** when
   its periodic check sees a newer registry version (so dsh plugin-market
-  users with no global bili running still refresh, #1196). Both scan
+  users with no global sophialin running still refresh, #1196). Both scan
   `~/.dsh/profiles/*/package.json` and bring any registry-pinned
-  `billion-context` dependency to the target version (the new global version
+  `sophialin-context` dependency to the target version (the new global version
   for the global trigger, registry-latest for the self trigger), always
   through dsh's own `plugin add` channel — never an in-place copy — so the
   loaded plugin and the proxy never drift apart again (#953); profiles
@@ -68,7 +68,7 @@ Two lanes, same plugin (#941):
  - **Reported: zero proxy traffic for some transports under profile install
    (#1158, under investigation):** sessions served by some of dsh's
    `llm-pi-ai`-layer transports show NO model request ever reaching the proxy
-   (no `processTurn` logged; bili tools 404 with "no model request has
+   (no `processTurn` logged; sophialin tools 404 with "no model request has
    arrived") while other providers in the same host work normally. The root
    cause is still being pinned down with runtime evidence — candidates: the
    transport-level fetch shape (SDK-injected fetch / non-global dispatcher) or
@@ -76,8 +76,8 @@ Two lanes, same plugin (#941):
    gate. Detection: the proxy logs a one-time `[plugin] NO MODEL REQUESTS seen
    for conversation …` warning, and the dsh plugin logs each distinct endpoint
    the attribution gate lets through unproxied (once per process). Reliable
-   workaround meanwhile: launch through `bili dsh` instead — the launcher's
-   settings overlay rewrites those providers' `baseURL`s to `/bili/` URLs, so
+   workaround meanwhile: launch through `sophialin dsh` instead — the launcher's
+   settings overlay rewrites those providers' `baseURL`s to `/sophialin/` URLs, so
    the traffic reaches the proxy regardless of which fetch the transport uses
    or what the attribution state is.
  - **Web-profile caveat (#1772):** when a profile's bundles include
@@ -89,10 +89,10 @@ Two lanes, same plugin (#941):
    auto-compaction ON. The plugin logs a one-time `[dsh-client]` warning at
    boot in such profiles; ACP compression is unaffected.
 
-Under a `bili dsh` launch the plugin ATTACHES to the launcher's proxy (no
-second spawn). Raw upstream URLs rewrite to `<proxy>/bili/<url>` like
+Under a `sophialin dsh` launch the plugin ATTACHES to the launcher's proxy (no
+second spawn). Raw upstream URLs rewrite to `<proxy>/sophialin/<url>` like
 spawn mode (a loopback proxy target is never proxied, so the MITM envs are
-simply bypassed); already-routed `/bili/`-prefixed requests pass through
+simply bypassed); already-routed `/sophialin/`-prefixed requests pass through
 untouched except for header stamping. Known limitation: manual
 `/compact` has no dsh-side event hook, so its boundary is left to the
 kernel's natural ingest diff (auto-compaction is off in non-web profiles, so
@@ -100,40 +100,40 @@ this is rare; see the #1772 caveat above for web profiles).
 
 ## Kimi Code (Moonshot)
 
-Three aligned modes: `bili kimi` (launcher, cert-MITM — README Quickstart
-Option 2), `/bili/`
-URL prefix, and native plugin mode (`bili plugin install kimi`, #963). Kimi
+Three aligned modes: `sophialin kimi` (launcher, cert-MITM — README Quickstart
+Option 2), `/sophialin/`
+URL prefix, and native plugin mode (`sophialin plugin install kimi`, #963). Kimi
 Code v2's plugin system is declarative only (`kimi.plugin.json`: MCP servers,
-hooks, skills — no in-process JS execution), so bili cannot patch the client's
+hooks, skills — no in-process JS execution), so sophialin cannot patch the client's
 fetch stack like it does for pi/opencode/dsh. Instead the plugin ships two
 small node scripts that do the work around the client:
 
-- **Install:** `bili plugin install kimi` writes
-  `$KIMI_CODE_HOME/plugins/managed/billion-context/kimi.plugin.json`
+- **Install:** `sophialin plugin install kimi` writes
+  `$KIMI_CODE_HOME/plugins/managed/sophialin-context/kimi.plugin.json`
   declaring a stdio MCP server (`node <root>/dist/kimi/native-mcp.js`) plus a
   `SessionStart` hook (`node <root>/dist/kimi/bootstrap-hook.js`, 30 s
   timeout), and registers the plugin in
   `$KIMI_CODE_HOME/plugins/installed.json`. The installer requires
   `kimi --version` ≥ 2.0.0 and refuses below that (the launcher still works
-  either way). Remove with `bili plugin remove kimi` (managed dir + registry
+  either way). Remove with `sophialin plugin remove kimi` (managed dir + registry
   record + config restore).
 - **Per-session bootstrap:** kimi spawns the MCP server as a direct child for
   each session; at startup it attaches to a healthy proxy
-  (`BILLION_CONTEXT_PROXY`) or spawns its own on an ephemeral port, then
+  (`SOPHIALIN_CONTEXT_PROXY`) or spawns its own on an ephemeral port, then
   rewrites the client's routing with an idempotent, line-surgical managed
-  block in `~/.kimi-code/config.toml`: an own provider `[providers.bili]`
-  (`base_url = http://127.0.0.1:<port>/bili/<upstream>`, cloning the active
-  provider's `oauth` / `api_key` reference verbatim), a `[models.bili-kimi]`
+  block in `~/.kimi-code/config.toml`: an own provider `[providers.sophialin]`
+  (`base_url = http://127.0.0.1:<port>/sophialin/<upstream>`, cloning the active
+  provider's `oauth` / `api_key` reference verbatim), a `[models.sophialin-kimi]`
   alias, and a top-level `default_model` redirect with the previous value
   recorded inside the block. The original file is snapshotted to
-  `config.toml.bili-bak` once; every write happens under a mkdir lockfile and
+  `config.toml.sophialin-bak` once; every write happens under a mkdir lockfile and
   user content outside the block is never touched. Kimi's config hot-reload
   applies the change to live sessions. The `SessionStart` hook runs the same
   bootstrap opportunistically (attach-only — it never spawns); its
   non-blocking race is tolerated by design: round 1 may ride direct/wire mode,
   and the invariant is never pointing `base_url` at a dead port.
 - **Plugin-mode stamping:** the block gains
-  `custom_headers = { x-bili-plugin = "kimi" }` ONLY after the ACP tool list
+  `custom_headers = { x-sophialin-plugin = "kimi" }` ONLY after the ACP tool list
   has been verified against the live proxy manifest — until then traffic rides
   wire mode. Because `custom_headers` are static per provider they cannot
   carry per-request window/model headers without going stale on model switch;
@@ -151,39 +151,39 @@ small node scripts that do the work around the client:
   sessions (kimi exposes no stable session id; tool calls bind via the
   per-call `conversation_id` argument), and kimi's native auto-compaction is
   NOT pushed out — ACP compression simply fires first, as in launcher mode.
-   Opt-out: `BILI_NATIVE_KIMI=0`.
+   Opt-out: `SOPHIALIN_NATIVE_KIMI=0`.
 
 ## Hermes (Nous Research)
 
-Three aligned modes: `bili hermes` (launcher, cert-MITM — README Quickstart
-Option 2), `/bili/`
-URL prefix, and native plugin mode (`bili plugin install hermes`, #958). The
+Three aligned modes: `sophialin hermes` (launcher, cert-MITM — README Quickstart
+Option 2), `/sophialin/`
+URL prefix, and native plugin mode (`sophialin plugin install hermes`, #958). The
 hermes CLI agent's plugin API is Python-only (the `desktop/plugin.js` SDK
 belongs to the separate Desktop app), so the native plugin is a small
 pure-stdlib Python module shipped inside the npm package:
 
-- **Install:** `bili plugin install hermes` copies `plugin.yaml` +
-  `__init__.py` into `~/.hermes/plugins/billion-context/`, writes a
-  machine-owned `bili.json` sidecar pointing at the global bili install
+- **Install:** `sophialin plugin install hermes` copies `plugin.yaml` +
+  `__init__.py` into `~/.hermes/plugins/sophialin-context/`, writes a
+  machine-owned `sophialin.json` sidecar pointing at the global sophialin install
   (`dist/index.js` + node path), and enables the plugin through hermes' own
-  channel (`hermes plugins enable billion-context` — if the CLI isn't on PATH
+  channel (`hermes plugins enable sophialin-context` — if the CLI isn't on PATH
   the same command is printed instead). Start a new hermes session to
-  activate. Remove with `bili plugin remove hermes`; refresh with
-  `bili plugin update hermes` after a global update.
+  activate. Remove with `sophialin plugin remove hermes`; refresh with
+  `sophialin plugin update hermes` after a global update.
 - **Lifecycle:** at load the plugin attaches to a healthy running proxy or
   spawns its own on an ephemeral port (parent-pid watchdog tears it down when
   hermes exits; concurrent starts arbitrate through the same starting-marker
   protocol the launcher uses). Only once the proxy is verified healthy does it
   point hermes' httpx stack at it via `HTTPS_PROXY` / `https_proxy` +
-  `SSL_CERT_FILE` (bili's combined CA bundle — current hermes resolves ambient
+  `SSL_CERT_FILE` (sophialin's combined CA bundle — current hermes resolves ambient
   trust there; `HERMES_CA_BUNDLE` stays set for older builds) —
   `~/.hermes/config.yaml` is never touched. Provider https hosts are read from hermes' config and whitelisted
   for MITM; everything else blind-tunnels exactly like launcher mode. If no
   proxy can be made healthy, the plugin stands down silently and traffic goes
   direct (no compression, no dead port).
 - **Plugin-mode stamping:** an `llm_request` middleware stamps
-  `x-bili-plugin: hermes` + conversation id (= the hermes session id, so
-  gateway multi-session stays safe) + model, and `x-bili-plugin-max-output`
+  `x-sophialin-plugin: hermes` + conversation id (= the hermes session id, so
+  gateway multi-session stays safe) + model, and `x-sophialin-plugin-max-output`
   once known — ONLY after the ACP tools are registered against the live proxy
   manifest; round 1 rides wire mode. A `pre_api_request` hook captures the
   effective `max_tokens` and pushes runtime-info (model + max output) to the
@@ -191,42 +191,42 @@ pure-stdlib Python module shipped inside the npm package:
   hermes tools served by the proxy's existing plugin endpoints.
 - **Known limitations:** requests going out hermes' Codex-wire transport may
   drop the per-request header surface, so such setups stay in wire mode until
-  that transport exposes headers. Inert when `BILLION_CONTEXT_PROXY` is set
-  (the launcher owns the proxy) or `BILI_PROVIDER_REWRITES` is defined.
-  Opt-out: `BILI_NATIVE_HERMES=0`.
+  that transport exposes headers. Inert when `SOPHIALIN_CONTEXT_PROXY` is set
+  (the launcher owns the proxy) or `SOPHIALIN_PROVIDER_REWRITES` is defined.
+  Opt-out: `SOPHIALIN_NATIVE_HERMES=0`.
 
 ## ZCode (Z.ai / bigmodel coding plan)
 
-Three aligned modes: `/bili/` URL prefix, cert-MITM through the GUI's
+Three aligned modes: `/sophialin/` URL prefix, cert-MITM through the GUI's
 Settings → Network (HTTP proxy + root-CA path), and native plugin mode
-(`bili plugin install zcode`, #1145). ZCode's extension surface is
+(`sophialin plugin install zcode`, #1145). ZCode's extension surface is
 Claude-Code-shaped but declarative: user-level hooks and stdio MCP servers in
 `~/.zcode/cli/config.json`, no in-process JS seam. So the native lane ships
 two small node scripts that do the work around the client:
 
-- **Install:** `bili plugin install zcode` writes `~/.zcode/cli/config.json`:
+- **Install:** `sophialin plugin install zcode` writes `~/.zcode/cli/config.json`:
   sets `hooks.enabled = true`, appends a `SessionStart` process hook
   (`node <root>/dist/zcode/bootstrap-hook.js`) and registers a stdio MCP
-  server `mcp.servers.bili` (`node <root>/dist/zcode/mcp-entry.js`). A
-  pre-existing user-owned `mcp.servers.bili` entry is never overwritten — the
+  server `mcp.servers.sophialin` (`node <root>/dist/zcode/mcp-entry.js`). A
+  pre-existing user-owned `mcp.servers.sophialin` entry is never overwritten — the
   installer refuses loudly instead. No URL is frozen at install time; routing
-  happens per session. Remove with `bili plugin remove zcode` (strips only
-  bili's entries, reverts `hooks.enabled` when it was the one to enable it,
+  happens per session. Remove with `sophialin plugin remove zcode` (strips only
+  sophialin's entries, reverts `hooks.enabled` when it was the one to enable it,
   and restores the provider store from its snapshot).
 - **Per-session bootstrap:** each ZCode session spawns the MCP child as a
   direct process; at startup it attaches to a healthy proxy
-  (`BILLION_CONTEXT_PROXY`) or spawns its own on an ephemeral port, then
+  (`SOPHIALIN_CONTEXT_PROXY`) or spawns its own on an ephemeral port, then
   rewrites the active provider store with idempotent JSON surgery under a
   mkdir lockfile: each routable provider entry's `baseURL` becomes
-  `http://127.0.0.1:<port>/bili/<upstream>` (any custom baseURL you set is
+  `http://127.0.0.1:<port>/sophialin/<upstream>` (any custom baseURL you set is
   preserved verbatim behind the wrapper). Both store generations are handled:
   legacy `~/.zcode/v2/config.json` (`provider.<id>.options.baseURL`) and the
   v3.14+ personal store `~/.zcode/v2/provider_config.json`
   (`config.providerConfigRules.providerRules[].config.api.baseUrl`) — when
   both exist, the new store wins (see Routing scope for which entries on it
   route and which are skipped). The original file is
-  snapshotted to `<file>.bili-bak` once per user edit (the snapshot always
-  reflects your last real state, never bili's own writes); every other key is
+  snapshotted to `<file>.sophialin-bak` once per user edit (the snapshot always
+  reflects your last real state, never sophialin's own writes); every other key is
   byte-for-byte. Legacy-generation clients load provider config at startup —
   restart ZCode once after installing; newer builds pick up routing changes
   mid-session (~1 s polling). The `SessionStart` hook runs the same bootstrap
@@ -235,7 +235,7 @@ two small node scripts that do the work around the client:
   pointing `baseURL` at a dead port.
 - **Plugin-mode stamping:** once the MCP child verifies the ACP tool list
   against the live proxy manifest, the routed entries gain
-  `headers["x-bili-plugin"] = "zcode"` — until then traffic rides wire mode.
+  `headers["x-sophialin-plugin"] = "zcode"` — until then traffic rides wire mode.
   Tool calls bind via the per-call `conversation_id` argument (#760).
 - **Routing scope (#1622):** native mode wraps **every** provider entry with
   a usable http(s) `baseURL` — the same "all providers ride compression"
@@ -246,7 +246,7 @@ two small node scripts that do the work around the client:
     coding-plan accounts stay direct (see Known limitations); every other
     provider still routes.
   - **loopback targets (#809):** an http loopback `baseURL` (localhost /
-    127.x.x.x / ::1) is never re-proxied — wrapping it would stack bili onto
+    127.x.x.x / ::1) is never re-proxied — wrapping it would stack sophialin onto
     itself or onto your own local relay.
   - **`direct` exemptions:** a provider route declaring `"direct": true` in
     the `providers` table (keyed by upstream URL — see CONFIGURATION.md)
@@ -255,10 +255,10 @@ two small node scripts that do the work around the client:
   base `18787`, a per-lane sticky record so a past +1-ladder drift is
   followed automatically, collisions resolved by the child's +1 ladder,
   and the shared store rewritten to the live origin on drift — wrappers
-  survive session restarts even without handoff. `BILI_ZCODE_PORT` pins an
+  survive session restarts even without handoff. `SOPHIALIN_ZCODE_PORT` pins an
   exact port instead (strict-port: a squatter is refused loudly, no hop).
-  `BILI_ZCODE_ROUTE`
-  (`plans`/`none`) is a compat escape hatch, and `BILI_ZCODE_SIGNING_FIXED=1`
+  `SOPHIALIN_ZCODE_ROUTE`
+  (`plans`/`none`) is a compat escape hatch, and `SOPHIALIN_ZCODE_SIGNING_FIXED=1`
   flips the #1621 skips off once a ZCode build ships the signing fix.
 - **Watchdog & lifecycle:** the MCP child probes the proxy every 30 s. In
   attach mode it waits forever (it never touches a user-owned proxy); in spawn
@@ -280,8 +280,8 @@ two small node scripts that do the work around the client:
    respawn and re-route automatically. Boundary: ZCode caches the provider
    baseURL per session, so the repairs above only take effect on FRESH reads
    (new sessions/queries) — an in-flight session keeps retrying its cached old
-   port until it re-reads. To avoid this structurally, pin `BILLION_CONTEXT_PROXY`
-   at a resident proxy (`bili start`) and let every session attach to it
+   port until it re-reads. To avoid this structurally, pin `SOPHIALIN_CONTEXT_PROXY`
+   at a resident proxy (`sophialin start`) and let every session attach to it
    (attach mode never touches a user-owned proxy).
 - **Known limitations:** ZCode's anti-fraud fingerprinting (#661) applies to
   MITM-rebuilt bodies on `zcode.z.ai` login traffic — native mode does not
@@ -290,18 +290,18 @@ two small node scripts that do the work around the client:
   `"mitm://zcode.z.ai": { "passthrough": true }` route. On v3.14+ builds,
   ClientRequestSigningV4 for coding-plan accounts rejects non-HTTPS origins at
   model creation and derives its handshake path from origin alone (dropping
-  any /bili/ prefix), so a /bili/-wrapped baseURL fails with "Client signing
+  any /sophialin/ prefix), so a /sophialin/-wrapped baseURL fails with "Client signing
   handshake requires HTTPS." (#1621). The conflict is hardcoded on the ZCode
   side, so native mode detects the v3.14+ store generation and skips the
   rewrite entirely — it logs the reason and leaves traffic direct; use the GUI
   cert-MITM setup for compression on these accounts until ZCode ships a signing
-  fix; once it does, set `BILI_ZCODE_SIGNING_FIXED=1` and they route again. Under the default
+  fix; once it does, set `SOPHIALIN_ZCODE_SIGNING_FIXED=1` and they route again. Under the default
   `route:"all"` only those accounts are skipped — every other provider on the
   store keeps routing; the whole-store degrade (routing entirely off) now
   only applies under `route:"plans"`, where the plan accounts ARE the signing
   accounts. Pre-3.14 legacy-store clients are unaffected. Inert when
-  `BILLION_CONTEXT_PROXY` is set (attach mode owns the proxy) or
-  `BILI_PROVIDER_REWRITES` is defined. Opt-out: `BILI_NATIVE_ZCODE=0`.
+  `SOPHIALIN_CONTEXT_PROXY` is set (attach mode owns the proxy) or
+  `SOPHIALIN_PROVIDER_REWRITES` is defined. Opt-out: `SOPHIALIN_NATIVE_ZCODE=0`.
 
 ## Codex (OpenAI Codex CLI)
 
@@ -309,7 +309,7 @@ Codex is the one client a plugin install cannot make self-sufficient. The seam
 matrix explains why: claude has a `SessionStart` hook + managed settings block,
 zcode has a provider store whose `baseURL` can be rewritten — codex has neither.
 Its model traffic routes via environment variables only (`HTTPS_PROXY` /
-`SSL_CERT_FILE` — this is how `bili codex` works); the default
+`SSL_CERT_FILE` — this is how `sophialin codex` works); the default
 ChatGPT-login provider has no config-file routing seam, and a managed
 `model_providers` block would force `env_key` API-key auth and **drop the
 subscription login**. An MCP server cannot inject env into its parent process,
@@ -317,19 +317,19 @@ so the plugin can never route codex's own traffic. Three postures:
 
 | Posture | What you get |
 |---|---|
-| `bili codex` (launcher) | Full zero-config: a self-managed lane proxy (#1660 zone, sticky port) + cert-MITM env injected into codex — tools *and* compression |
-| `bili plugin install codex` + a running bili + self-exported `HTTPS_PROXY` | Tools + compression for power users who manage their own env |
-| `bili plugin install codex` alone | The four tools appear in codex but no conversation is proxied, so there is nothing for them to act on; `tools/list` fails with -32003 (`bili proxy unreachable … — start bili or set BILI_MCP_PROXY`) when nothing is reachable |
+| `sophialin codex` (launcher) | Full zero-config: a self-managed lane proxy (#1660 zone, sticky port) + cert-MITM env injected into codex — tools *and* compression |
+| `sophialin plugin install codex` + a running sophialin + self-exported `HTTPS_PROXY` | Tools + compression for power users who manage their own env |
+| `sophialin plugin install codex` alone | The four tools appear in codex but no conversation is proxied, so there is nothing for them to act on; `tools/list` fails with -32003 (`sophialin proxy unreachable … — start sophialin or set SOPHIALIN_MCP_PROXY`) when nothing is reachable |
 
-The install writes a single `[mcp_servers.bili]` block into `~/.codex/config.toml`
+The install writes a single `[mcp_servers.sophialin]` block into `~/.codex/config.toml`
 (command = node, args = dist/mcp.js). #1660 removed the install-time origin bake
 (#403: a baked URL went stale after drift/reboot and left the tools pointing at
 a dead port); the shell resolves the proxy at session start — env
-`BILI_MCP_PROXY` > the live-instance record (any lane's proxy, or a
-`bili start` daemon) > the 8787 user-zone default — so a drifted or rebooted
+`SOPHIALIN_MCP_PROXY` > the live-instance record (any lane's proxy, or a
+`sophialin start` daemon) > the 8787 user-zone default — so a drifted or rebooted
 proxy never strands a dead URL, and the shell simply attaches to whatever is
 alive. Session binding is headless: the launcher passes
-`BILI_CONVERSATION_ID` at spawn time, and the plugin shell binds the next NEW
+`SOPHIALIN_CONVERSATION_ID` at spawn time, and the plugin shell binds the next NEW
 session otherwise; per-call `conversation_id` overrides work as everywhere
 (#760).
 
@@ -338,8 +338,8 @@ session otherwise; per-call `conversation_id` overrides work as everywhere
 Three launchers for the gemini-cli architecture family (#1043 tier 1). Two of
 the three have a base-URL env hook; one doesn't:
 
-- **`bili gemini`** — Gemini CLI (`@google/gemini-cli`). Sets
-  `GOOGLE_GEMINI_BASE_URL=<proxy>/bili/<upstream>` (default upstream
+- **`sophialin gemini`** — Gemini CLI (`@google/gemini-cli`). Sets
+  `GOOGLE_GEMINI_BASE_URL=<proxy>/sophialin/<upstream>` (default upstream
   `https://generativelanguage.googleapis.com`; if you export your own
   `GOOGLE_GEMINI_BASE_URL`, that value is relayed through the proxy instead).
   The client switches to its `gateway` auth mode and sends Google-native-wire
@@ -351,13 +351,13 @@ the three have a base-URL env hook; one doesn't:
   gateway auth in non-interactive mode; users on an OAuth personal login
   (CodeAssist) are not covered by this route at all — that path ignores the
   base-URL hook.
-- **`bili iflow`** — iFlow CLI (`@iflow-ai/iflow-cli`). Same pattern via
+- **`sophialin iflow`** — iFlow CLI (`@iflow-ai/iflow-cli`). Same pattern via
   `IFLOW_BASE_URL` (default `https://apis.iflow.cn/v1`, relayed when you set
   it); OpenAI chat-completions wire.
-- **`bili qwen`** — Qwen Code (`QwenLM/qwen-code`). This fork dropped the
+- **`sophialin qwen`** — Qwen Code (`QwenLM/qwen-code`). This fork dropped the
   base-URL hook (`DASHSCOPE_PROXY_BASE_URL` is a header-tuning knob, not
   routing), but it honors standard proxy envs, so the launcher uses cert-MITM:
-  `HTTPS_PROXY=<proxy>` + `NODE_EXTRA_CA_CERTS=<bili CA>` with a static
+  `HTTPS_PROXY=<proxy>` + `NODE_EXTRA_CA_CERTS=<sophialin CA>` with a static
   whitelist of the default model hosts (DashScope / Qwen gateway / common
   third-party endpoints). Custom relay hosts: add them with
   `--mitm-domain <host>`. Best-effort route — a `BLIND TUNNEL WARNING` in the
@@ -369,27 +369,27 @@ that surface). Launcher-only by design.
 
 ## Client uses `http.proxy` (CONNECT) but nothing compresses
 
-Some clients (VS Code-based IDEs: CodeBuddy, Cursor, Windsurf, …) only offer an HTTP **proxy** setting (`http.proxy`, `codingcopilot.httpProxyURL`, …) — no model base-URL to rewrite. Such clients send `CONNECT <model-host>:443` through the proxy instead of plain `/bili/…` requests. That path is only decrypted when the model host is on bili's **MITM whitelist**; otherwise bili blind-tunnels the TLS bytes (opaque relay) and can never see — or compress — the model requests (#897).
+Some clients (VS Code-based IDEs: CodeBuddy, Cursor, Windsurf, …) only offer an HTTP **proxy** setting (`http.proxy`, `codingcopilot.httpProxyURL`, …) — no model base-URL to rewrite. Such clients send `CONNECT <model-host>:443` through the proxy instead of plain `/sophialin/…` requests. That path is only decrypted when the model host is on sophialin's **MITM whitelist**; otherwise sophialin blind-tunnels the TLS bytes (opaque relay) and can never see — or compress — the model requests (#897).
 
 This failure mode is now loud instead of silent:
 
 - a one-time `BLIND TUNNEL WARNING` per target host in the log, with the fix steps;
-- `blindTunnels` (count + exact target hosts) in `curl -s http://localhost:8787/__bili/health` and `/__bili/stats` (loopback-only);
+- `blindTunnels` (count + exact target hosts) in `curl -s http://localhost:8787/__sophialin/health` and `/__sophialin/stats` (loopback-only);
 - an `UNDECRYPTED TRAFFIC (instance-level)` section in `acp_status` output while such tunnels exist.
 
-To actually compress such a client: add its model domain to `"mitm".domains` in `billion-context.json` (e.g. `"mitm": { "domains": ["copilot.tencent.com"] }`) or via `BILI_MITM_DOMAINS`, restart bili, and make the client trust bili's root CA (`NODE_EXTRA_CA_CERTS=~/.local/share/billion-context/ca/root-ca.pem` for Node-based clients, or the client's own CA-path setting). The `/bili/` prefix trick does not apply here — there is no URL to change. Details: [CONFIGURATION.md → MITM](CONFIGURATION.md#mitm-transparent-proxy-login-clients).
+To actually compress such a client: add its model domain to `"mitm".domains` in `sophialin-context.json` (e.g. `"mitm": { "domains": ["copilot.tencent.com"] }`) or via `SOPHIALIN_MITM_DOMAINS`, restart sophialin, and make the client trust sophialin's root CA (`NODE_EXTRA_CA_CERTS=~/.local/share/sophialin-context/ca/root-ca.pem` for Node-based clients, or the client's own CA-path setting). The `/sophialin/` prefix trick does not apply here — there is no URL to change. Details: [CONFIGURATION.md → MITM](CONFIGURATION.md#mitm-transparent-proxy-login-clients).
 
 ## An unrecognized endpoint goes direct and nothing compresses (#1290)
 
-bili only compresses requests whose path matches a known wire protocol (`/chat/completions`, `/llm_raw_chat`, `/v1/messages`, `/responses`, …). A request to any other path — e.g. a third-party plugin's **custom wire** such as Command Code's Go plan posting to `/alpha/generate` — is relayed byte-for-byte and **never compressed**. There is no config seam to declare an arbitrary new wire today; adding one is a separate feature, not a switch you can flip.
+sophialin only compresses requests whose path matches a known wire protocol (`/chat/completions`, `/llm_raw_chat`, `/v1/messages`, `/responses`, …). A request to any other path — e.g. a third-party plugin's **custom wire** such as Command Code's Go plan posting to `/alpha/generate` — is relayed byte-for-byte and **never compressed**. There is no config seam to declare an arbitrary new wire today; adding one is a separate feature, not a switch you can flip.
 
 That outcome is now loud instead of silent (#1290):
 
-- the client-side fetch hook logs each distinct unrouted **POST** endpoint once per process (`…is not a recognized model endpoint, so bili did not route it through the proxy…`); non-POST traffic — npm registries, catalog JSONs, git refs — is silent by design (#1657: a GET cannot carry a prompt);
-- `unrecognizedPaths` (per-path counts) in `curl -s http://localhost:8787/__bili/stats` (loopback-only);
+- the client-side fetch hook logs each distinct unrouted **POST** endpoint once per process (`…is not a recognized model endpoint, so sophialin did not route it through the proxy…`); non-POST traffic — npm registries, catalog JSONs, git refs — is silent by design (#1657: a GET cannot carry a prompt);
+- `unrecognizedPaths` (per-path counts) in `curl -s http://localhost:8787/__sophialin/stats` (loopback-only);
 - an `UNRECOGNIZED PATHS (instance-level)` section in `acp_status` output while such requests exist.
 
-If you expected compression at such an endpoint, use the provider's standard protocol endpoint instead (Command Code's Provider plan posts to `/provider/v1/chat/completions`, which bili does compress); a genuinely custom wire needs its own support.
+If you expected compression at such an endpoint, use the provider's standard protocol endpoint instead (Command Code's Provider plan posts to `/provider/v1/chat/completions`, which sophialin does compress); a genuinely custom wire needs its own support.
 
 ## OpenCode
 
@@ -397,19 +397,19 @@ One bundled plugin serves **both** OpenCode generations: the agent file keeps
 the V1 `server()` export alongside the V2 `setup()`, so hosts ≥ 1.18.29 load
 the V1 shape and 2.x hosts load the V2 `setup()`. The standalone
 [`opencode-acp`](https://github.com/ranxianglei/opencode-acp) extension is
-V1-only and does **not** load under 2.x — for OpenCode 2.x, billion-context
+V1-only and does **not** load under 2.x — for OpenCode 2.x, sophialin-context
 is the recommended context manager. Everything below is verified end-to-end
 on `@opencode/cli` 2.0.3 (V1 lane: 1.14.46 and 1.18.31).
 
 | Path | Command | When |
 |---|---|---|
-| Launcher (easiest) | `bili opencode` | one command brings up proxy + client; real config untouched |
-| Native (no launcher) | `bili plugin install opencode` | self-spawning plugin in your real config; start `opencode` as usual |
-| Pure proxy (fallback) | baseURL `/bili/` prefix | no plugin — wire-level tool injection |
+| Launcher (easiest) | `sophialin opencode` | one command brings up proxy + client; real config untouched |
+| Native (no launcher) | `sophialin plugin install opencode` | self-spawning plugin in your real config; start `opencode` as usual |
+| Pure proxy (fallback) | baseURL `/sophialin/` prefix | no plugin — wire-level tool injection |
 
-### Launcher — `bili opencode`
+### Launcher — `sophialin opencode`
 
-HTTPS rides cert-MITM, HTTP a temp `opencode.json` clone with `/bili/`
+HTTPS rides cert-MITM, HTTP a temp `opencode.json` clone with `/sophialin/`
 (JSONC comments accepted, merged the way opencode itself merges them;
 relative local plugin specs re-anchored to absolute paths in the clone —
 opencode resolves them against the declaring config file's dir, #826). Host
@@ -419,7 +419,7 @@ injected as a temp wrapper directory whose `index.js` re-exports the plugin
 file (2.x rejects bare file paths in the config `plugin` array); **1.x**
 hosts get the bare file path.
 
-What the plugin does (both generations): registers the bili tools natively
+What the plugin does (both generations): registers the sophialin tools natively
 in-host — compress / decompress / search_context / acp_status (+ absorb) —
 and stamps the proxy headers on every outgoing provider request, including
 context-window / max-output read from the host's own model catalog
@@ -433,38 +433,38 @@ instead of breaking — observed across adjacent `dev` builds whose API
 surfaces differ from each other (#754 review probes).
 
 1.x specifics (verified 1.14.46 + 1.18.31): the V1 `.server()` hooks rewrite
-every provider `options.baseURL` to `<proxy>/bili/…` in-process and set
+every provider `options.baseURL` to `<proxy>/sophialin/…` in-process and set
 `compaction.auto: false`; `chat.headers` stamps the plugin headers per
-request; `tool` registers the bili tools with real zod shapes (zod is a
+request; `tool` registers the sophialin tools with real zod shapes (zod is a
 runtime dependency — when it cannot be resolved the plugin degrades to
 rewrite-only). Providers **without** an explicit `baseURL` (SDK defaults,
 e.g. bare `@ai-sdk/openai` → api.openai.com) are caught by a global `fetch`
 patch (log: `v1: fetch patch installed`) — idempotent, passes
-`/bili/`-wrapped URLs through untouched; verified including the OpenAI
+`/sophialin/`-wrapped URLs through untouched; verified including the OpenAI
 Responses endpoint.
 
-### Native (no launcher) — `bili plugin install opencode`
+### Native (no launcher) — `sophialin plugin install opencode`
 
 Registers a self-spawning plugin in your real opencode config and sets
 `compaction.auto: false`; afterwards plain `opencode` works as-is. No MCP
-face is added by default (the native plugin already provides the bili tools,
+face is added by default (the native plugin already provides the sophialin tools,
 session-bound); pass `--with-mcp` to add one — the entry then carries no
 origin pin, so it survives the plugin's ephemeral-port proxy restarts (#926).
-Entry form depends on how THIS bili was installed: an **npm install** writes
-the bare package name (`"plugin": ["billion-context"]`) — the package
+Entry form depends on how THIS sophialin was installed: an **npm install** writes
+the bare package name (`"plugin": ["sophialin-context"]`) — the package
 publishes `exports["./server"]` → `dist/agent/opencode-native.js`, so
-opencode loads it through its own Npm.add machinery; zero absolute paths, portable. (That exact bare-name entry doubles as a hand-install without bili — see README Quickstart Option 1.) A **git checkout / dev build** falls back to a local shim dir
-(`<configDir>/plugins/billion-context/index.js` → this checkout's
+opencode loads it through its own Npm.add machinery; zero absolute paths, portable. (That exact bare-name entry doubles as a hand-install without sophialin — see README Quickstart Option 1.) A **git checkout / dev build** falls back to a local shim dir
+(`<configDir>/plugins/sophialin-context/index.js` → this checkout's
 `dist/agent/opencode-native.js`) — machine-local by construction; re-running
 install from an npm install migrates the entry back to the bare name.
 
 At load the plugin bootstraps its own proxy (attaches to a healthy instance
 instead of doubling; parent-pid watchdog kills it when opencode exits),
-routes model-API traffic to `<proxy>/bili/<upstream-url>`, and exposes the
-same native bili tools as launcher mode — no fixed port, no env var, no
-launcher. Opt-out: `BILI_NATIVE_OPENCODE=0`. If no proxy can be made
+routes model-API traffic to `<proxy>/sophialin/<upstream-url>`, and exposes the
+same native sophialin tools as launcher mode — no fixed port, no env var, no
+launcher. Opt-out: `SOPHIALIN_NATIVE_OPENCODE=0`. If no proxy can be made
 healthy, requests go direct (uncompressed) with a one-time warning and
-recover automatically. Under a `bili opencode` launch this entry is skipped
+recover automatically. Under a `sophialin opencode` launch this entry is skipped
 entirely (the launcher owns the proxy).
 
 ### Pure proxy (no plugin)
@@ -477,7 +477,7 @@ Point the provider baseURL at the proxy like any other client:
     "myprovider": {
       "npm": "@ai-sdk/openai-compatible",
       "options": {
-        "baseURL": "http://localhost:8787/bili/http://upstream.example/v1",
+        "baseURL": "http://localhost:8787/sophialin/http://upstream.example/v1",
         "apiKey": "sk-any"
       }
     }
@@ -507,7 +507,7 @@ visible up to ~8 KB); dsh (both lanes) shows the default summary ledger — dsh'
 command API passes no arguments, so there is no `full`. Legacy opencode-acp
 sessions (#920) get an explicit unavailable notice instead (their traffic
 bypasses this proxy's compression state). Claude Code has no in-process command
-API: `bili plugin install claude` writes a model-mediated
+API: `sophialin plugin install claude` writes a model-mediated
 `commands/acp-cache.md` markdown command whose prompt drives the `acp_cache`
 MCP tool and pastes the report back verbatim. codex/kimi/hermes expose no
 user-typable command seam — ask the model to call its `acp_cache` tool directly.
@@ -544,9 +544,9 @@ from `storagePath` in `acp.jsonc`):
 - **Legacy session** — compression runs through the absorbed opencode-acp
   (its own refs and block store keep working: `compress` / `decompress` /
   `search_context` / `acp_status` / `acp_context_recap` all execute in it).
-  Its model requests carry `x-bili-plugin-bypass: 1`; the proxy forwards
+  Its model requests carry `x-sophialin-plugin-bypass: 1`; the proxy forwards
   them VERBATIM — no wire injection, no nudge, no session binding.
-- **New session** — bili owns it: tool calls forward to the proxy's plugin
+- **New session** — sophialin owns it: tool calls forward to the proxy's plugin
   endpoints (plugin mode). The executor routes by session lane, so a new
   session's `compress` reaches the proxy while a legacy session's reaches
   opencode-acp. `acp_context_recap` has no proxy counterpart — on new
@@ -555,7 +555,7 @@ from `storagePath` in `acp.jsonc`):
 `/acp` and `/dcp` route the same way. Adoption of new sessions into
 opencode-acp's registry is prevented by gating its transforms (system /
 messages / text.complete) on the legacy predicate. Degradation: when the
-package is absent or fails to import (or isn't v1), bili runs alone and
+package is absent or fails to import (or isn't v1), sophialin runs alone and
 legacy sessions behave as read-only archives (old tags render, `decompress`
 returns `[Block … not found]`, new refs restart from m00001).
 

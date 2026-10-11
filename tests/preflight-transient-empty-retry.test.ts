@@ -4,10 +4,10 @@ import { once } from "node:events";
 import test from "node:test";
 
 process.env.NODE_ENV = "test";
-process.env.BILI_REPLAY_RETRY_MAX = "1";
+process.env.SOPHIALIN_REPLAY_RETRY_MAX = "1";
 // Zero backoff so the transient-retry legs run instantly.
-process.env.BILI_REPLAY_RETRY_BASE_MS = "0";
-process.env.BILI_PREFLIGHT_DEAD_END_COOLDOWN_MS = "400";
+process.env.SOPHIALIN_REPLAY_RETRY_BASE_MS = "0";
+process.env.SOPHIALIN_PREFLIGHT_DEAD_END_COOLDOWN_MS = "400";
 
 import { defaultConfig } from "acp-kernel";
 import { startServer, type ProxyOptions } from "../src/server.ts";
@@ -129,7 +129,7 @@ function startProxy(upstreamPort: number, models: Record<string, { context: numb
 }
 
 async function driveResponses(proxyPort: number, upstreamPort: number, session: string, model: string, input: unknown): Promise<Response> {
-    return await fetch(`http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/responses`, {
+    return await fetch(`http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/responses`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-acp-session": session },
         body: JSON.stringify({ model, stream: true, input }),

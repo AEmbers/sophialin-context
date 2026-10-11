@@ -68,7 +68,7 @@ function compressCallSse(res: http.ServerResponse, id: string, args: string): vo
 const INSTRUCTIONS = ["You are a coding agent operating in a sandbox.", "Follow repo conventions strictly.", "Run tests before finishing.", "Environment notes: linux, node 22, repo at /workspace."].join("\n") + "\n\n" + FILLER(999, 1);
 
 const isChain = (it: Item | undefined): boolean =>
-    !!it && it.type === "message" && typeof (it.content as string) === "string" && (it.content as string).includes("bili-chain");
+    !!it && it.type === "message" && typeof (it.content as string) === "string" && (it.content as string).includes("sophialin-chain");
 
 const findSummaryIndex = (items: Item[]): number =>
     items.findIndex((it) => it.type === "message" && typeof it.content === "string" && (it.content as string).includes(SUMMARY_MARKER));
@@ -150,7 +150,7 @@ test("#1548: post-fold re-request keeps the in-place summary; next-turn prefix s
         proxy = await startServer(opts);
         await once(proxy, "listening");
         const proxyPort = (proxy.address() as { port: number }).port;
-        const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/responses`;
+        const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/responses`;
 
         const input: Item[] = [];
         for (let t = 0; t < TOTAL_TURNS; t++) {

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { ACP_READONLY_TOOLS_RESPONSES, ACP_TOOLS_ANTHROPIC, ACP_TOOLS_OPENAI, ACP_TOOLS_RESPONSES, COMPRESS_TOOL_NAME, DECOMPRESS_TOOL_NAME, SEARCH_CONTEXT_TOOL_NAME, createCore, createInitialState, defaultConfig } from "acp-kernel";
 import { anthropicToCore, type AnthropicRequestBody } from "acp-kernel/wire";
-import { BILI_ACP_READONLY_TOOLS_RESPONSES, BILI_ACP_TOOLS_ANTHROPIC, BILI_ACP_TOOLS_OPENAI, BILI_ACP_TOOLS_RESPONSES } from "../src/compress-tool.ts";
+import { SOPHIALIN_ACP_READONLY_TOOLS_RESPONSES, SOPHIALIN_ACP_TOOLS_ANTHROPIC, SOPHIALIN_ACP_TOOLS_OPENAI, SOPHIALIN_ACP_TOOLS_RESPONSES } from "../src/compress-tool.ts";
 import { SessionStore, _setStoreForTest } from "../src/persist.ts";
 import { _resetSessionsForTest, getSession, type Session } from "../src/session.ts";
 import { executeSearchContext, executeSearchContextTarget } from "../src/decompress-shared.ts";
@@ -60,14 +60,14 @@ function paramsOf(entry: FlatTool): Record<string, unknown> {
     return entry.parameters ?? entry.input_schema ?? entry.function?.parameters ?? {};
 }
 
-test("#841 schema: BILI arrays no longer add conversation_id to search_context (#1685); #1179 range args stay on decompress; compress is a description-only delta", () => {
+test("#841 schema: SOPHIALIN arrays no longer add conversation_id to search_context (#1685); #1179 range args stay on decompress; compress is a description-only delta", () => {
     const cases: [unknown[], unknown[], "flat" | "openai"][] = [
-        [BILI_ACP_TOOLS_ANTHROPIC, ACP_TOOLS_ANTHROPIC, "flat"],
-        [BILI_ACP_TOOLS_OPENAI, ACP_TOOLS_OPENAI, "openai"],
-        [BILI_ACP_TOOLS_RESPONSES, ACP_TOOLS_RESPONSES, "flat"],
+        [SOPHIALIN_ACP_TOOLS_ANTHROPIC, ACP_TOOLS_ANTHROPIC, "flat"],
+        [SOPHIALIN_ACP_TOOLS_OPENAI, ACP_TOOLS_OPENAI, "openai"],
+        [SOPHIALIN_ACP_TOOLS_RESPONSES, ACP_TOOLS_RESPONSES, "flat"],
     ];
-    for (const [bili, kernel, shape] of cases) {
-        const entry = searchEntry(bili, shape);
+    for (const [sophialin, kernel, shape] of cases) {
+        const entry = searchEntry(sophialin, shape);
         assert.ok(entry, `search_context missing in ${shape} array`);
         const props = paramsOf(entry).properties as Record<string, Record<string, unknown>>;
         assert.equal(props.conversation_id, undefined, "#1685: conversation_id NOT advertised (zero-injection)");
@@ -93,19 +93,19 @@ test("#841 schema: BILI arrays no longer add conversation_id to search_context (
             if (e.input_schema) return { ...e, input_schema: p };
             return { ...e, parameters: p };
         };
-        const biliDec = bili.find((t) => nameOf(t) === DECOMPRESS_TOOL_NAME) as FlatTool | undefined;
+        const sophialinDec = sophialin.find((t) => nameOf(t) === DECOMPRESS_TOOL_NAME) as FlatTool | undefined;
         const kernelDec = kernel.find((t) => nameOf(t) === DECOMPRESS_TOOL_NAME) as FlatTool | undefined;
-        assert.ok(biliDec && kernelDec, `decompress missing in ${shape} array`);
-        assert.deepEqual(stripRange(biliDec), stripRange(kernelDec), "decompress differs only by the added range params");
-        const biliProps = paramsOf(biliDec).properties as Record<string, Record<string, unknown>>;
-        assert.equal(biliProps.startId?.type, "string");
-        assert.equal(biliProps.endId?.type, "string");
-        const decRequired = paramsOf(biliDec).required as string[] | undefined;
+        assert.ok(sophialinDec && kernelDec, `decompress missing in ${shape} array`);
+        assert.deepEqual(stripRange(sophialinDec), stripRange(kernelDec), "decompress differs only by the added range params");
+        const sophialinProps = paramsOf(sophialinDec).properties as Record<string, Record<string, unknown>>;
+        assert.equal(sophialinProps.startId?.type, "string");
+        assert.equal(sophialinProps.endId?.type, "string");
+        const decRequired = paramsOf(sophialinDec).required as string[] | undefined;
         assert.ok(!decRequired?.includes("startId") && !decRequired?.includes("endId"), "range args must stay optional");
 
-        const biliRest = bili.filter((t) => t !== entry && nameOf(t) !== DECOMPRESS_TOOL_NAME && nameOf(t) !== COMPRESS_TOOL_NAME);
+        const sophialinRest = sophialin.filter((t) => t !== entry && nameOf(t) !== DECOMPRESS_TOOL_NAME && nameOf(t) !== COMPRESS_TOOL_NAME);
         const kernelRest = kernel.filter((t) => t !== kernelEntry && nameOf(t) !== DECOMPRESS_TOOL_NAME && nameOf(t) !== COMPRESS_TOOL_NAME);
-        assert.deepEqual(biliRest, kernelRest, "no other tool may change");
+        assert.deepEqual(sophialinRest, kernelRest, "no other tool may change");
 
         // compress carries the fork's trigger rubric as a PURE SUFFIX on the kernel
         // description — the tool object is otherwise byte-identical to the kernel's.
@@ -120,15 +120,15 @@ test("#841 schema: BILI arrays no longer add conversation_id to search_context (
             }
             return rest;
         };
-        const biliCmp = bili.find((t) => nameOf(t) === COMPRESS_TOOL_NAME) as FlatTool | undefined;
+        const sophialinCmp = sophialin.find((t) => nameOf(t) === COMPRESS_TOOL_NAME) as FlatTool | undefined;
         const kernelCmp = kernel.find((t) => nameOf(t) === COMPRESS_TOOL_NAME) as FlatTool | undefined;
-        assert.ok(biliCmp && kernelCmp, `compress missing in ${shape} array`);
-        assert.deepEqual(descOnly(biliCmp), descOnly(kernelCmp), "compress differs from the kernel tool only by its description");
-        const biliDesc = (biliCmp.description ?? biliCmp.function?.description) as string;
+        assert.ok(sophialinCmp && kernelCmp, `compress missing in ${shape} array`);
+        assert.deepEqual(descOnly(sophialinCmp), descOnly(kernelCmp), "compress differs from the kernel tool only by its description");
+        const sophialinDesc = (sophialinCmp.description ?? sophialinCmp.function?.description) as string;
         const kernelDesc = (kernelCmp.description ?? kernelCmp.function?.description) as string;
-        assert.ok(biliDesc.startsWith(kernelDesc) && biliDesc.length > kernelDesc.length, "the trigger rubric rides as a pure suffix");
+        assert.ok(sophialinDesc.startsWith(kernelDesc) && sophialinDesc.length > kernelDesc.length, "the trigger rubric rides as a pure suffix");
     }
-    const ro = searchEntry(BILI_ACP_READONLY_TOOLS_RESPONSES, "flat")!;
+    const ro = searchEntry(SOPHIALIN_ACP_READONLY_TOOLS_RESPONSES, "flat")!;
     assert.equal((paramsOf(ro).properties as Record<string, unknown>).conversation_id, undefined, "#1685: readonly array clean too");
     assert.equal((paramsOf(searchEntry(ACP_READONLY_TOOLS_RESPONSES, "flat")!).properties as Record<string, unknown>).conversation_id, undefined, "kernel readonly constant must not be mutated");
 });
@@ -196,12 +196,12 @@ test("#841 resident historical session served from memory without disk", () => {
     const out = executeSearchContextTarget({ query: "auth token", conversation_id: "pfa-resident" }, core, "pfa-other", makeSession("pfa-other").state);
     assert.match(out, /^Found \d+ block\(s\) for "auth token" in session pfa-resident:/);
     assert.ok(out.includes("Read-only search of historical session pfa-resident"));
-    assert.ok(out.includes("bili export pfa-resident [--full]"));
+    assert.ok(out.includes("sophialin export pfa-resident [--full]"));
 });
 
 test("#841 cold-loaded historical session: read-only, file untouched, no save scheduled", async () => {
     _resetSessionsForTest();
-    const dir = mkdtempSync(path.join(tmpdir(), "bili-xsearch-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "sophialin-xsearch-"));
     try {
         const writer = new SessionStore({ dir, enabled: true, debounceMs: 0 });
         const old = makeSession("pfa-old");

@@ -98,7 +98,7 @@ async function squatted(port: number): Promise<net.Server> {
 // port-zone.json, the instance file and the #707 starting marker stay in a
 // throwaway sandbox.
 async function withSandbox<T>(fn: () => Promise<T>): Promise<T> {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-zone-live-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-zone-live-"));
     const prev = process.env.XDG_STATE_HOME;
     process.env.XDG_STATE_HOME = path.join(home, "state");
     try {
@@ -130,7 +130,7 @@ function launch(opts: { lane?: string; port?: number; strictPort?: boolean; scri
 // CJS and die on the bundle's import statements before ever reaching listen).
 let v2Seq = 0;
 function makeV2Script(): string {
-    const p = path.join(root, `bili-zone-live-v2-${process.pid}-${++v2Seq}.js`);
+    const p = path.join(root, `sophialin-zone-live-v2-${process.pid}-${++v2Seq}.js`);
     fs.writeFileSync(p, fs.readFileSync(distCli, "utf8") + "\n// v2 marker\n");
     return p;
 }

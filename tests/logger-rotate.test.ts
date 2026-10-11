@@ -9,8 +9,8 @@ import { rmrf } from "./tmp-rm.ts";
 const MAX_BYTES = 10 * 1024 * 1024;
 
 test("log rotation keeps at most one .old generation", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-logrot-"));
-    const p = path.join(dir, "bili.log");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-logrot-"));
+    const p = path.join(dir, "sophialin.log");
     try {
         // Round 1: a full-size file triggers rotation on the first write.
         fs.writeFileSync(p, Buffer.alloc(MAX_BYTES, 65));

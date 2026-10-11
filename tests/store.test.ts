@@ -23,8 +23,8 @@ import { rmrf } from "./tmp-rm.ts";
 
 // Unit tests never touch the real data/state trees: persistence off by
 // default; the envelope round-trip builds its own throwaway SessionStore.
-process.env.BILI_PERSIST = "0";
-const PERSIST_TMP = mkdtempSync(path.join(tmpdir(), "bili-ccr-persist-"));
+process.env.SOPHIALIN_PERSIST = "0";
+const PERSIST_TMP = mkdtempSync(path.join(tmpdir(), "sophialin-ccr-persist-"));
 
 const BIG_TEXT = "line of build output ".repeat(700);
 
@@ -229,7 +229,7 @@ test("envelope round-trip: dirty flag gates the write; reload restores the store
 });
 
 test("flushAll retries a dirty content store after a transient write failure", async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "bili-ccr-flushall-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "sophialin-ccr-flushall-"));
     const logs: string[] = [];
     const store = new SessionStore({ dir, debounceMs: 60_000, log: (level, msg) => logs.push(`${level}:${msg}`) });
     _setStoreForTest(store);
@@ -263,7 +263,7 @@ test("flushAll retries a dirty content store after a transient write failure", a
 
 // [#1343] Delivery-lifecycle coverage: every ack→loss path is observable
 // (counter + corrective note), never silent. Sessions are in-memory
-// (BILI_PERSIST=0); the durable ledger lives in session.metadata.
+// (SOPHIALIN_PERSIST=0); the durable ledger lives in session.metadata.
 function seedCCR() {
     const session = getSession(`t-win-${Math.random().toString(36).slice(2)}`);
     storeEffectiveCcr(session, { enabled: true, toolName: "lookup", minToolTokens: 50 });

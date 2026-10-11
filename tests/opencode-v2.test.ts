@@ -5,7 +5,7 @@ import test from "node:test";
 
 process.env.NODE_ENV = "test";
 
-import biliOpencodePlugin from "../src/agent/opencode.ts";
+import sophialinOpencodePlugin from "../src/agent/opencode.ts";
 import { ACP_TOOLS_OPENAI, ABSORB_TOOL_OPENAI } from "../src/compress-tool.ts";
 import { fetchManifest, fitNoticeDescription } from "../src/agent/shared.ts";
 
@@ -19,7 +19,7 @@ function startFakeProxyV2(): Promise<{ origin: string; toolCalls: Array<{ conver
     const compacts: string[] = [];
     const server = http.createServer((req, res) => {
         const url = req.url ?? "";
-        if (url === "/__bili/plugin/tool" && req.method === "POST") {
+        if (url === "/__sophialin/plugin/tool" && req.method === "POST") {
             let body = "";
             req.on("data", (c) => (body += c));
             req.on("end", () => {
@@ -30,14 +30,14 @@ function startFakeProxyV2(): Promise<{ origin: string; toolCalls: Array<{ conver
                     res.end(JSON.stringify({ ok: true, result: "STATUS-RESULT" }));
                 } else if (data.tool === "acp_cache") {
                     const body = data.conversationId === "ses_cache_long" ? LONG_REPORT : "CACHE-REPORT-OK";
-                    res.end(JSON.stringify({ ok: true, result: `Web UI: http://127.0.0.1:9/__bili/#/session/${data.conversationId}\n\n${body}` }));
+                    res.end(JSON.stringify({ ok: true, result: `Web UI: http://127.0.0.1:9/__sophialin/#/session/${data.conversationId}\n\n${body}` }));
                 } else {
                     res.end(JSON.stringify({ ok: false, error: `boom-${data.tool}` }));
                 }
             });
             return;
         }
-        if (url === "/__bili/plugin/compact" && req.method === "POST") {
+        if (url === "/__sophialin/plugin/compact" && req.method === "POST") {
             let body = "";
             req.on("data", (c) => (body += c));
             req.on("end", () => {
@@ -48,7 +48,7 @@ function startFakeProxyV2(): Promise<{ origin: string; toolCalls: Array<{ conver
             });
             return;
         }
-        if ((req.url ?? "").startsWith("/__bili/plugin/status")) {
+        if ((req.url ?? "").startsWith("/__sophialin/plugin/status")) {
             if ((req.url ?? "").includes("ses_acp_idle")) {
                 res.writeHead(404, { "content-type": "application/json" });
                 res.end(JSON.stringify({ ok: false, error: "unknown plugin conversation" }));
@@ -57,14 +57,14 @@ function startFakeProxyV2(): Promise<{ origin: string; toolCalls: Array<{ conver
             res.writeHead(200, { "content-type": "application/json" });
             const sid = (req.url ?? "").match(/conversationId=([^&]+)/)?.[1] ?? "";
             // ses_acp_noweb simulates an older proxy (no webUrl field) for the fallback path.
-            const webUrl = sid && sid !== "ses_acp_noweb" ? `http://127.0.0.1:9/__bili/#/session/${sid}` : null;
+            const webUrl = sid && sid !== "ses_acp_noweb" ? `http://127.0.0.1:9/__sophialin/#/session/${sid}` : null;
             const panel = sid === "ses_acp_long" || sid === "ses_acp_noweb"
                 ? (webUrl !== null ? `${LONG_PANEL}\nWeb UI: ${webUrl}` : LONG_PANEL)
                 : "ACP-PANEL-OK";
             res.end(JSON.stringify({ ok: true, panel, webUrl }));
             return;
         }
-        if ((req.url ?? "") === "/__bili/plugin/manifest") {
+        if ((req.url ?? "") === "/__sophialin/plugin/manifest") {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ version: "9.9.9-test" }));
             return;
@@ -201,17 +201,17 @@ function withEnv(vars: Record<string, string | undefined>, fn: () => void | Prom
 }
 
 test("object export: .id/.setup for V2 and .server for V1 >= 1.18.29", () => {
-    assert.equal(typeof biliOpencodePlugin, "object");
-    assert.ok(biliOpencodePlugin !== null);
-    assert.equal(biliOpencodePlugin.id, "billion-context-opencode");
-    assert.equal(typeof biliOpencodePlugin.setup, "function");
-    assert.equal(typeof biliOpencodePlugin.server, "function");
+    assert.equal(typeof sophialinOpencodePlugin, "object");
+    assert.ok(sophialinOpencodePlugin !== null);
+    assert.equal(sophialinOpencodePlugin.id, "sophialin-context-opencode");
+    assert.equal(typeof sophialinOpencodePlugin.setup, "function");
+    assert.equal(typeof sophialinOpencodePlugin.server, "function");
 });
 
-test("v2 setup: registers the bundled bili tools synchronously with exact schema parity", async () => {
+test("v2 setup: registers the bundled sophialin tools synchronously with exact schema parity", async () => {
     const fake = makeFakeCtx();
-    await withEnv({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-        const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+        const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
         try {
             assert.deepEqual(fake.addedTools.map((t) => t.name), EXPECTED_TOOLS);
             for (const t of fake.addedTools) {
@@ -228,8 +228,8 @@ test("v2 setup: registers the bundled bili tools synchronously with exact schema
 
 test("v2 setup: inert without proxy detection (tools present but no headers, no forwarding)", async () => {
     const fake = makeFakeCtx();
-    await withEnv({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-        const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+        const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
         try {
             const res = await fake.fireModelRequest({ sessionID: "s1", baseURL: "http://upstream.example/v1" });
             assert.deepEqual(res.headers, {});
@@ -243,22 +243,22 @@ test("v2 setup: inert without proxy detection (tools present but no headers, no 
 });
 
 test("v2 setup: inert-safe when the host exposes none of the V2 seams", async () => {
-    const cleanup = await biliOpencodePlugin.setup({} as never);
+    const cleanup = await sophialinOpencodePlugin.setup({} as never);
     assert.equal(typeof cleanup, "function");
     cleanup();
 });
 
-test("v2 setup: kill switch stays inert even with /bili/ URL + proxy env", async () => {
+test("v2 setup: kill switch stays inert even with /sophialin/ URL + proxy env", async () => {
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: "0" }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: "0" }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
-                const res = await fake.fireModelRequest({ sessionID: "s1", baseURL: `${proxy.origin}/bili/http://upstream.example/v1` });
+                const res = await fake.fireModelRequest({ sessionID: "s1", baseURL: `${proxy.origin}/sophialin/http://upstream.example/v1` });
                 assert.deepEqual(res.headers, {});
                 const out = await fake.addedTools.find((t) => t.name === "compress")!.execute({ content: [] }, { sessionID: "s1" });
-                assert.match(out.content, /disabled \(BILLION_CONTEXT_PLUGIN=0\)/);
+                assert.match(out.content, /disabled \(SOPHIALIN_CONTEXT_PLUGIN=0\)/);
                 assert.equal(proxy.toolCalls.length, 0);
             } finally {
                 cleanup();
@@ -269,27 +269,27 @@ test("v2 setup: kill switch stays inert even with /bili/ URL + proxy env", async
     }
 });
 
-test("v2 setup: activates from /bili/ baseURL on round 1, stamps headers, forwards tools", async () => {
+test("v2 setup: activates from /sophialin/ baseURL on round 1, stamps headers, forwards tools", async () => {
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const r1 = await fake.fireModelRequest({
                     sessionID: "ses_v2_1",
-                    baseURL: `${proxy.origin}/bili/http://upstream.example/v1`,
+                    baseURL: `${proxy.origin}/sophialin/http://upstream.example/v1`,
                     model: { providerID: "qwen", id: "m1" },
                 });
-                assert.equal(r1.headers["x-bili-plugin"], "opencode");
-                assert.equal(r1.headers["x-bili-plugin-conversation"], "ses_v2_1");
+                assert.equal(r1.headers["x-sophialin-plugin"], "opencode");
+                assert.equal(r1.headers["x-sophialin-plugin-conversation"], "ses_v2_1");
                 // window header needs the async catalog fetch — lands from round 2
                 const r2 = await fake.fireModelRequest({
                     sessionID: "ses_v2_1",
-                    baseURL: `${proxy.origin}/bili/http://upstream.example/v1`,
+                    baseURL: `${proxy.origin}/sophialin/http://upstream.example/v1`,
                     model: { providerID: "qwen", id: "m1" },
                 });
-                await until(() => r2.headers["x-bili-plugin-context-window"] === "262144");
+                await until(() => r2.headers["x-sophialin-plugin-context-window"] === "262144");
 
                 const out = await fake.addedTools.find((t) => t.name === "compress")!.execute({ content: [] }, { sessionID: "ses_v2_1" });
                 assert.match(out.content, /boom-compress/);
@@ -314,16 +314,16 @@ test("v2 setup: activates from /bili/ baseURL on round 1, stamps headers, forwar
     }
 });
 
-test("v2 setup: env-based activation without /bili/ URL", async () => {
+test("v2 setup: env-based activation without /sophialin/ URL", async () => {
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const res = await fake.fireModelRequest({ sessionID: "s2", baseURL: "http://real-upstream.example/v1" });
-                assert.equal(res.headers["x-bili-plugin"], "opencode");
-                assert.equal(res.headers["x-bili-plugin-conversation"], "s2");
+                assert.equal(res.headers["x-sophialin-plugin"], "opencode");
+                assert.equal(res.headers["x-sophialin-plugin-conversation"], "s2");
             } finally {
                 cleanup();
             }
@@ -337,8 +337,8 @@ test("v2 setup: session.compaction.ended reports boundary to proxy archive", asy
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 await fake.fireModelRequest({ sessionID: "s3", baseURL: "http://u.example/v1", headers: {} });
                 fake.pushEvent({ type: "session.compaction.ended", data: { sessionID: "s3", reason: "manual" } });
@@ -358,8 +358,8 @@ test("v2 setup: cleanup aborts event subscription and disposes registrations", a
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             await fake.fireModelRequest({ sessionID: "s4", baseURL: "http://u.example/v1", headers: {} });
             cleanup();
             assert.ok(fake.disposed.includes(1), "model.request hook registration disposed");
@@ -374,8 +374,8 @@ test("v2 setup: /acp command registered and renders proxy status panel via synth
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const acp = fake.addedCommands.find((c) => c.name === "acp");
                 assert.ok(acp, "/acp command registered");
@@ -398,8 +398,8 @@ test("v2 setup: /acp command registered and renders proxy status panel via synth
 
 test("v2 setup: /acp reports no proxy detected via synthetic when no proxy", async () => {
     const fake = makeFakeCtx();
-    await withEnv({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-        const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+        const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
         try {
             const acp = fake.addedCommands.find((c) => c.name === "acp")!;
             await acp.execute({ sessionID: "s_nopx" });
@@ -417,13 +417,13 @@ test("v2 setup: first /acp before any model request shows the idle notice (proxy
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const acp = fake.addedCommands.find((c) => c.name === "acp")!;
                 await acp.execute({ sessionID: "ses_acp_idle" });
                 await until(() => fake.syntheticCalls.length === 1);
-                assert.match(fake.syntheticCalls[0].description!, /billion-context@9\.9\.9-test \u2014 proxy connected, no ACP session yet/);
+                assert.match(fake.syntheticCalls[0].description!, /sophialin-context@9\.9\.9-test \u2014 proxy connected, no ACP session yet/);
                 assert.match(fake.syntheticCalls[0].text, /not an instruction/);
                 assert.equal(fake.syntheticCalls[0].resume, false);
             } finally {
@@ -440,15 +440,15 @@ test("v2 setup: /acp long panels lead with the Web UI link and keep whole leadin
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const acp = fake.addedCommands.find((c) => c.name === "acp")!;
                 await acp.execute({ sessionID: "ses_acp_long" });
                 await until(() => fake.syntheticCalls.length === 1);
                 const desc = fake.syntheticCalls[0].description ?? "";
                 assert.ok(desc.length > 0 && desc.length <= 1024, `notice fits the TUI cap (${desc.length})`);
-                const webLine = "Web UI: http://127.0.0.1:9/__bili/#/session/ses_acp_long";
+                const webLine = "Web UI: http://127.0.0.1:9/__sophialin/#/session/ses_acp_long";
                 assert.ok(desc.startsWith(`${webLine}\n`), "Web UI deep link is the first line");
                 assert.equal(desc.match(/^Web UI: .+$/gm)!.length, 1, "link appears exactly once (deduped out of the panel body)");
                 const markerIdx = desc.indexOf("\n\n[panel truncated] ");
@@ -474,8 +474,8 @@ test("v2 setup: /acp short panels render verbatim (#1602)", async () => {
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const acp = fake.addedCommands.find((c) => c.name === "acp")!;
                 await acp.execute({ sessionID: "ses_acp_1" });
@@ -494,8 +494,8 @@ test("v2 setup: /acp without a webUrl (older proxy) truncates plainly and still 
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const acp = fake.addedCommands.find((c) => c.name === "acp")!;
                 await acp.execute({ sessionID: "ses_acp_noweb" });
@@ -520,13 +520,13 @@ test("v2 /acp: host omits sessionID → warn once, render nothing (never an empt
     try {
         for (const plugin of ["0", undefined]) {
             const f = makeFakeCtx();
-            await withEnv({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: plugin }, async () => {
-                const cleanup = await biliOpencodePlugin.setup(f.ctx as never);
+            await withEnv({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: plugin }, async () => {
+                const cleanup = await sophialinOpencodePlugin.setup(f.ctx as never);
                 try {
                     const acp = f.addedCommands.find((c) => c.name === "acp")!;
                     await acp.execute({});
                     await new Promise((r) => setTimeout(r, 20));
-                    assert.equal(f.syntheticCalls.length, 0, `no synthetic for missing sessionID (BILLION_CONTEXT_PLUGIN=${String(plugin)})`);
+                    assert.equal(f.syntheticCalls.length, 0, `no synthetic for missing sessionID (SOPHIALIN_CONTEXT_PLUGIN=${String(plugin)})`);
                 } finally {
                     cleanup();
                 }
@@ -540,8 +540,8 @@ test("v2 /acp: host omits sessionID → warn once, render nothing (never an empt
 
 test("v2 /acp: disabled + valid session still renders the 'disabled' notice", async () => {
     const fake = makeFakeCtx();
-    await withEnv({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: "0" }, async () => {
-        const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: "0" }, async () => {
+        const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
         try {
             const acp = fake.addedCommands.find((c) => c.name === "acp")!;
             await acp.execute({ sessionID: "ses_dis" });
@@ -558,8 +558,8 @@ test("v2 setup: /acp-cache registered and renders the cache report via synthetic
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const cache = fake.addedCommands.find((c) => c.name === "acp-cache");
                 assert.ok(cache, "/acp-cache command registered");
@@ -583,8 +583,8 @@ test("v2 /acp-cache: full flag maps to detail=full; long reports keep the leadin
     const proxy = await startFakeProxyV2();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const cache = fake.addedCommands.find((c) => c.name === "acp-cache")!;
                 await cache.execute({ sessionID: "ses_cache_full", arguments: "full" });
@@ -596,7 +596,7 @@ test("v2 /acp-cache: full flag maps to detail=full; long reports keep the leadin
                 await until(() => fake.syntheticCalls.length === 2);
                 const desc = fake.syntheticCalls[1].description ?? "";
                 assert.ok(desc.length > 0 && desc.length <= 8192, `report cap holds (${desc.length})`);
-                const webLine = "Web UI: http://127.0.0.1:9/__bili/#/session/ses_cache_long";
+                const webLine = "Web UI: http://127.0.0.1:9/__sophialin/#/session/ses_cache_long";
                 assert.ok(desc.startsWith(`${webLine}\n`), "the report's leading Web UI link survives truncation");
                 const markerIdx = desc.indexOf("\n\n[report truncated] ");
                 assert.ok(markerIdx > 0, "truncation marker present");
@@ -623,8 +623,8 @@ test("v2 /acp-cache: missing sessionID warns and renders nothing (#1146)", async
     const origWarn = console.warn;
     console.warn = (msg?: unknown) => { warns.push(String(msg)); };
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const cache = fake.addedCommands.find((c) => c.name === "acp-cache")!;
                 await cache.execute({});
@@ -643,17 +643,17 @@ test("v2 /acp-cache: missing sessionID warns and renders nothing (#1146)", async
 
 test("v2 /acp-cache: disabled plugin and no-proxy diagnostics render via synthetic (#1146)", async () => {
     for (const env of [
-        { BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: "0" },
-        { BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined },
+        { SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: "0" },
+        { SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined },
     ] as Array<Record<string, string | undefined>>) {
         const fake = makeFakeCtx();
         await withEnv(env, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const cache = fake.addedCommands.find((c) => c.name === "acp-cache")!;
                 await cache.execute({ sessionID: "s_diag" });
                 await until(() => fake.syntheticCalls.length === 1);
-                if (env.BILLION_CONTEXT_PLUGIN === "0") assert.match(fake.syntheticCalls[0].description!, /disabled/);
+                if (env.SOPHIALIN_CONTEXT_PLUGIN === "0") assert.match(fake.syntheticCalls[0].description!, /disabled/);
                 else assert.match(fake.syntheticCalls[0].description!, /no proxy detected/);
             } finally {
                 cleanup();
@@ -664,7 +664,7 @@ test("v2 /acp-cache: disabled plugin and no-proxy diagnostics render via synthet
 
 test("v2 /acp: surfaces status.error when the proxy returns no panel", async () => {
     const server = http.createServer((req, res) => {
-        if ((req.url ?? "").startsWith("/__bili/plugin/status")) {
+        if ((req.url ?? "").startsWith("/__sophialin/plugin/status")) {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ ok: true, error: "backend-busy" }));
             return;
@@ -677,8 +677,8 @@ test("v2 /acp: surfaces status.error when the proxy returns no panel", async () 
     const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 const acp = fake.addedCommands.find((c) => c.name === "acp")!;
                 await acp.execute({ sessionID: "ses_err" });
@@ -707,8 +707,8 @@ test("v2 /acp: a throwing command editor degrades to no-/acp without killing set
     const origWarn = console.warn;
     console.warn = (msg?: unknown) => { warns.push(String(msg)); };
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
-            const cleanup = await biliOpencodePlugin.setup(fake.ctx as never);
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
+            const cleanup = await sophialinOpencodePlugin.setup(fake.ctx as never);
             try {
                 assert.ok(typeof cleanup === "function", "setup resolved despite the command editor throwing");
             } finally {
@@ -727,7 +727,7 @@ test("fetchManifest openai format maps parameters to inputSchema", async () => {
         { name: "acp_status", description: "Context status", parameters: { type: "object", properties: {} } },
     ];
     const server = http.createServer((req, res) => {
-        if ((req.url ?? "") === "/__bili/plugin/manifest" && req.method === "GET") {
+        if ((req.url ?? "") === "/__sophialin/plugin/manifest" && req.method === "GET") {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ ok: true, protocolVersion: 1, version: "99.0.0-test", tools: { openai: MANIFEST_OPENAI } }));
             return;
@@ -755,7 +755,7 @@ function startRegisterProxy(failFirst = 0): Promise<{ origin: string; registers:
     const registers: Array<{ conversationId?: string; agent?: string; identity?: boolean; parentConversationId?: string }> = [];
     let failuresLeft = failFirst;
     const server = http.createServer((req, res) => {
-        if ((req.url ?? "") === "/__bili/plugin/register" && req.method === "POST") {
+        if ((req.url ?? "") === "/__sophialin/plugin/register" && req.method === "POST") {
             let body = "";
             req.on("data", (c) => (body += c));
             req.on("end", () => {
@@ -787,13 +787,13 @@ test("#1362: V2 child session links its parent via session.created + first reque
     const reg = await startRegisterProxy();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: reg.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: reg.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const cleanup = await createOpencodeV2Setup({})(fake.ctx as never);
             try {
                 fake.pushEvent({ type: "session.created", data: { sessionID: "ses_c", parentID: "ses_p" } });
                 await new Promise((r) => setTimeout(r, 20));
                 const r1 = await fake.fireModelRequest({ sessionID: "ses_c", baseURL: "http://upstream.example/v1" });
-                assert.equal(r1.headers["x-bili-plugin-conversation"], "ses_c");
+                assert.equal(r1.headers["x-sophialin-plugin-conversation"], "ses_c");
                 await until(() => reg.registers.length >= 1);
                 assert.deepEqual(reg.registers[0], { conversationId: "ses_c", agent: "opencode", identity: true, parentConversationId: "ses_p" });
                 await fake.fireModelRequest({ sessionID: "ses_c", baseURL: "http://upstream.example/v1" });
@@ -812,7 +812,7 @@ test("#1362: V2 root sessions (no parentID) send no register", async () => {
     const reg = await startRegisterProxy();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: reg.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: reg.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const cleanup = await createOpencodeV2Setup({})(fake.ctx as never);
             try {
                 fake.pushEvent({ type: "session.created", data: { sessionID: "ses_root" } });
@@ -834,7 +834,7 @@ test("#1362: V2 self-parent is filtered at ingest", async () => {
     const reg = await startRegisterProxy();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: reg.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: reg.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const cleanup = await createOpencodeV2Setup({})(fake.ctx as never);
             try {
                 fake.pushEvent({ type: "session.created", data: { sessionID: "ses_s", parentID: "ses_s" } });
@@ -856,7 +856,7 @@ test("#1362: V2 parent announced after the child's first request links late", as
     const reg = await startRegisterProxy();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: reg.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: reg.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const cleanup = await createOpencodeV2Setup({})(fake.ctx as never);
             try {
                 await fake.fireModelRequest({ sessionID: "ses_l", baseURL: "http://upstream.example/v1" });
@@ -880,7 +880,7 @@ test("#1362: failed V2 derive register retries after the cooldown window", async
     const reg = await startRegisterProxy(1);
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: reg.origin, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: reg.origin, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const cleanup = await createOpencodeV2Setup({ derivedRetryMs: 60 })(fake.ctx as never);
             try {
                 fake.pushEvent({ type: "session.created", data: { sessionID: "ses_f", parentID: "ses_fp" } });
@@ -906,13 +906,13 @@ test("#1362: V2 kill switch suppresses derivation reporting too", async () => {
     const reg = await startRegisterProxy();
     const fake = makeFakeCtx();
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: reg.origin, BILLION_CONTEXT_PLUGIN: "0" }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: reg.origin, SOPHIALIN_CONTEXT_PLUGIN: "0" }, async () => {
             const cleanup = await createOpencodeV2Setup({})(fake.ctx as never);
             try {
                 fake.pushEvent({ type: "session.created", data: { sessionID: "ses_k", parentID: "ses_kp" } });
                 await new Promise((r) => setTimeout(r, 20));
                 const r1 = await fake.fireModelRequest({ sessionID: "ses_k", baseURL: "http://upstream.example/v1" });
-                assert.equal(r1.headers["x-bili-plugin-conversation"], undefined, "no stamping under kill switch");
+                assert.equal(r1.headers["x-sophialin-plugin-conversation"], undefined, "no stamping under kill switch");
                 await new Promise((r) => setTimeout(r, 80));
                 assert.deepEqual(reg.registers, []);
             } finally {

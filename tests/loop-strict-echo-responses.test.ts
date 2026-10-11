@@ -92,7 +92,7 @@ async function startHarnessLoop(handler: (bodyText: string, res: http.ServerResp
 }
 
 async function postStreamResponses(proxyPort: number, upstreamPort: number): Promise<Response> {
-    return fetch(`http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/responses`, {
+    return fetch(`http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/responses`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-acp-session": "reloop-resp-1" },
         body: JSON.stringify({
@@ -142,7 +142,7 @@ function orphanRunCount(items: Item[]): number {
 test("#1479: responses-wire main path and loop re-request carry the blank strict-echo repair", async () => {
     const captured: Captured[] = [];
     setLogCapture((level, msg) => captured.push({ level, msg }));
-    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-reloop-resp-"));
+    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-reloop-resp-"));
     process.env.XDG_STATE_HOME = stateDir;
     _setStoreForTest(new SessionStore({ enabled: false }));
     const seenBodies: string[] = [];

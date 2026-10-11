@@ -30,7 +30,7 @@ import {
 import { assertPortDead } from "./port-race.ts";
 import { rmrf } from "./tmp-rm.ts";
 
-/** #255 Part B: logs (bili.log + launcher tmp log) must carry no sensitive
+/** #255 Part B: logs (sophialin.log + launcher tmp log) must carry no sensitive
  *  info — credential header values are masked, and non-public API endpoints
  *  (private relays, self-hosted, internal domains) are replaced. Well-known
  *  public hosts (openai/anthropic/...) stay verbatim. */
@@ -67,8 +67,8 @@ test("maskUrlForLog: userinfo/query/hash always dropped (key-leak vectors)", () 
 
 test("maskUrlsInText: masks URLs embedded in arbitrary strings", () => {
     assert.equal(
-        maskUrlsInText("/bili/http://relay.internal:8443/v1/messages"),
-        "/bili/http://<private-host>:8443/v1/messages",
+        maskUrlsInText("/sophialin/http://relay.internal:8443/v1/messages"),
+        "/sophialin/http://<private-host>:8443/v1/messages",
     );
     assert.equal(
         maskUrlsInText("forward POST → https://api.openai.com/v1/chat/completions"),
@@ -181,7 +181,7 @@ interface Captured {
 }
 
 test("proxy debug logs: no credentials, no non-public host in ANY log line (#255)", async () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bili-log-mask-"));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-log-mask-"));
     const prev = {
         xdgState: process.env.XDG_STATE_HOME,
         rawDump: process.env.ACP_RAW_DUMP_DIR,
@@ -224,7 +224,7 @@ test("proxy debug logs: no credentials, no non-public host in ANY log line (#255
         proxy = await startServer(opts);
         await once(proxy, "listening");
         const proxyPort = (proxy.address() as { port: number }).port;
-        const resp = await fetch(`http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/chat/completions`, {
+        const resp = await fetch(`http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/chat/completions`, {
             method: "POST",
             headers: {
                 "content-type": "application/json",
@@ -271,7 +271,7 @@ test("proxy debug logs: no credentials, no non-public host in ANY log line (#255
 });
 
 test("proxy error log: connection failure to non-public upstream leaks nothing (#255)", async () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bili-log-mask-err-"));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-log-mask-err-"));
     const prev = { xdgState: process.env.XDG_STATE_HOME };
     process.env.XDG_STATE_HOME = tmpRoot;
     const captured: Captured[] = [];
@@ -301,7 +301,7 @@ test("proxy error log: connection failure to non-public upstream leaks nothing (
         proxy = await startServer(opts);
         await once(proxy, "listening");
         const proxyPort = (proxy.address() as { port: number }).port;
-        const resp = await fetch(`http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:59999/v1/chat/completions`, {
+        const resp = await fetch(`http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:59999/v1/chat/completions`, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "log-mask-err" },
             body: JSON.stringify({ model: "gpt-test", messages: [{ role: "user", content: "hi" }] }),
@@ -323,7 +323,7 @@ test("proxy error log: connection failure to non-public upstream leaks nothing (
 });
 
 test("mitm CONNECT tunnel failure: err.message host scrubbed from log (#255)", async () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bili-log-mask-mitm-"));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-log-mask-mitm-"));
     const prev = { xdgState: process.env.XDG_STATE_HOME, dataHome: process.env.XDG_DATA_HOME };
     process.env.XDG_STATE_HOME = tmpRoot;
     // MITM-enabled startup calls ensureRootCA(); isolate the CA dir so parallel
@@ -390,7 +390,7 @@ test("mitm CONNECT tunnel failure: err.message host scrubbed from log (#255)", a
 });
 
 test("ws upgrade rejection: host header scrubbed from log (#255)", async () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bili-log-mask-ws-"));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-log-mask-ws-"));
     const prev = { xdgState: process.env.XDG_STATE_HOME };
     process.env.XDG_STATE_HOME = tmpRoot;
     const captured: Captured[] = [];
@@ -499,14 +499,14 @@ test("maskIpsInText: non-loopback IP literals scrubbed from free-form text (#171
     for (const s of negatives) assert.equal(maskIpsInText(s), s, `must stay verbatim: ${s}`);
     setMaskHostsEnabled(false);
     try {
-        assert.equal(maskIpsInText("203.0.113.5:8443"), "203.0.113.5:8443", "BILI_LOG_MASK_HOSTS=0 opt-out must keep real IPs");
+        assert.equal(maskIpsInText("203.0.113.5:8443"), "203.0.113.5:8443", "SOPHIALIN_LOG_MASK_HOSTS=0 opt-out must keep real IPs");
     } finally {
         setMaskHostsEnabled(true);
     }
 });
 
 test("logger sink: file lines scrubbed, capture hook stays raw (#1718)", async () => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bili-log-sink-"));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-log-sink-"));
     const file = path.join(tmpRoot, "sink.log");
     const captured: string[] = [];
     setLogCapture((_level, msg) => captured.push(msg));

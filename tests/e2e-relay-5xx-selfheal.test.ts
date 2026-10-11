@@ -7,7 +7,7 @@ process.env.NODE_ENV = "test";
 // #1688: these scenarios assert the single-attempt network-failure shape (first
 // socket drop → immediate 502 → arm); pin the legacy no-retry budget so the
 // first drop still surfaces as 502 instead of being transparently replayed.
-process.env.BILI_REPLAY_RETRY_MAX = "1";
+process.env.SOPHIALIN_REPLAY_RETRY_MAX = "1";
 
 import { defaultConfig } from "acp-kernel";
 import { startServer, type ProxyOptions } from "../src/server.ts";
@@ -24,12 +24,12 @@ import { listSessions, type Session } from "../src/session.ts";
 // sent, so the next retry lands in the kernel's emergency band
 // (truncate.threshold = 0.95) and truncates large tool results server-side.
 //
-// Fixture shape (deterministic — no real model involved): bili's configured
+// Fixture shape (deterministic — no real model involved): sophialin's configured
 // window is 32k, but the mock relay enforces a HIDDEN 29.5k tolerance (the
 // modern deadlock shape: master's preflight intercepts anything whose local
 // estimate already exceeds the configured window, so the payload that reaches
-// the relay fits bili's view but not the relay's). The conversation's wire
-// body sits at ~97% of bili's window — under the preflight trigger, above the
+// the relay fits sophialin's view but not the relay's). The conversation's wire
+// body sits at ~97% of sophialin's window — under the preflight trigger, above the
 // relay's tolerance, and above the 0.95 emergency band once armed. After the
 // armed retry the kernel truncates exactly enough big tool results to drop
 // below 0.9 × threshold (~27k), which lands under the relay's tolerance.
@@ -182,10 +182,10 @@ test("e2e #604: relay 5xx on near-window payload → arm → next retry truncate
     const { proxy, port } = await startProxy(upstreamPort, saves);
 
     try {
-        const url = `http://127.0.0.1:${port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const body = JSON.stringify({ model: "claude-relay", max_tokens: 1024, stream: true, system: "You are a helpful assistant.", messages: relayConversation() });
 
-        // --- Request 1: fits bili's window (no preflight) but not the relay's
+        // --- Request 1: fits sophialin's window (no preflight) but not the relay's
         // hidden tolerance → hard 5xx with no usage report ---
         const r1 = await fetch(url, {
             method: "POST",
@@ -253,18 +253,18 @@ test("e2e #604: network-level failure arms the emergency shrink too", async () =
     const { proxy, port } = await startProxy(upstreamPort);
 
     try {
-        const url = `http://127.0.0.1:${port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const body = JSON.stringify({ model: "claude-relay", max_tokens: 1024, stream: true, system: "You are a helpful assistant.", messages: relayConversation() });
         const idsBefore = new Set(listSessions().map((x) => x.id));
 
-        // --- Request 1: the socket dies with no response at all → bili's own
+        // --- Request 1: the socket dies with no response at all → sophialin's own
         // 502 ("acp-proxy failure") — and the same missing-usage problem ---
         const r1 = await fetch(url, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "net-sess" },
             body,
         });
-        assert.equal(r1.status, 502, "network failure surfaces as bili's 502");
+        assert.equal(r1.status, 502, "network failure surfaces as sophialin's 502");
         const r1text = await r1.text();
         assert.ok(r1text.includes("upstream request failed"), "502 detail names the upstream failure");
 
@@ -308,7 +308,7 @@ test("e2e #604: 4xx (auth) must NOT arm — no distortion of the usage signal", 
     const { proxy, port } = await startProxy(upstreamPort);
 
     try {
-        const url = `http://127.0.0.1:${port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const body = JSON.stringify({ model: "claude-relay", max_tokens: 1024, stream: true, system: "You are a helpful assistant.", messages: relayConversation() });
         const idsBefore = new Set(listSessions().map((x) => x.id));
 

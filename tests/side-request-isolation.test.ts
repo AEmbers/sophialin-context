@@ -122,7 +122,7 @@ test("restoreOutputBudget: configured-output-limit floor for poisoned or missing
     const starved2 = { max_tokens: 1, tools: [{ name: "t" }] } as { max_tokens: number };
     restoreOutputBudget(starved2, s2, noopLog, 384000);
     assert.equal(starved2.max_tokens, 500000, "water mark above the floor untouched");
-    // Born-dead session: the first request bili ever sees is already starved.
+    // Born-dead session: the first request sophialin ever sees is already starved.
     const s3 = metaSession("borndead");
     const bornDead = { max_tokens: 1, tools: [{ name: "t" }] } as { max_tokens: number };
     restoreOutputBudget(bornDead, s3, noopLog, 32768);
@@ -334,18 +334,18 @@ async function closeRig(rig: Rig): Promise<void> {
 test("e2e: opencode v2 title-gen is classified by intent, not token budget (#1699)", async () => {
     const rig = await startRig();
     try {
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/chat/completions`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/chat/completions`;
         const baseHeaders: Record<string, string> = {
             "content-type": "application/json",
             "x-acp-session": SESSION,
-            "x-bili-plugin": "opencode",
-            "x-bili-plugin-conversation": SESSION,
+            "x-sophialin-plugin": "opencode",
+            "x-sophialin-plugin-conversation": SESSION,
         };
         // The exact opencode v2 title-gen shape that triggered the bug: one short
         // instruction, NO max_tokens (options {} for kind==="title").
         const titleBody = { model: MODEL, stream: true, messages: [{ role: "user", content: "Generate a short title for this conversation." }] };
 
-        // Repro (pre-fix behavior): WITHOUT x-bili-plugin-agent the budget heuristic
+        // Repro (pre-fix behavior): WITHOUT x-sophialin-plugin-agent the budget heuristic
         // sees no max_tokens → defaults to 8192 → NOT a side request → treated as a
         // main turn, so the compress philosophy prompt + render tags get injected.
         const rControl = await fetch(url, { method: "POST", headers: baseHeaders, body: JSON.stringify(titleBody) });
@@ -356,10 +356,10 @@ test("e2e: opencode v2 title-gen is classified by intent, not token budget (#169
         assert.notDeepEqual(controlFwd?.messages, titleBody.messages, "control: without the agent header the title request is misclassified as a main turn and its messages are rewritten");
         assert.ok(JSON.stringify(controlFwd ?? {}).length > JSON.stringify(titleBody).length + 1000, "control: the compress philosophy prompt inflated the forwarded payload (the reported ~11KiB injection)");
 
-        // Fix: WITH x-bili-plugin-agent=title the request is a side request by
+        // Fix: WITH x-sophialin-plugin-agent=title the request is a side request by
         // intent and is forwarded VERBATIM — its messages arrive byte-identical,
         // nothing injected, kernel state untouched.
-        const rFix = await fetch(url, { method: "POST", headers: { ...baseHeaders, "x-bili-plugin-agent": "title" }, body: JSON.stringify(titleBody) });
+        const rFix = await fetch(url, { method: "POST", headers: { ...baseHeaders, "x-sophialin-plugin-agent": "title" }, body: JSON.stringify(titleBody) });
         assert.equal(rFix.status, 200);
         await rFix.text();
         const fixFwd = rig.lastBody as { messages?: unknown } | null;
@@ -377,7 +377,7 @@ test("e2e: side request response still gets render-tag stripping (#460 contract)
     const CLOSE_MARK = `${LT}/acp${GT}`;
     const rig = await startRig();
     try {
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
         const headers: Record<string, string> = { "content-type": "application/json", "x-acp-session": SESSION };
         // Main request first so the session has a real view.
         const r1 = await fetch(url, { method: "POST", headers, body: JSON.stringify({ model: MODEL, max_tokens: 1024, stream: true, messages: mainConversation(8) }) });
@@ -407,7 +407,7 @@ test("e2e: side request response still gets render-tag stripping (#460 contract)
 test("e2e: anthropic side request (title-gen) leaves main session kernel state untouched", async () => {
     const rig = await startRig();
     try {
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
         const headers: Record<string, string> = { "content-type": "application/json", "x-acp-session": SESSION };
 
         // Main request 1: a normal turn (large max_tokens) → kernel state mutates.
@@ -436,7 +436,7 @@ test("e2e: anthropic side request (title-gen) leaves main session kernel state u
         assert.ok(s2, "session still exists after the side request");
         assert.equal(JSON.stringify(s2.state), stateAfterMain1, "side request must NOT mutate kernel state (refs / survivedCount / nudge baseline)");
         assert.equal(JSON.stringify(s2.stats), statsAfterMain1, "side request must NOT mutate stats");
-        assert.equal(JSON.stringify(s2.lastMessages), snapshotAfterMain1, "side request must NOT clobber the message snapshot (bili export view)");
+        assert.equal(JSON.stringify(s2.lastMessages), snapshotAfterMain1, "side request must NOT clobber the message snapshot (sophialin export view)");
         assert.equal(s2.stats.lastInputTokens, MAIN_INPUT_TOKENS, "side request's tiny usage must NOT overwrite the main nudge baseline");
         assert.equal(s2.stats.requests, requestsAfterMain1, "side request must NOT increment the main request counter");
 
@@ -457,7 +457,7 @@ test("e2e: anthropic side request (title-gen) leaves main session kernel state u
 test("e2e: starved tool-carrying main request re-enters pipeline at restored budget (#546)", async () => {
     const rig = await startRig();
     try {
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
         const headers: Record<string, string> = { "content-type": "application/json", "x-acp-session": SESSION };
         const tools = [{ name: "compress", description: "compress", input_schema: { type: "object", properties: {} } }];
 
@@ -499,11 +499,11 @@ test("e2e: starved tool-carrying main request re-enters pipeline at restored bud
 test("e2e: starved main request with a poisoned high-water is floored by the configured output limit (#1665)", async () => {
     const rig = await startRig({ routeModels: { [MODEL]: { output: 4096 } } });
     try {
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
         const headers: Record<string, string> = { "content-type": "application/json", "x-acp-session": SESSION };
         const tools = [{ name: "compress", description: "compress", input_schema: { type: "object", properties: {} } }];
 
-        // First request bili sees for this session is already mid-death-spiral:
+        // First request sophialin sees for this session is already mid-death-spiral:
         // the client's raw-history estimate decayed its budget to 234 (>200, so it
         // seeds the water mark) — without the floor every later starved turn would
         // restore 234 forever.
@@ -525,7 +525,7 @@ test("e2e: starved main request with a poisoned high-water is floored by the con
 test("e2e: oversized side request is blocked locally (413), never reaches the upstream (#554)", async () => {
     const rig = await startRig({ modelContextLimit: 4_000, compressModelContextLimit: 4_000 });
     try {
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
         const headers: Record<string, string> = { "content-type": "application/json", "x-acp-session": SESSION };
 
         // ~40 × ~130 tokens ≈ 5k+ > 4_000 window → guaranteed upstream 400 if forwarded.
@@ -557,7 +557,7 @@ test("e2e: oversized side request is blocked locally (413), never reaches the up
 test("e2e: overflow 400 on a side request arms the stated window; next one is blocked locally (#554)", async () => {
     const rig = await startRig(); // 200_000 configured window
     try {
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
         const headers: Record<string, string> = { "content-type": "application/json", "x-acp-session": SESSION };
 
         // ~1200 × ~130 ≈ 155k tokens: below the 200k configured window (so the
@@ -592,7 +592,7 @@ test("e2e: overflow 400 on a side request arms the stated window; next one is bl
 test("e2e: healthy host baseline must NOT clamp an unrelated side request (#1110)", async () => {
     const rig = await startRig(); // declared window 200_000
     try {
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
         const headers: Record<string, string> = { "content-type": "application/json", "x-acp-session": SESSION };
 
         // Host conversation active and healthy: one normal main turn whose real
@@ -640,7 +640,7 @@ test("e2e: healthy host baseline must NOT clamp an unrelated side request (#1110
 test("e2e: real usage report RETIRES the overflow arm — the blocked side request forwards again (#1129)", async () => {
     const rig = await startRig(); // declared window 200_000
     try {
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
         const headers: Record<string, string> = { "content-type": "application/json", "x-acp-session": SESSION };
 
         // 1) ARM — same shape as the #554 arm test: ~155k payload fits the
@@ -689,12 +689,12 @@ test("e2e: the overflow arm survives a restart round-trip; usage after reload re
     // Restart shape: armed session flushed to disk, memory cleared, a FRESH
     // store instance over the same dir (process restart). The arm must still
     // block locally after reload, and a real usage report must still release it.
-    const dir = mkdtempSync(join(tmpdir(), "bili-side-arm-"));
+    const dir = mkdtempSync(join(tmpdir(), "sophialin-side-arm-"));
     const store = new SessionStore({ dir, debounceMs: 5, enabled: true });
     let store2: SessionStore | null = null;
     const rig = await startRig({ store });
     try {
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/messages`;
         const headers: Record<string, string> = { "content-type": "application/json", "x-acp-session": SESSION };
 
         // ARM: overflow 400 → arm at the stated 120k.

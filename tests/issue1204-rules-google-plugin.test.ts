@@ -76,13 +76,13 @@ async function startHarness(routeCompress?: Record<string, unknown>): Promise<Ha
 }
 
 async function sendGoogleTurn(h: Harness, conversationId: string): Promise<void> {
-    const url = `http://127.0.0.1:${h.proxyPort}/bili/http://127.0.0.1:${h.upstreamPort}/v1beta/models/gemini-test:streamGenerateContent?alt=sse`;
+    const url = `http://127.0.0.1:${h.proxyPort}/sophialin/http://127.0.0.1:${h.upstreamPort}/v1beta/models/gemini-test:streamGenerateContent?alt=sse`;
     const res = await fetch(url, {
         method: "POST",
         headers: {
             "content-type": "application/json",
-            "x-bili-plugin": "omp",
-            "x-bili-plugin-conversation": conversationId,
+            "x-sophialin-plugin": "omp",
+            "x-sophialin-plugin-conversation": conversationId,
         },
         body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "hello" }] }], generationConfig: { maxOutputTokens: 4096 } }),
     });
@@ -91,7 +91,7 @@ async function sendGoogleTurn(h: Harness, conversationId: string): Promise<void>
 }
 
 async function callRuleTool(h: Harness, conversationId: string): Promise<{ status: number; body: { ok?: boolean; error?: string; result?: string } }> {
-    const res = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+    const res = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ conversationId, tool: "acp_rule", args: {} }),
@@ -120,7 +120,7 @@ test("#1204 google wire + rules explicitly disabled: plugin tool acp_rule stays 
         await sendGoogleTurn(h, conv);
         const { status, body } = await callRuleTool(h, conv);
         assert.equal(status, 200, `acp_rule must stay gated (got ${status}: ${JSON.stringify(body)})`);
-        assert.match(body.result ?? "", /is not enabled on this bili proxy \(compress\.rules\.enabled is not true\)/);
+        assert.match(body.result ?? "", /is not enabled on this sophialin proxy \(compress\.rules\.enabled is not true\)/);
     } finally {
         await h.close();
     }

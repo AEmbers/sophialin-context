@@ -374,7 +374,7 @@ function proxyOpts(relayPort: number): ProxyOptions {
 test("pi child conversation links its parent and serves its blocks read-only (#1333 e2e)", async () => {
     // Two child wire shapes must both record the link: the anonymous shape
     // (session header only — identity register drives binding) and the REAL
-    // pi plugin shape (x-bili-plugin + x-bili-plugin-conversation stamped by
+    // pi plugin shape (x-sophialin-plugin + x-sophialin-plugin-conversation stamped by
     // the extension — pluginAgent comes from the header, the identity branch
     // is skipped, and the register must be consulted through the stamped
     // conversation id instead).
@@ -398,7 +398,7 @@ async function runDerivedInheritanceE2E(shape: "anonymous" | "stamped"): Promise
     const proxy = await startServer(proxyOpts(relayPort));
     await listen(proxy);
     const proxyPort = (proxy.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${relayPort}/v1/chat/completions`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${relayPort}/v1/chat/completions`;
 
     const preExisting = new Set(listSessions().map((s) => s.id));
     const newSessions = () => listSessions().filter((s) => !preExisting.has(s.id));
@@ -418,7 +418,7 @@ async function runDerivedInheritanceE2E(shape: "anonymous" | "stamped"): Promise
 
         // The child reports its derivation at register (identity mode, like
         // the pi plugin does on a session whose header names a parent).
-        const reg = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/register`, {
+        const reg = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/register`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: childConv, agent: "pi", identity: true, parentConversationId: parentConv }),
@@ -430,7 +430,7 @@ async function runDerivedInheritanceE2E(shape: "anonymous" | "stamped"): Promise
         // (the kernel's syncBlocks would deactivate copied blocks anyway).
         // The stamped shape mirrors what the real pi extension sends.
         const childHeaders = shape === "stamped"
-            ? { "x-bili-plugin": "pi", "x-bili-plugin-conversation": childConv }
+            ? { "x-sophialin-plugin": "pi", "x-sophialin-plugin-conversation": childConv }
             : {};
         const childReply = await chat(url, [{ role: "user", content: `run ${run} child first turn (${shape}): ${FILLER.repeat(12)}` }], childConv, childHeaders);
         assert.ok(childReply.length > 0, "child turn must produce a reply");
@@ -443,7 +443,7 @@ async function runDerivedInheritanceE2E(shape: "anonymous" | "stamped"): Promise
 
         // Plugin-lane decompress of the PARENT's block via the CHILD
         // conversation: served read-only from the linked parent.
-        const dec = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/tool`, {
+        const dec = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: childConv, tool: "decompress", args: { blockId } }),
@@ -453,7 +453,7 @@ async function runDerivedInheritanceE2E(shape: "anonymous" | "stamped"): Promise
         assert.match(decJson.result ?? "", new RegExp(`read-only from derived session ${parent.id}`), "decompress must fall back to the parent");
 
         // search_context from the child finds the parent's blocks.
-        const search = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/tool`, {
+        const search = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: childConv, tool: "search_context", args: { query: "derived inheritance fixture" } }),
@@ -464,7 +464,7 @@ async function runDerivedInheritanceE2E(shape: "anonymous" | "stamped"): Promise
         assert.match(searchJson.result ?? "", new RegExp(blockId));
 
         // Unknown block ids still miss cleanly.
-        const miss = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/tool`, {
+        const miss = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: childConv, tool: "decompress", args: { blockId: "b999" } }),
@@ -496,7 +496,7 @@ test("child whose requests carry the real plugin wire shape links its parent (#1
     const proxy = await startServer(proxyOpts(relayPort));
     await listen(proxy);
     const proxyPort = (proxy.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${relayPort}/v1/chat/completions`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${relayPort}/v1/chat/completions`;
 
     const preExisting = new Set(listSessions().map((s) => s.id));
     const newSessions = () => listSessions().filter((s) => !preExisting.has(s.id));
@@ -513,7 +513,7 @@ test("child whose requests carry the real plugin wire shape links its parent (#1
         assert.ok(parentActive.length >= 1, `parent must have a folded block (got ${parentActive.length})`);
         const blockId = parentActive[0]!.blockId;
 
-        const reg = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/register`, {
+        const reg = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/register`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: childConv, agent: "pi", identity: true, parentConversationId: parentConv }),
@@ -521,10 +521,10 @@ test("child whose requests carry the real plugin wire shape links its parent (#1
         assert.ok(reg.ok, "register must succeed");
 
         // The child's requests carry the REAL pi wire shape — before_provider_headers
-        // stamps x-bili-plugin + x-bili-plugin-conversation on every request, so the
+        // stamps x-sophialin-plugin + x-sophialin-plugin-conversation on every request, so the
         // server-side identity branch is skipped and only the header-announced consume
         // path can pick up the parent link (#1356 review blocker). No x-acp-session.
-        const piHeaders = { "x-bili-plugin": "pi", "x-bili-plugin-conversation": childConv };
+        const piHeaders = { "x-sophialin-plugin": "pi", "x-sophialin-plugin-conversation": childConv };
         const childReply = await chat(url, [{ role: "user", content: `run ${run} child first turn: ${FILLER.repeat(12)}` }], "", piHeaders);
         assert.ok(childReply.length > 0, "child turn must produce a reply");
 
@@ -536,7 +536,7 @@ test("child whose requests carry the real plugin wire shape links its parent (#1
 
         // The user-visible defect of #1333 on the real wire shape: decompress from
         // the child serves the parent's folded content read-only.
-        const dec = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/tool`, {
+        const dec = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: childConv, tool: "decompress", args: { blockId } }),
@@ -565,7 +565,7 @@ test("register landing after the child's first request still links late (#1362)"
     const proxy = await startServer(proxyOpts(relayPort));
     await listen(proxy);
     const proxyPort = (proxy.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${relayPort}/v1/chat/completions`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${relayPort}/v1/chat/completions`;
 
     const preExisting = new Set(listSessions().map((s) => s.id));
     const newSessions = () => listSessions().filter((s) => !preExisting.has(s.id));
@@ -581,7 +581,7 @@ test("register landing after the child's first request still links late (#1362)"
 
         // The extension flips tools-ready BEFORE the register POST completes, so the
         // child's first model request can reach the proxy before any register exists.
-        const piHeaders = { "x-bili-plugin": "pi", "x-bili-plugin-conversation": childConv };
+        const piHeaders = { "x-sophialin-plugin": "pi", "x-sophialin-plugin-conversation": childConv };
         const firstTurn = [{ role: "user", content: `run ${run} child first turn: ${FILLER.repeat(12)}` }] as ChatMsg[];
         const reply1 = await chat(url, firstTurn, "", piHeaders);
         assert.ok(reply1.length > 0, "child first turn must produce a reply");
@@ -589,7 +589,7 @@ test("register landing after the child's first request still links late (#1362)"
         assert.ok(child, "child conversation must resolve to its own session");
         assert.equal(child.metadata.derivedFromSessionId, undefined, "no register yet — nothing to link");
 
-        const reg = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/register`, {
+        const reg = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/register`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: childConv, agent: "pi", identity: true, parentConversationId: parentConv }),

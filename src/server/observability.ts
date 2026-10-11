@@ -4,7 +4,7 @@ import { maskUrlsInText } from "../log-mask.js";
 // Body dumps (dumps/req-*.json, raw/*-REQ.txt, raw/*-RES.txt, raw/*-INCOMING.txt,
 // req-*-REREQUEST.json) write the full plaintext request body and are off by
 // default. They are decoupled from --debug (verbose logging) and enabled only
-// with ACP_DUMP_BODY=1 so `bili <client>` users don't leak conversation bodies
+// with ACP_DUMP_BODY=1 so `sophialin <client>` users don't leak conversation bodies
 // to disk by default (#276).
 export function bodyDumpEnabled(): boolean {
     return process.env.ACP_DUMP_BODY === "1";
@@ -43,7 +43,7 @@ export function logUnrecognizedPath(log: (level: string, msg: string) => void, u
     }
 }
 
-// #1290: instance-level view of the map above — surfaced at /__bili/stats
+// #1290: instance-level view of the map above — surfaced at /__sophialin/stats
 // (unrecognizedPaths) and in the /acp status report so "this path never got
 // compressed" is visible in a status face, not just 3 transient stderr warns.
 export type UnrecognizedPathStats = { total: number; paths: Record<string, number> };

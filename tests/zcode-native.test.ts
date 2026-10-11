@@ -61,16 +61,16 @@ async function deadOrigin(): Promise<string> {
 
 test("planNativeZcode resolves kill-switches > attach > spawn", () => {
     assert.deepEqual(planNativeZcode({}), { mode: "spawn" });
-    assert.deepEqual(planNativeZcode({ BILLION_CONTEXT_PLUGIN: "0" }), { mode: "off" });
-    assert.deepEqual(planNativeZcode({ BILI_NATIVE_ZCODE: "0" }), { mode: "off" });
-    assert.deepEqual(planNativeZcode({ BILI_PROVIDER_REWRITES: "" }), { mode: "off" });
-    assert.deepEqual(planNativeZcode({ BILLION_CONTEXT_ATTACH: "http://127.0.0.1:9999/" }), { mode: "attach", attachOrigin: "http://127.0.0.1:9999" });
-    assert.deepEqual(planNativeZcode({ BILLION_CONTEXT_PROXY: "https://127.0.0.1:8787" }), { mode: "attach", attachOrigin: "https://127.0.0.1:8787" });
+    assert.deepEqual(planNativeZcode({ SOPHIALIN_CONTEXT_PLUGIN: "0" }), { mode: "off" });
+    assert.deepEqual(planNativeZcode({ SOPHIALIN_NATIVE_ZCODE: "0" }), { mode: "off" });
+    assert.deepEqual(planNativeZcode({ SOPHIALIN_PROVIDER_REWRITES: "" }), { mode: "off" });
+    assert.deepEqual(planNativeZcode({ SOPHIALIN_CONTEXT_ATTACH: "http://127.0.0.1:9999/" }), { mode: "attach", attachOrigin: "http://127.0.0.1:9999" });
+    assert.deepEqual(planNativeZcode({ SOPHIALIN_CONTEXT_PROXY: "https://127.0.0.1:8787" }), { mode: "attach", attachOrigin: "https://127.0.0.1:8787" });
     assert.deepEqual(
-        planNativeZcode({ BILLION_CONTEXT_ATTACH: "http://127.0.0.1:9999", BILLION_CONTEXT_PROXY: "https://127.0.0.1:8787" }),
+        planNativeZcode({ SOPHIALIN_CONTEXT_ATTACH: "http://127.0.0.1:9999", SOPHIALIN_CONTEXT_PROXY: "https://127.0.0.1:8787" }),
         { mode: "attach", attachOrigin: "http://127.0.0.1:9999" },
     );
-    assert.deepEqual(planNativeZcode({ BILLION_CONTEXT_ATTACH: "not-a-url" }), { mode: "spawn" });
+    assert.deepEqual(planNativeZcode({ SOPHIALIN_CONTEXT_ATTACH: "not-a-url" }), { mode: "spawn" });
 });
 
 test("probeProxyHealth accepts any live proxy answer and rejects failures", async () => {
@@ -93,7 +93,7 @@ test("probeProxyHealth accepts any live proxy answer and rejects failures", asyn
     }
 });
 
-test("routeZcodeConfig wraps the store and snapshots pre-bili state once", async () => {
+test("routeZcodeConfig wraps the store and snapshots pre-sophialin state once", async () => {
     const dir = dataDir();
     try {
         const original = readFileSync(zcodeStoreCandidates(dir, "legacy", {})[0], "utf8");
@@ -104,13 +104,13 @@ test("routeZcodeConfig wraps the store and snapshots pre-bili state once", async
         assert.equal(applied.port, 18787);
         assert.equal(applied.upstream, UPSTREAM);
         assert.deepEqual(applied.wrapped, [{ id: "builtin:bigmodel-coding-plan", upstream: UPSTREAM }]);
-        assert.match(readFileSync(applied.file, "utf8"), /http:\/\/127\.0\.0\.1:18787\/bili\//);
-        assert.equal(readFileSync(`${applied.file}.bili-bak`, "utf8"), original);
+        assert.match(readFileSync(applied.file, "utf8"), /http:\/\/127\.0\.0\.1:18787\/sophialin\//);
+        assert.equal(readFileSync(`${applied.file}.sophialin-bak`, "utf8"), original);
 
         const rerouted = await routeZcodeConfig({ origin: "http://127.0.0.1:28787", dataDir: dir, log: (m) => logs.push(m) });
         assert.ok(rerouted);
-        assert.match(readFileSync(rerouted.file, "utf8"), /http:\/\/127\.0\.0\.1:28787\/bili\//);
-        assert.equal(readFileSync(`${rerouted.file}.bili-bak`, "utf8"), original);
+        assert.match(readFileSync(rerouted.file, "utf8"), /http:\/\/127\.0\.0\.1:28787\/sophialin\//);
+        assert.equal(readFileSync(`${rerouted.file}.sophialin-bak`, "utf8"), original);
     } finally {
         rmrf(dir);
     }
@@ -126,7 +126,7 @@ test("routeZcodeConfig re-snapshots user edits made while native mode is active"
         // entry stripped of its baseURL is skipped, not default-filled.)
         writeFileSync(file, userEdited);
         await routeZcodeConfig({ origin: "http://127.0.0.1:18787", dataDir: dir, log: () => {} });
-        assert.equal(readFileSync(`${file}.bili-bak`, "utf8"), userEdited);
+        assert.equal(readFileSync(`${file}.sophialin-bak`, "utf8"), userEdited);
         const restored = restoreZcodeBackup({ dataDir: dir, log: () => {} });
         assert.deepEqual(restored, { restored: true });
         assert.equal(readFileSync(file, "utf8"), userEdited);
@@ -158,7 +158,7 @@ test("activateZcodePluginMode stamps the header into the routed entries", async 
         assert.ok(applied);
         await activateZcodePluginMode(applied, { dataDir: dir, log: () => {} });
         const parsed = JSON.parse(readFileSync(applied.file, "utf8")) as { provider: Record<string, { options: { headers?: Record<string, string> } }> };
-        assert.equal(parsed.provider["builtin:bigmodel-coding-plan"].options.headers?.["x-bili-plugin"], "zcode");
+        assert.equal(parsed.provider["builtin:bigmodel-coding-plan"].options.headers?.["x-sophialin-plugin"], "zcode");
     } finally {
         rmrf(dir);
     }
@@ -172,8 +172,8 @@ test("unrouteZcode strips wrappers in place and drops snapshots", async () => {
         unrouteZcode({ dataDir: dir, log: () => {} });
         const parsed = JSON.parse(readFileSync(file, "utf8")) as { provider: Record<string, { options: { baseURL: string } }> };
         assert.equal(parsed.provider["builtin:bigmodel-coding-plan"].options.baseURL, UPSTREAM);
-        assert.equal(existsSync(`${file}.bili-bak`), false);
-        assert.equal(existsSync(`${file}.bili-last`), false);
+        assert.equal(existsSync(`${file}.sophialin-bak`), false);
+        assert.equal(existsSync(`${file}.sophialin-last`), false);
     } finally {
         rmrf(dir);
     }
@@ -184,7 +184,7 @@ test("bootstrapZcodeNative honors the off plan without touching the proxy", asyn
     try {
         let called = false;
         const out = await bootstrapZcodeNative({
-            env: { BILI_NATIVE_ZCODE: "0" },
+            env: { SOPHIALIN_NATIVE_ZCODE: "0" },
             dataDir: dir,
             ensureProxy: async () => {
                 called = true;
@@ -202,7 +202,7 @@ test("bootstrapZcodeNative attaches to a healthy proxy and routes", async () => 
     const dir = dataDir();
     try {
         await withHealthServer(async (origin) => {
-            const out = await bootstrapZcodeNative({ env: { BILLION_CONTEXT_ATTACH: origin }, dataDir: dir, log: () => {} });
+            const out = await bootstrapZcodeNative({ env: { SOPHIALIN_CONTEXT_ATTACH: origin }, dataDir: dir, log: () => {} });
             assert.equal(out.mode, "active");
             if (out.mode !== "active") return;
             assert.equal(out.attached, true);
@@ -219,7 +219,7 @@ test("bootstrapZcodeNative fails closed on an unhealthy attach target", async ()
     try {
         const origin = await deadOrigin();
         await assert.rejects(
-            bootstrapZcodeNative({ env: { BILLION_CONTEXT_ATTACH: origin }, dataDir: dir, log: () => {}, healthDeadlineMs: 300 }),
+            bootstrapZcodeNative({ env: { SOPHIALIN_CONTEXT_ATTACH: origin }, dataDir: dir, log: () => {}, healthDeadlineMs: 300 }),
             /not healthy/,
         );
     } finally {
@@ -258,16 +258,16 @@ test("bootstrap honors upstream env relocation: ZCODE_DATA_BASE_DIR is a base di
         const applied = await routeZcodeConfig({ origin: "http://127.0.0.1:18787", env: { ZCODE_DATA_BASE_DIR: base }, log: () => {} });
         assert.ok(applied);
         assert.equal(applied.file, file);
-        assert.match(readFileSync(file, "utf8"), /http:\/\/127\.0\.0\.1:18787\/bili\//);
+        assert.match(readFileSync(file, "utf8"), /http:\/\/127\.0\.0\.1:18787\/sophialin\//);
         assert.ok(restoreZcodeBackup({ env: { ZCODE_DATA_BASE_DIR: base }, log: () => {} }).restored);
-        assert.doesNotMatch(readFileSync(file, "utf8"), /\/bili\//);
+        assert.doesNotMatch(readFileSync(file, "utf8"), /\/sophialin\//);
     } finally {
         rmrf(base);
     }
 });
 
 // #1621: the v3.14+ personal store generation ships ClientRequestSigningV4,
-// which rejects the http loopback /bili/ origin at model creation — native
+// which rejects the http loopback /sophialin/ origin at model creation — native
 // routing must degrade to off on these builds instead of producing the
 // "MCP connected but every coding-plan model fails" intermediate state.
 
@@ -299,8 +299,8 @@ test("routeZcodeConfig refuses to wrap the v3.14+ store (#1621 client signing)",
         assert.match(logs.join(" "), /client[- ]signing/);
         assert.match(logs.join(" "), /cert-MITM/);
         assert.equal(readFileSync(file, "utf8"), original);
-        assert.equal(existsSync(`${file}.bili-bak`), false);
-        assert.equal(existsSync(`${file}.bili-last`), false);
+        assert.equal(existsSync(`${file}.sophialin-bak`), false);
+        assert.equal(existsSync(`${file}.sophialin-last`), false);
     } finally {
         rmrf(dir);
     }
@@ -308,14 +308,14 @@ test("routeZcodeConfig refuses to wrap the v3.14+ store (#1621 client signing)",
 
 test("bootstrapZcodeNative degrades to off on the v3.14+ store without proxy bring-up (#1621)", async () => {
     const { dir, file } = newStoreDir();
-    writeFileSync(file, readFileSync(file, "utf8").replace(UPSTREAM, `http://127.0.0.1:9999/bili/${UPSTREAM}`));
+    writeFileSync(file, readFileSync(file, "utf8").replace(UPSTREAM, `http://127.0.0.1:9999/sophialin/${UPSTREAM}`));
     try {
         let proxyTouched = false;
         const logs: string[] = [];
         const out = await bootstrapZcodeNative({
             // route:"plans" is the scope where the signing wall still blocks
             // the whole store (#1622): plan accounts ARE the signing accounts.
-            env: { BILI_ZCODE_ROUTE: "plans" },
+            env: { SOPHIALIN_ZCODE_ROUTE: "plans" },
             dataDir: dir,
             log: (m) => logs.push(m),
             ensureProxy: async () => {
@@ -327,9 +327,9 @@ test("bootstrapZcodeNative degrades to off on the v3.14+ store without proxy bri
         assert.equal(proxyTouched, false);
         assert.match(logs[0], /client signing/);
         // mcp-entry's off path runs unrouteZcode — a wrapper left by a
-        // pre-#1621 bili version must be stripped, not stranded.
+        // pre-#1621 sophialin version must be stripped, not stranded.
         unrouteZcode({ dataDir: dir, env: {}, log: () => {} });
-        assert.doesNotMatch(readFileSync(file, "utf8"), /\/bili\//);
+        assert.doesNotMatch(readFileSync(file, "utf8"), /\/sophialin\//);
         const unwrapped = JSON.parse(readFileSync(file, "utf8")) as { config: { providerConfigRules: { providerRules: Array<{ config: { api: { baseUrl: string } } }> } } };
         assert.equal(unwrapped.config.providerConfigRules.providerRules[0].config.api.baseUrl, UPSTREAM);
     } finally {
@@ -355,7 +355,7 @@ test("bootstrap honors ZCODE_PERSONAL_PROVIDER_CONFIG_FILE overrides (#1151)", a
         assert.equal(await routeZcodeConfig({ origin: "http://127.0.0.1:18787", dataDir: dir, env, log: (m) => logs.push(m) }), undefined);
         assert.match(logs.join(" "), /client[- ]signing/);
         assert.equal(readFileSync(file, "utf8"), original);
-        assert.doesNotMatch(readFileSync(zcodeStoreCandidates(dir, "legacy", {})[0], "utf8"), /\/bili\//);
+        assert.doesNotMatch(readFileSync(zcodeStoreCandidates(dir, "legacy", {})[0], "utf8"), /\/sophialin\//);
     } finally {
         rmrf(dir);
         rmrf(alt);
@@ -402,7 +402,7 @@ test('route:"all" wraps every non-exempt provider and reports skips (#1622)', as
         assert.deepEqual(applied.wrapped, [{ id: "account:deepseek", upstream: "https://api.deepseek.com/v1" }]);
         const doc = JSON.parse(readFileSync(file, "utf8")) as { config: { providerConfigRules: { providerRules: Array<{ providerId: string; config?: { api?: { baseUrl?: string } } }> } } };
         const byId = new Map(doc.config.providerConfigRules.providerRules.map((r) => [r.providerId, r.config?.api?.baseUrl]));
-        assert.equal(byId.get("account:deepseek"), "http://127.0.0.1:18787/bili/https://api.deepseek.com/v1");
+        assert.equal(byId.get("account:deepseek"), "http://127.0.0.1:18787/sophialin/https://api.deepseek.com/v1");
         assert.equal(byId.get("account:bigmodel-individual-coding-plan"), "https://open.bigmodel.cn/api/paas/v4");
         assert.equal(byId.get("account:local-relay"), "http://localhost:8080/v1");
         assert.equal(byId.get("account:kimi"), "https://api.moonshot.cn/v1");
@@ -439,13 +439,13 @@ test('route:"all" on the legacy store wraps non-plan providers and unroute strip
             { id: "custom:other-vendor", upstream: "https://api.other.example/v1" },
         ]);
         const doc = JSON.parse(readFileSync(file, "utf8")) as { provider: Record<string, { options?: { baseURL?: string } }> };
-        assert.equal(doc.provider["builtin:bigmodel-coding-plan"].options?.baseURL, `http://127.0.0.1:18787/bili/${UPSTREAM}`);
-        assert.equal(doc.provider["custom:other-vendor"].options?.baseURL, "http://127.0.0.1:18787/bili/https://api.other.example/v1");
+        assert.equal(doc.provider["builtin:bigmodel-coding-plan"].options?.baseURL, `http://127.0.0.1:18787/sophialin/${UPSTREAM}`);
+        assert.equal(doc.provider["custom:other-vendor"].options?.baseURL, "http://127.0.0.1:18787/sophialin/https://api.other.example/v1");
         assert.equal(doc.provider["custom:local"].options?.baseURL, "http://127.0.0.1:9997/v1");
         // Non-plan wrappers must be stripped too — unroute can't know which
         // policy wrote them.
         unrouteZcode({ dataDir: dir, env: {}, log: () => {} });
-        assert.doesNotMatch(readFileSync(file, "utf8"), /\/bili\//);
+        assert.doesNotMatch(readFileSync(file, "utf8"), /\/sophialin\//);
     } finally {
         rmrf(dir);
     }
@@ -457,7 +457,7 @@ test('bootstrapZcodeNative respects zcode route:"none" without proxy bring-up (#
         let proxyTouched = false;
         const logs: string[] = [];
         const out = await bootstrapZcodeNative({
-            env: { BILI_ZCODE_ROUTE: "none" },
+            env: { SOPHIALIN_ZCODE_ROUTE: "none" },
             dataDir: dir,
             log: (m) => logs.push(m),
             ensureProxy: async () => {
@@ -468,7 +468,7 @@ test('bootstrapZcodeNative respects zcode route:"none" without proxy bring-up (#
         assert.deepEqual(out, { mode: "off" });
         assert.equal(proxyTouched, false);
         assert.match(logs[0], /none/);
-        assert.doesNotMatch(readFileSync(zcodeStoreCandidates(dir, "legacy", {})[0], "utf8"), /\/bili\//);
+        assert.doesNotMatch(readFileSync(zcodeStoreCandidates(dir, "legacy", {})[0], "utf8"), /\/sophialin\//);
     } finally {
         rmrf(dir);
     }
@@ -476,9 +476,9 @@ test('bootstrapZcodeNative respects zcode route:"none" without proxy bring-up (#
 
 test("resolveZcodeNativePort: env-only explicit override, undefined without one (#1622/#1660)", async () => {
     const { resolveZcodeNativePort, zcodeDirectPrefixes } = await import("../src/config.ts");
-    assert.equal(resolveZcodeNativePort({ BILI_ZCODE_PORT: "41234" }), 41234);
-    assert.equal(resolveZcodeNativePort({ BILI_ZCODE_PORT: "not-a-port" }), undefined);
-    assert.equal(resolveZcodeNativePort({ BILI_ZCODE_PORT: "70000" }), undefined);
+    assert.equal(resolveZcodeNativePort({ SOPHIALIN_ZCODE_PORT: "41234" }), 41234);
+    assert.equal(resolveZcodeNativePort({ SOPHIALIN_ZCODE_PORT: "not-a-port" }), undefined);
+    assert.equal(resolveZcodeNativePort({ SOPHIALIN_ZCODE_PORT: "70000" }), undefined);
     assert.equal(resolveZcodeNativePort({}), undefined, "#1660: no default — the zcode lane rides the zone preference");
     const dir = mkdtempSync(path.join(tmpdir(), "zcode-native-config-"));
     const cfg = path.join(dir, "providers.json");
@@ -605,7 +605,7 @@ test("repairSharedStoreDrift reverts to direct when nothing live remains (#1623)
         );
         const text = readFileSync(storeFile(dir), "utf8");
         assert.ok(text.includes(UPSTREAM));
-        assert.doesNotMatch(text, /\/bili\//);
+        assert.doesNotMatch(text, /\/sophialin\//);
     } finally {
         rmrf(dir);
     }
@@ -665,7 +665,7 @@ test("handoffZcodeRoutingOnExit reverts to direct when no replacement lives (#16
         );
         const text = readFileSync(storeFile(dir), "utf8");
         assert.ok(text.includes(UPSTREAM));
-        assert.doesNotMatch(text, /\/bili\//);
+        assert.doesNotMatch(text, /\/sophialin\//);
     } finally {
         rmrf(dir);
     }

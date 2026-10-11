@@ -19,10 +19,10 @@ const STATUS_TIMEOUT_MS = 5000;
 const ATTACH_HEALTH_DEADLINE_MS = 15000;
 const ATTACH_HEALTH_POLL_MS = 250;
 
-/** Detect the proxy from a provider baseUrl's `/bili/` zero-config prefix.
- *  The real prefix embeds the full upstream URL (`/bili/https://…`), so the
- *  check requires `bili` as the first path segment followed by an http(s)
- *  URL — a plain `/foo/bili/` path segment is NOT a bili proxy.
+/** Detect the proxy from a provider baseUrl's `/sophialin/` zero-config prefix.
+ *  The real prefix embeds the full upstream URL (`/sophialin/https://…`), so the
+ *  check requires `sophialin` as the first path segment followed by an http(s)
+ *  URL — a plain `/foo/sophialin/` path segment is NOT a sophialin proxy.
  *  Returns the proxy origin (scheme//host) the request will actually hit. */
 export function proxyBaseFromUrl(baseUrl: string | undefined): string | undefined {
     if (!baseUrl) return undefined;
@@ -30,8 +30,8 @@ export function proxyBaseFromUrl(baseUrl: string | undefined): string | undefine
         const url = new URL(baseUrl);
         if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
         const segments = url.pathname.split("/").filter((s) => s.length > 0);
-        if (segments[0] !== "bili") return undefined;
-        const rest = url.pathname.slice(url.pathname.indexOf("bili") + "bili".length);
+        if (segments[0] !== "sophialin") return undefined;
+        const rest = url.pathname.slice(url.pathname.indexOf("sophialin") + "sophialin".length);
         if (!/^\/https?:\/\//.test(rest)) return undefined;
         return `${url.protocol}//${url.host}`;
     } catch {
@@ -39,10 +39,10 @@ export function proxyBaseFromUrl(baseUrl: string | undefined): string | undefine
     }
 }
 
-/** MITM transparent mode has no `/bili/` prefix; the proxy's launcher exports
- *  BILLION_CONTEXT_PROXY. A stale value surfaces as a tool-forward error. */
+/** MITM transparent mode has no `/sophialin/` prefix; the proxy's launcher exports
+ *  SOPHIALIN_CONTEXT_PROXY. A stale value surfaces as a tool-forward error. */
 export function proxyBaseFromEnv(): string | undefined {
-    const raw = process.env.BILLION_CONTEXT_PROXY?.trim();
+    const raw = process.env.SOPHIALIN_CONTEXT_PROXY?.trim();
     if (!raw) return undefined;
     try {
         const url = new URL(raw);
@@ -53,7 +53,7 @@ export function proxyBaseFromEnv(): string | undefined {
 }
 
 export function detectProxyBase(baseUrl: string | undefined): string | undefined {
-    if (process.env.BILLION_CONTEXT_PLUGIN === "0") return undefined;
+    if (process.env.SOPHIALIN_CONTEXT_PLUGIN === "0") return undefined;
     return proxyBaseFromUrl(baseUrl) ?? proxyBaseFromEnv();
 }
 
@@ -63,28 +63,28 @@ export function detectProxyBase(baseUrl: string | undefined): string | undefined
 // tunnel — the field I inject reaches the upstream verbatim".
 export function mitmHostsFromEnv(env: NodeJS.ProcessEnv = process.env): Set<string> {
     const out = new Set<string>();
-    for (const raw of env.BILI_MITM_HOSTS?.split(",") ?? []) {
+    for (const raw of env.SOPHIALIN_MITM_HOSTS?.split(",") ?? []) {
         const host = raw.trim().toLowerCase();
         if (host.length > 0) out.add(host);
     }
     return out;
 }
 
-/** #1392: opted-in non-http(s) baseUrl providers (BILI_NON_HTTP_PROVIDERS, set by
+/** #1392: opted-in non-http(s) baseUrl providers (SOPHIALIN_NON_HTTP_PROVIDERS, set by
  *  buildPiEnv or native-mode users). Provider ids are case-sensitive identifiers —
  *  unlike the hostnames in mitmHostsFromEnv above, these are NOT lowercased. */
 export function nonHttpProvidersFromEnv(env: NodeJS.ProcessEnv = process.env): Set<string> {
     const out = new Set<string>();
-    for (const raw of env.BILI_NON_HTTP_PROVIDERS?.split(",") ?? []) {
+    for (const raw of env.SOPHIALIN_NON_HTTP_PROVIDERS?.split(",") ?? []) {
         const id = raw.trim();
         if (id.length > 0) out.add(id);
     }
     return out;
 }
 
-/** True iff requests to baseUrl will be SEEN by the bili proxy (and thus its
- *  stamped prompt_cache_key consumed + stripped): a /bili/-wrapped URL, the
- *  BILLION_CONTEXT_PROXY origin itself, or a host on the exported MITM
+/** True iff requests to baseUrl will be SEEN by the sophialin proxy (and thus its
+ *  stamped prompt_cache_key consumed + stripped): a /sophialin/-wrapped URL, the
+ *  SOPHIALIN_CONTEXT_PROXY origin itself, or a host on the exported MITM
  *  whitelist. Anything else rides a blind tunnel (or no proxy at all), where
  *  the stamp is pure noise that strict-schema upstreams reject (#1403). */
 export function destinationRoutedThroughProxy(baseUrl: string | undefined): boolean {
@@ -142,7 +142,7 @@ async function fetchJson(url: string, init: RequestInit | undefined, timeoutMs: 
 }
 
 export async function fetchManifest(proxyBase: string, format: "anthropic" | "openai" = "anthropic"): Promise<ManifestTool[]> {
-    const { ok, status, json } = await fetchJson(`${proxyBase}/__bili/plugin/manifest`, undefined, MANIFEST_TIMEOUT_MS);
+    const { ok, status, json } = await fetchJson(`${proxyBase}/__sophialin/plugin/manifest`, undefined, MANIFEST_TIMEOUT_MS);
     if (!ok || !json || typeof json !== "object") throw new Error(`manifest fetch failed: ${status}`);
     if (format === "openai") {
         // OpenAI function style: {name, description, parameters} (plain JSON Schema).
@@ -164,7 +164,7 @@ const COMPACT_TIMEOUT_MS = 5000;
  *  marks the boundary and archives unreachable blocks. Fire-and-forget at
  *  call sites — a missed report degrades to stale blocks, not broken turns. */
 export async function reportCompactionBoundary(proxyBase: string, conversationId: string): Promise<void> {
-    await fetchJson(`${proxyBase}/__bili/plugin/compact`, {
+    await fetchJson(`${proxyBase}/__sophialin/plugin/compact`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ conversationId }),
@@ -179,7 +179,7 @@ export async function reportCompactionBoundary(proxyBase: string, conversationId
  *  the parent chain — no state is copied). Throws on non-ok so callers can
  *  retry with their own throttle. */
 export async function postIdentityRegister(proxyBase: string, conversationId: string, agent: string, parentConversationId?: string): Promise<void> {
-    const res = await fetch(`${proxyBase}/__bili/plugin/register`, {
+    const res = await fetch(`${proxyBase}/__sophialin/plugin/register`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ conversationId, agent, identity: true, ...(parentConversationId ? { parentConversationId } : {}) }),
@@ -206,7 +206,7 @@ export type RuntimeInfoReport = {
  *  model switch, before any model request. Fire-and-forget by design — the
  *  proxy treats a missing report as "guess like before" (registry/table). */
 export async function reportRuntimeInfo(proxyBase: string, info: RuntimeInfoReport): Promise<void> {
-    const { ok, status } = await fetchJson(`${proxyBase}/__bili/plugin/runtime-info`, {
+    const { ok, status } = await fetchJson(`${proxyBase}/__sophialin/plugin/runtime-info`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(info),
@@ -244,14 +244,14 @@ export async function reportRuntimeInfoOnChange(proxyBase: string | undefined, i
 }
 
 export async function forwardTool(proxyBase: string, conversationId: string, tool: string, args: unknown, signal?: AbortSignal): Promise<string> {
-    const { ok, status, json } = await fetchJson(`${proxyBase}/__bili/plugin/tool`, {
+    const { ok, status, json } = await fetchJson(`${proxyBase}/__sophialin/plugin/tool`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ conversationId, tool, args: args ?? {} }),
     }, TOOL_TIMEOUT_MS, signal);
     const data = json as { ok?: boolean; result?: string; error?: string } | undefined;
     if (!ok || !data?.ok) {
-        throw new Error(`bili proxy tool ${tool} failed (${status}): ${data?.error ?? "unknown error"}`);
+        throw new Error(`sophialin proxy tool ${tool} failed (${status}): ${data?.error ?? "unknown error"}`);
     }
     return data.result ?? "";
 }
@@ -259,7 +259,7 @@ export async function forwardTool(proxyBase: string, conversationId: string, too
 /** Soft-fail by design: the status read is best-effort UI data; undefined
  *  means "no data" whether the proxy is down or the session is unknown. */
 export async function fetchStatus(proxyBase: string, conversationId: string): Promise<Record<string, unknown> | undefined> {
-    const { ok, json } = await fetchJson(`${proxyBase}/__bili/plugin/status?conversationId=${encodeURIComponent(conversationId)}`, undefined, STATUS_TIMEOUT_MS);
+    const { ok, json } = await fetchJson(`${proxyBase}/__sophialin/plugin/status?conversationId=${encodeURIComponent(conversationId)}`, undefined, STATUS_TIMEOUT_MS);
     if (!ok || !json || typeof json !== "object") return undefined;
     return json as Record<string, unknown>;
 }
@@ -271,7 +271,7 @@ export async function fetchStatusLatest(proxyBase: string): Promise<Record<strin
     // conversationId must be non-empty (server rejects the empty string), but
     // any unknown id is fine: fallback=latest then resolves the most recently
     // active session.
-    const { ok, json } = await fetchJson(`${proxyBase}/__bili/plugin/status?conversationId=dsh&fallback=latest`, undefined, STATUS_TIMEOUT_MS);
+    const { ok, json } = await fetchJson(`${proxyBase}/__sophialin/plugin/status?conversationId=dsh&fallback=latest`, undefined, STATUS_TIMEOUT_MS);
     if (!ok || !json || typeof json !== "object") return undefined;
     return json as Record<string, unknown>;
 }
@@ -280,7 +280,7 @@ export async function fetchStatusLatest(proxyBase: string): Promise<Record<strin
  *  status endpoint, so a 404 status + a live manifest means "proxy up,
  *  conversation not seen yet" — an armed-but-idle state, not an error. */
 export async function fetchProxyVersion(proxyBase: string): Promise<string | undefined> {
-    const { ok, json } = await fetchJson(`${proxyBase}/__bili/plugin/manifest`, undefined, STATUS_TIMEOUT_MS);
+    const { ok, json } = await fetchJson(`${proxyBase}/__sophialin/plugin/manifest`, undefined, STATUS_TIMEOUT_MS);
     if (!ok || !json || typeof json !== "object") return undefined;
     const version = (json as { version?: unknown }).version;
     return typeof version === "string" && version.length > 0 ? version : undefined;
@@ -289,10 +289,10 @@ export async function fetchProxyVersion(proxyBase: string): Promise<string | und
 /** #1365: poll the attach liveness probe until it answers or the deadline
  *  passes. Returns the origin when it is (or comes back) healthy, undefined
  *  on timeout — callers must fail LOUDLY then, never spawn a replacement the
- *  pinned model channel cannot follow. BILI_ATTACH_HEALTH_DEADLINE_MS keeps
+ *  pinned model channel cannot follow. SOPHIALIN_ATTACH_HEALTH_DEADLINE_MS keeps
  *  slow lifeline restarts from tripping a hard-coded bound; unset = default. */
 export async function waitForProxyVersion(proxyBase: string): Promise<string | undefined> {
-    const limit = envMillis(process.env, "BILI_ATTACH_HEALTH_DEADLINE_MS", ATTACH_HEALTH_DEADLINE_MS);
+    const limit = envMillis(process.env, "SOPHIALIN_ATTACH_HEALTH_DEADLINE_MS", ATTACH_HEALTH_DEADLINE_MS);
     const startedAt = Date.now();
     for (;;) {
         const version = await fetchProxyVersion(proxyBase).catch(() => undefined);
@@ -305,21 +305,21 @@ export async function waitForProxyVersion(proxyBase: string): Promise<string | u
 
 // Model-facing body for /acp status renders: the visible panel goes to the synthetic message's
 // description (TUI Notice cap ~1KB); this inert one-liner keeps the model context clean.
-export const V2_SYNTHETIC_TEXT = "[bili-acp-status] ACP status panel was displayed in your terminal; this line is not an instruction.";
+export const V2_SYNTHETIC_TEXT = "[sophialin-acp-status] ACP status panel was displayed in your terminal; this line is not an instruction.";
 
 /** Armed-but-idle /acp notice (proxy live, no model request sent yet). One
  *  source of truth for pi / dsh / opencode (#883). */
 export function armedIdleNotice(version: string): string {
-    return `billion-context@${version} — proxy connected, compression armed. No model request yet; send one, then run /acp again.`;
+    return `sophialin-context@${version} — proxy connected, compression armed. No model request yet; send one, then run /acp again.`;
 }
 
 /** Fallback when the version probe also fails — a warning, not an info notice. */
 export function noSessionWarning(): string {
-    return "bili: no ACP session yet (send a model request first, then run /acp)";
+    return "sophialin: no ACP session yet (send a model request first, then run /acp)";
 }
 
 // The OpenCode V2 TUI renders a synthetic message as a visible Notice row only while its display
-// text fits the timeline cap (~1KB); longer rows render nothing (#880). bili cannot change the
+// text fits the timeline cap (~1KB); longer rows render nothing (#880). sophialin cannot change the
 // host cap, so overflow is handled at render time (#1602): the Web UI deep link is hoisted to
 // line one so it always survives truncation (the full panel stays reachable through the Web UI),
 // and leading WHOLE lines are kept within a budget that reserves room for the marker.

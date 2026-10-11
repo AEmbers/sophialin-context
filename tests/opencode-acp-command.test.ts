@@ -16,7 +16,7 @@ type Rendered = { sid: string; text: string };
 function startToolProxy(result: string | undefined, error?: string): Promise<{ origin: string; calls: ToolCall[]; close(): Promise<void> }> {
     const calls: ToolCall[] = [];
     const server = http.createServer((req, res) => {
-        if (req.url === "/__bili/plugin/tool" && req.method === "POST") {
+        if (req.url === "/__sophialin/plugin/tool" && req.method === "POST") {
             let body = "";
             req.on("data", (c) => (body += c));
             req.on("end", () => {
@@ -103,7 +103,7 @@ test("/acp-cache with no proxy base renders a diagnostic and still handles (#114
     const hooks = createAcpCommandHooks(() => undefined, makeCtx(prompts));
     await assert.rejects(hooks["command.execute.before"]?.({ command: "acp-cache", sessionID: "s" }), HANDLED);
     assert.equal(prompts.length, 1);
-    assert.match(prompts[0].text, /no bili proxy detected/);
+    assert.match(prompts[0].text, /no sophialin proxy detected/);
 });
 
 test("/acp-cache renders proxy-side failures unwrapped (#1146)", async () => {

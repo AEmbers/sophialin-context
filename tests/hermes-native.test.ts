@@ -1,7 +1,7 @@
 // #958: hermes three-mode alignment — Mode 3 (native plugin) tests.
-// Two halves: (1) the TS installer lane (`bili plugin install|remove|update hermes`)
+// Two halves: (1) the TS installer lane (`sophialin plugin install|remove|update hermes`)
 // under a fake HERMES_HOME + fake `hermes` CLI; (2) the shipped Python plugin's
-// runtime logic driven through subprocess python3 against a stub bili proxy.
+// runtime logic driven through subprocess python3 against a stub sophialin proxy.
 
 import assert from "node:assert/strict";
 import { after, describe, test } from "node:test";
@@ -17,7 +17,7 @@ const HERMES_SRC_DIR = path.join(ROOT, "hermes-plugin");
 const PKG_VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version as string;
 
 function makeTmp(label: string): string {
-    return fs.mkdtempSync(path.join(os.tmpdir(), `bili-hermes-${label}-`));
+    return fs.mkdtempSync(path.join(os.tmpdir(), `sophialin-hermes-${label}-`));
 }
 
 const tmpDirs: string[] = [];
@@ -61,7 +61,7 @@ function hermesStatus(): string {
     return pluginStatusAll().find((r) => r.agent === "hermes")!.status;
 }
 
-describe("installer lane (bili plugin install hermes)", () => {
+describe("installer lane (sophialin plugin install hermes)", () => {
     test("fresh install copies the Python plugin verbatim + versioned manifest + sidecar, and delegates enablement to the host CLI", () => {
         const home = track(makeTmp("install"));
         const bin = track(makeTmp("bin"));
@@ -71,17 +71,17 @@ describe("installer lane (bili plugin install hermes)", () => {
         try {
             assert.equal(hermesStatus(), "not installed");
             const msg = pluginInstall("hermes");
-            assert.match(msg, /wrote the billion-context plugin into .* and enabled it/);
-            const dir = path.join(home, "plugins", "billion-context");
+            assert.match(msg, /wrote the sophialin-context plugin into .* and enabled it/);
+            const dir = path.join(home, "plugins", "sophialin-context");
             assert.equal(fs.readFileSync(path.join(dir, "__init__.py"), "utf8"), fs.readFileSync(path.join(HERMES_SRC_DIR, "__init__.py"), "utf8"));
             const yaml = fs.readFileSync(path.join(dir, "plugin.yaml"), "utf8");
             assert.ok(yaml.includes(`version: "${PKG_VERSION}"`), yaml);
-            assert.ok(yaml.includes("name: billion-context"), yaml);
-            const sidecar = JSON.parse(fs.readFileSync(path.join(dir, "bili.json"), "utf8")) as Record<string, string>;
+            assert.ok(yaml.includes("name: sophialin-context"), yaml);
+            const sidecar = JSON.parse(fs.readFileSync(path.join(dir, "sophialin.json"), "utf8")) as Record<string, string>;
             assert.equal(sidecar.proxyScript, path.join(ROOT, "dist", "index.js"));
             assert.equal(sidecar.nodePath, process.execPath);
             const calls = fs.readFileSync(log, "utf8").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-            assert.ok(calls.includes("plugins enable billion-context"), calls.join("|"));
+            assert.ok(calls.includes("plugins enable sophialin-context"), calls.join("|"));
             assert.equal(hermesStatus(), "installed");
         } finally {
             restore();
@@ -96,10 +96,10 @@ describe("installer lane (bili plugin install hermes)", () => {
         const restore = setHermesEnv(home, bin);
         try {
             pluginInstall("hermes");
-            const before = fs.readFileSync(path.join(home, "plugins", "billion-context", "__init__.py"), "utf8");
+            const before = fs.readFileSync(path.join(home, "plugins", "sophialin-context", "__init__.py"), "utf8");
             const msg = pluginInstall("hermes");
             assert.match(msg, /and enabled it/);
-            assert.equal(fs.readFileSync(path.join(home, "plugins", "billion-context", "__init__.py"), "utf8"), before);
+            assert.equal(fs.readFileSync(path.join(home, "plugins", "sophialin-context", "__init__.py"), "utf8"), before);
         } finally {
             restore();
         }
@@ -114,10 +114,10 @@ describe("installer lane (bili plugin install hermes)", () => {
         try {
             pluginInstall("hermes");
             const msg = pluginRemove("hermes");
-            assert.match(msg, /removed the billion-context plugin .* and disabled it/);
-            assert.ok(!fs.existsSync(path.join(home, "plugins", "billion-context")));
+            assert.match(msg, /removed the sophialin-context plugin .* and disabled it/);
+            assert.ok(!fs.existsSync(path.join(home, "plugins", "sophialin-context")));
             const calls = fs.readFileSync(log, "utf8").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-            assert.ok(calls.includes("plugins disable billion-context"), calls.join("|"));
+            assert.ok(calls.includes("plugins disable sophialin-context"), calls.join("|"));
             assert.equal(pluginRemove("hermes"), "not installed");
             assert.equal(hermesStatus(), "not installed");
         } finally {
@@ -135,7 +135,7 @@ describe("installer lane (bili plugin install hermes)", () => {
             // hermes CLI was not found on PATH …", while a Windows shell probe
             // fails with a localized cmd error and prints "enabling via the
             // hermes CLI failed (…) …". Both end in the same manual instruction.
-            assert.match(msg, /enable it manually: hermes plugins enable billion-context/);
+            assert.match(msg, /enable it manually: hermes plugins enable sophialin-context/);
             assert.equal(hermesStatus(), "installed");
         } finally {
             restore();
@@ -149,7 +149,7 @@ describe("installer lane (bili plugin install hermes)", () => {
         const restore = setHermesEnv(home, bin);
         try {
             const msg = pluginInstall("hermes");
-            assert.match(msg, /enabling via the hermes CLI failed \(boom\) — enable it manually: hermes plugins enable billion-context/);
+            assert.match(msg, /enabling via the hermes CLI failed \(boom\) — enable it manually: hermes plugins enable sophialin-context/);
             assert.equal(hermesStatus(), "installed");
         } finally {
             restore();
@@ -163,14 +163,14 @@ describe("installer lane (bili plugin install hermes)", () => {
         const restore = setHermesEnv(home, bin);
         try {
             const pristine = fs.readFileSync(path.join(HERMES_SRC_DIR, "__init__.py"), "utf8");
-            const lines = await pluginUpdate(["hermes"], { packageName: "billion-context" });
+            const lines = await pluginUpdate(["hermes"], { packageName: "sophialin-context" });
             assert.equal(lines.length, 1);
             assert.match(lines[0], /hermes: not installed — nothing to update/);
             pluginInstall("hermes");
-            const target = path.join(home, "plugins", "billion-context", "__init__.py");
+            const target = path.join(home, "plugins", "sophialin-context", "__init__.py");
             fs.appendFileSync(target, "\n# user drift\n");
-            const again = await pluginUpdate(["hermes"], { packageName: "billion-context" });
-            assert.match(again[0], new RegExp(`hermes: re-copied the plugin into .* \\(bili ${PKG_VERSION}\\)`));
+            const again = await pluginUpdate(["hermes"], { packageName: "sophialin-context" });
+            assert.match(again[0], new RegExp(`hermes: re-copied the plugin into .* \\(sophialin ${PKG_VERSION}\\)`));
             assert.equal(fs.readFileSync(target, "utf8"), pristine);
         } finally {
             restore();
@@ -180,7 +180,7 @@ describe("installer lane (bili plugin install hermes)", () => {
     test("status table carries the hermes lane and its update channel", () => {
         const row = pluginStatusAll().find((r) => r.agent === "hermes")!;
         assert.ok((PLUGIN_AGENTS as readonly string[]).includes("hermes"));
-        assert.match(row.channel, /bili plugin update hermes/);
+        assert.match(row.channel, /sophialin plugin update hermes/);
     });
 });
 
@@ -208,13 +208,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 BASE = sys.argv[2]
 SCENARIO = sys.argv[1]
 
-for sub in ("state", "data", "home", "plugins/billion-context"):
+for sub in ("state", "data", "home", "plugins/sophialin-context"):
     os.makedirs(os.path.join(BASE, sub), exist_ok=True)
 os.environ["XDG_STATE_HOME"] = os.path.join(BASE, "state")
 os.environ["XDG_DATA_HOME"] = os.path.join(BASE, "data")
 os.environ["HERMES_HOME"] = os.path.join(BASE, "home")
-for k in ("BILLION_CONTEXT_ATTACH", "BILLION_CONTEXT_PROXY", "BILI_NATIVE_HERMES",
-          "BILLION_CONTEXT_PLUGIN", "BILI_PROVIDER_REWRITES",
+for k in ("SOPHIALIN_CONTEXT_ATTACH", "SOPHIALIN_CONTEXT_PROXY", "SOPHIALIN_NATIVE_HERMES",
+          "SOPHIALIN_CONTEXT_PLUGIN", "SOPHIALIN_PROVIDER_REWRITES",
           "HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy",
           "ALL_PROXY", "all_proxy", "HERMES_CA_BUNDLE", "SSL_CERT_FILE"):
     os.environ.pop(k, None)
@@ -234,14 +234,14 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if self.path == "/__bili/health":
+        if self.path == "/__sophialin/health":
             RECORDED["health"].append(1)
             mode = os.environ.get("BC_HEALTH_WATCHDOG", "armed")
             if mode == "absent":
                 self._send({"ok": True})
             else:
                 self._send({"ok": True, "watchdog": {"armed": mode == "armed", "watchers": []}})
-        elif self.path == "/__bili/plugin/manifest":
+        elif self.path == "/__sophialin/plugin/manifest":
             self._send({"version": "test-1", "tools": {"anthropic": [
                 {"name": "compress", "description": "compress a range", "input_schema": {"type": "object"}},
                 {"name": "decompress", "description": "decompress a block", "input_schema": {"type": "object"}},
@@ -252,13 +252,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         n = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(n) or b"{}")
-        if self.path == "/__bili/plugin/tool":
+        if self.path == "/__sophialin/plugin/tool":
             RECORDED["tool"].append(body)
             self._send({"ok": True, "result": "compressed 3 blocks"})
-        elif self.path == "/__bili/plugin/runtime-info":
+        elif self.path == "/__sophialin/plugin/runtime-info":
             RECORDED["runtime_info"].append(body)
             self._send({"ok": True})
-        elif self.path == "/__bili/watcher":
+        elif self.path == "/__sophialin/watcher":
             RECORDED["watcher"].append(body)
             code = int(os.environ.get("BC_WATCHER_STATUS") or "200")
             self._send({"ok": code == 200, "watchers": len(RECORDED["watcher"])}, code)
@@ -269,14 +269,14 @@ server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
 ORIGIN = "http://127.0.0.1:" + str(server.server_address[1])
 threading.Thread(target=server.serve_forever, daemon=True).start()
 
-PLUGIN_DIR = os.path.join(BASE, "plugins", "billion-context")
+PLUGIN_DIR = os.path.join(BASE, "plugins", "sophialin-context")
 shutil.copyfile(os.path.join(os.environ["BC_PLUGIN_SRC"], "__init__.py"), os.path.join(PLUGIN_DIR, "__init__.py"))
 
 def install_sidecar(bad):
     script = os.path.join(BASE, "proxy.js")
     with open(script, "w") as f:
-        f.write("process.exit(3);\n" if bad else "// dummy bili dist entry point\n")
-    with open(os.path.join(PLUGIN_DIR, "bili.json"), "w") as f:
+        f.write("process.exit(3);\n" if bad else "// dummy sophialin dist entry point\n")
+    with open(os.path.join(PLUGIN_DIR, "sophialin.json"), "w") as f:
         json.dump({"proxyScript": script, "nodePath": os.environ["BC_NODE"]}, f)
 
 def load_module():
@@ -307,15 +307,15 @@ out = {"scenario": SCENARIO, "origin": ORIGIN}
 
 if SCENARIO.startswith("discover-"):
     install_sidecar(SCENARIO == "discover-armed")
-    sd = os.path.join(os.environ["XDG_STATE_HOME"], "billion-context")
+    sd = os.path.join(os.environ["XDG_STATE_HOME"], "sophialin-context")
     os.makedirs(sd, exist_ok=True)
     with open(os.path.join(sd, "proxy-origin"), "w") as f:
         json.dump({"origin": ORIGIN, "pid": os.getpid(), "launchToken": "tok"}, f)
     mod.register(ctx)
 elif SCENARIO.startswith("gate-"):
     flag = SCENARIO[len("gate-"):]
-    envvar = {"opt-out": "BILI_NATIVE_HERMES", "plugin-0": "BILLION_CONTEXT_PLUGIN", "launcher-proxy": "BILLION_CONTEXT_PROXY"}[flag]
-    os.environ[envvar] = "http://127.0.0.1:1" if envvar == "BILLION_CONTEXT_PROXY" else "0"
+    envvar = {"opt-out": "SOPHIALIN_NATIVE_HERMES", "plugin-0": "SOPHIALIN_CONTEXT_PLUGIN", "launcher-proxy": "SOPHIALIN_CONTEXT_PROXY"}[flag]
+    os.environ[envvar] = "http://127.0.0.1:1" if envvar == "SOPHIALIN_CONTEXT_PROXY" else "0"
     mod.register(ctx)
 elif SCENARIO == "no-sidecar":
     mod.register(ctx)
@@ -324,8 +324,8 @@ elif SCENARIO == "spawn-fail":
     mod.register(ctx)
 elif SCENARIO.startswith("attach"):
     install_sidecar(False)
-    os.environ["BILLION_CONTEXT_ATTACH"] = ORIGIN
-    ca_dir = os.path.join(os.environ["XDG_DATA_HOME"], "billion-context", "ca")
+    os.environ["SOPHIALIN_CONTEXT_ATTACH"] = ORIGIN
+    ca_dir = os.path.join(os.environ["XDG_DATA_HOME"], "sophialin-context", "ca")
     os.makedirs(ca_dir, exist_ok=True)
     ca_file = os.path.join(ca_dir, "root-ca.pem")
     with open(ca_file, "w") as f:
@@ -370,7 +370,7 @@ out.update({
     "env_https_proxy_lc": os.environ.get("https_proxy"),
     "env_ca_bundle": os.environ.get("HERMES_CA_BUNDLE"),
     "env_ssl_cert_file": os.environ.get("SSL_CERT_FILE"),
-    "marker_left": os.path.exists(os.path.join(os.environ["XDG_STATE_HOME"], "billion-context", "proxy-starting")),
+    "marker_left": os.path.exists(os.path.join(os.environ["XDG_STATE_HOME"], "sophialin-context", "proxy-starting")),
     "tool_calls": RECORDED["tool"],
     "runtime_info": RECORDED["runtime_info"],
     "watcher_calls": RECORDED["watcher"],
@@ -435,7 +435,7 @@ describe("python plugin runtime (subprocess)", () => {
         const { out, err } = runDriver("attach");
         assert.ok(out, err);
         assert.deepEqual(out!.tools_registered, ["acp_status", "compress", "decompress"]);
-        assert.deepEqual(out!.toolsets, ["billion-context"]);
+        assert.deepEqual(out!.toolsets, ["sophialin-context"]);
         assert.deepEqual(out!.middlewares, ["llm_request"]);
         assert.deepEqual(out!.hooks, ["pre_api_request"]);
         assert.equal(out!.round1_none, true);
@@ -445,13 +445,13 @@ describe("python plugin runtime (subprocess)", () => {
         assert.match(out!.env_ca_bundle!, /root-ca\.pem$/);
         assert.match(out!.env_ssl_cert_file!, /combined-ca\.pem$/, "#1375: ambient trust rides the combined bundle");
         const h1 = out!.first_headers!;
-        assert.equal(h1["x-bili-plugin"], "hermes");
-        assert.equal(h1["x-bili-plugin-conversation"], "sess-1");
-        assert.equal(h1["x-bili-plugin-model"], "test-model");
+        assert.equal(h1["x-sophialin-plugin"], "hermes");
+        assert.equal(h1["x-sophialin-plugin-conversation"], "sess-1");
+        assert.equal(h1["x-sophialin-plugin-model"], "test-model");
         assert.equal(h1["X-Custom"], "keep");
-        assert.equal(h1["x-bili-plugin-max-output"], undefined);
+        assert.equal(h1["x-sophialin-plugin-max-output"], undefined);
         const h2 = out!.second_headers!;
-        assert.equal(h2["x-bili-plugin-max-output"], "4096");
+        assert.equal(h2["x-sophialin-plugin-max-output"], "4096");
         assert.equal(out!.second_model_kept, "test-model");
         assert.equal(out!.tool_result, "compressed 3 blocks");
         assert.deepEqual(out!.tool_calls, [{ conversationId: "sess-1", tool: "compress", args: {} }]);
@@ -487,7 +487,7 @@ describe("python plugin runtime (subprocess)", () => {
 
     // #1338: the Python discovery path carries #1335's attach gate. The stub
     // proxy-origin points at the fake listener; BC_HEALTH_WATCHDOG drives its
-    // /__bili/health watchdog field.
+    // /__sophialin/health watchdog field.
     test("discover-armed: session attaches to a watchdog-armed shared proxy", () => {
         if (!PY) {
             console.warn("skip: no python3/python interpreter on this machine (hermes requires Python 3.11+)");
@@ -525,12 +525,12 @@ describe("python plugin runtime (subprocess)", () => {
         assert.deepEqual(out!.refused, [out!.origin], "unverifiable lifecycle is refused, matching pickAttachable");
     });
 
-    test("discover-external: BILI_NATIVE_ATTACH_EXTERNAL=1 restores attach-to-daemon (#1338 escape hatch)", () => {
+    test("discover-external: SOPHIALIN_NATIVE_ATTACH_EXTERNAL=1 restores attach-to-daemon (#1338 escape hatch)", () => {
         if (!PY) {
             console.warn("skip: no python3/python interpreter on this machine (hermes requires Python 3.11+)");
             return;
         }
-        const { out, err } = runDriver("discover-unarmed", { BC_HEALTH_WATCHDOG: "false", BILI_NATIVE_ATTACH_EXTERNAL: "1" });
+        const { out, err } = runDriver("discover-unarmed", { BC_HEALTH_WATCHDOG: "false", SOPHIALIN_NATIVE_ATTACH_EXTERNAL: "1" });
         assert.ok(out, err);
         assert.equal(out!.env_https_proxy, out!.origin, "escape hatch attaches to the unarmed daemon");
         assert.equal(out!.watcher_calls.length, 1, "watcher registration still attempted (409-soft)");
@@ -538,9 +538,9 @@ describe("python plugin runtime (subprocess)", () => {
     });
 
     for (const [scenario, extraEnv] of [
-        ["gate-opt-out", { BILI_NATIVE_HERMES: "0" }],
-        ["gate-plugin-0", { BILLION_CONTEXT_PLUGIN: "0" }],
-        ["gate-launcher-proxy", { BILLION_CONTEXT_PROXY: "http://127.0.0.1:9999" }],
+        ["gate-opt-out", { SOPHIALIN_NATIVE_HERMES: "0" }],
+        ["gate-plugin-0", { SOPHIALIN_CONTEXT_PLUGIN: "0" }],
+        ["gate-launcher-proxy", { SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:9999" }],
     ] as Array<[string, Record<string, string>]>) {
         test(`${scenario}: stays fully inert (no tools, no env, no markers)`, () => {
             if (!PY) {

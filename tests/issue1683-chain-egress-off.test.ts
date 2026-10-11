@@ -3,27 +3,27 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { once } from "node:events";
 import { defaultConfig } from "acp-kernel";
-import { startServer, BILI_HOP_HEADER } from "../src/server.ts";
+import { startServer, SOPHIALIN_HOP_HEADER } from "../src/server.ts";
 import { SessionStore, _setStoreForTest } from "../src/persist.ts";
 import type { ProxyOptions } from "../src/config.ts";
 import { _setForTest as setRegistryForTest } from "../src/registry.ts";
 import { setLogCapture } from "../src/logger.ts";
 import { evaluateChain, stampOutbound } from "../src/chain-checkpoint.ts";
 
-/** #1683 (+ follow-up): the `<bili-chain …/>` checkpoint carrier is model-visible
+/** #1683 (+ follow-up): the `<sophialin-chain …/>` checkpoint carrier is model-visible
  *  (trailing user message on openai/responses, trailing text part on
  *  anthropic/google), so models read it as phantom user input and burn tokens
  *  commenting on it. Fix: BOTH body-marker heuristics are OFF by default —
- *  egress stamping behind the `chainEgressStamp` opt-in (env BILI_CHAIN_STAMP)
+ *  egress stamping behind the `chainEgressStamp` opt-in (env SOPHIALIN_CHAIN_STAMP)
  *  and inbound body-content detection behind `chainContentDetection` (env
- *  BILI_CHAIN_CONTENT); by default ONLY the x-bili-hop header drives chain
+ *  SOPHIALIN_CHAIN_CONTENT); by default ONLY the x-sophialin-hop header drives chain
  *  recognition, since scanning the body can false-positive on CCR/file-introduced
  *  text and model-echoed tags. These tests pin the contract:
  *  - default opts → a processed outbound carries NO carrier (openai + google);
  *  - `chainEgressStamp: true` → the self-verifying stamp is restored;
  *  - body-detection ENABLED → a valid external checkpoint forwards byte-identical;
  *  - body-detection OFF (new default) → a foreign body-carrier is processed, not
- *    passed through; the x-bili-hop header alone still forces passthrough. */
+ *    passed through; the x-sophialin-hop header alone still forces passthrough. */
 
 const L = "\x3c";
 const R = "\x3e";
@@ -126,7 +126,7 @@ const OPENAI_BODY = {
     ],
 };
 
-test("#1683: default opts → processed openai outbound carries NO <bili-chain/> carrier", async () => {
+test("#1683: default opts → processed openai outbound carries NO <sophialin-chain/> carrier", async () => {
     await withRig(async ({ port, captured }) => {
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
             method: "POST",
@@ -139,12 +139,12 @@ test("#1683: default opts → processed openai outbound carries NO <bili-chain/>
         // Was genuinely processed (kernel ran, compress tool injected) — so the
         // absence below is meaningful, not a skipped passthrough.
         assert.ok(captured[0]!.body.includes('"compress"'), "request was processed by the kernel");
-        assert.ok(!captured[0]!.body.includes(L + "bili-chain "), "no model-visible chain carrier by default (#1683)");
+        assert.ok(!captured[0]!.body.includes(L + "sophialin-chain "), "no model-visible chain carrier by default (#1683)");
         assert.equal(evaluateChain(JSON.parse(captured[0]!.body), "openai").verdict, "none");
     });
 });
 
-test("#1683: default opts → processed google outbound carries NO <bili-chain/> part", async () => {
+test("#1683: default opts → processed google outbound carries NO <sophialin-chain/> part", async () => {
     await withRig(async ({ port, captured }) => {
         const url = `http://127.0.0.1:${port}/v1beta/models/${MODEL}:generateContent`;
         const resp = await fetch(url, {
@@ -155,7 +155,7 @@ test("#1683: default opts → processed google outbound carries NO <bili-chain/>
         assert.equal(resp.status, 200);
         await resp.text();
         assert.equal(captured.length, 1);
-        assert.ok(!captured[0]!.body.includes(L + "bili-chain "), "no model-visible chain carrier by default (#1683)");
+        assert.ok(!captured[0]!.body.includes(L + "sophialin-chain "), "no model-visible chain carrier by default (#1683)");
         assert.equal(evaluateChain(JSON.parse(captured[0]!.body), "google").verdict, "none");
     });
 });
@@ -176,7 +176,7 @@ test("#1683: chainEgressStamp:true → the self-verifying stamp is restored on e
 
 test("#1683: body-detection enabled → a valid external checkpoint forwards byte-identical (first-processor-wins)", async () => {
     await withRig(async ({ port, captured }) => {
-        const sentJson = JSON.stringify(stampOutbound(OPENAI_BODY, "openai", "external-bili", Date.now() - 5_000)!);
+        const sentJson = JSON.stringify(stampOutbound(OPENAI_BODY, "openai", "external-sophialin", Date.now() - 5_000)!);
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "issue1683-inbound-passthrough" },
@@ -191,7 +191,7 @@ test("#1683: body-detection enabled → a valid external checkpoint forwards byt
 
 test("#1683 follow-up: body-detection OFF (new default) → a foreign body-carrier is processed, not passed through", async () => {
     await withRig(async ({ port, captured }) => {
-        const sentJson = JSON.stringify(stampOutbound(OPENAI_BODY, "openai", "external-bili", Date.now() - 5_000)!);
+        const sentJson = JSON.stringify(stampOutbound(OPENAI_BODY, "openai", "external-sophialin", Date.now() - 5_000)!);
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "issue1683-body-off" },
@@ -205,17 +205,17 @@ test("#1683 follow-up: body-detection OFF (new default) → a foreign body-carri
     }, { chainContentDetection: false });
 });
 
-test("#1683 follow-up: x-bili-hop header alone still forces byte-identical passthrough with body-detection off", async () => {
+test("#1683 follow-up: x-sophialin-hop header alone still forces byte-identical passthrough with body-detection off", async () => {
     await withRig(async ({ port, captured }) => {
         const sentJson = JSON.stringify(OPENAI_BODY);
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
             method: "POST",
-            headers: { "content-type": "application/json", "x-acp-session": "issue1683-hop-only", [BILI_HOP_HEADER]: "external-bili" },
+            headers: { "content-type": "application/json", "x-acp-session": "issue1683-hop-only", [SOPHIALIN_HOP_HEADER]: "external-sophialin" },
             body: sentJson,
         });
         assert.equal(resp.status, 200);
         await resp.text();
         assert.equal(captured.length, 1);
-        assert.equal(captured[0]!.body, sentJson, "the x-bili-hop header drives recognition independently of body scanning");
+        assert.equal(captured[0]!.body, sentJson, "the x-sophialin-hop header drives recognition independently of body scanning");
     }, { chainContentDetection: false });
 });

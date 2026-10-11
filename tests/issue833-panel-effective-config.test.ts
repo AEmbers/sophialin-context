@@ -11,7 +11,7 @@ import { SessionStore, _setStoreForTest } from "../src/persist.ts";
 import { _setForTest as setRegistryForTest } from "../src/registry.ts";
 import { _resetPluginStateForTest } from "../src/plugin.ts";
 
-// #833: the /__bili/plugin/status Nudge line (and the plugin tool API) rendered
+// #833: the /__sophialin/plugin/status Nudge line (and the plugin tool API) rendered
 // under the base kernelConfig — which carries NO file/provider/model compress
 // settings — so the panel showed kernel defaults (threshold 50000 / floor 22500)
 // regardless of configured nudgeGrowthTokens. It must reflect the last resolved
@@ -85,12 +85,12 @@ async function startHarness(opts: HarnessOpts): Promise<Harness> {
 }
 
 async function sendTurn(h: Harness, conversationId: string): Promise<void> {
-    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/bili/http://127.0.0.1:${h.upstreamPort}/v1/messages`, {
+    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/sophialin/http://127.0.0.1:${h.upstreamPort}/v1/messages`, {
         method: "POST",
         headers: {
             "content-type": "application/json",
-            "x-bili-plugin": "pi-plugin/0.0.1",
-            "x-bili-plugin-conversation": conversationId,
+            "x-sophialin-plugin": "pi-plugin/0.0.1",
+            "x-sophialin-plugin-conversation": conversationId,
         },
         body: JSON.stringify({
             model: "claude-test",
@@ -104,7 +104,7 @@ async function sendTurn(h: Harness, conversationId: string): Promise<void> {
 }
 
 async function fetchPanel(h: Harness, conversationId: string): Promise<string> {
-    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/status?conversationId=${conversationId}`);
+    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status?conversationId=${conversationId}`);
     assert.equal(resp.status, 200);
     const status = (await resp.json()) as { ok: boolean; panel?: string };
     assert.equal(status.ok, true);
@@ -152,7 +152,7 @@ test("#833 plugin tool API (acp_status) renders under the session's resolved con
     try {
         const conv = "issue833-tool";
         await sendTurn(h, conv);
-        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/tool`, {
+        const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: conv, tool: "acp_status", args: {} }),

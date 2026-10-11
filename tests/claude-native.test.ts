@@ -41,10 +41,10 @@ import { rmrf } from "./tmp-rm.ts";
 const LIVE_E2E = process.env.ACP_TEST_CLAUDE_NATIVE === "1";
 const liveSkip = LIVE_E2E ? undefined : "set ACP_TEST_CLAUDE_NATIVE=1 (live proxy/process e2e; flaky under concurrent load, #1248)";
 
-const HOOK_COMMAND = "/opt/bili/dist/claude-native-bootstrap.js";
+const HOOK_COMMAND = "/opt/sophialin/dist/claude-native-bootstrap.js";
 
 function baseUrlForPort(port: number): string {
-    return `http://127.0.0.1:${port}/bili/https://api.anthropic.com`;
+    return `http://127.0.0.1:${port}/sophialin/https://api.anthropic.com`;
 }
 
 // — pure merge/strip ————————————————————————————————————————————
@@ -66,7 +66,7 @@ test("applyClaudeManagedBlock: idempotent — a second apply changes nothing", (
     assert.equal(second.notes.length, 0);
 });
 
-test("applyClaudeManagedBlock: rewrites an older bili URL to the current port", () => {
+test("applyClaudeManagedBlock: rewrites an older sophialin URL to the current port", () => {
     const settings = { env: { ANTHROPIC_BASE_URL: baseUrlForPort(40000) } };
     const { data, notes } = applyClaudeManagedBlock(settings, { baseUrl: baseUrlForPort(48787), hookCommand: HOOK_COMMAND });
     assert.equal((data.env as Record<string, string>).ANTHROPIC_BASE_URL, baseUrlForPort(48787));
@@ -101,8 +101,8 @@ test("applyClaudeManagedBlock: rewrites a stale hook command in place (#1376)", 
     // PowerShell mangles that, so the proxy never starts and every session
     // hangs with nothing in the log. Reinstalling after the fix has to repair
     // the settings file the old release left behind.
-    const stale = { hooks: [{ type: "command", command: 'D:\\Dev\\node\\node.exe "D:\\bili\\dist\\claude-native-bootstrap.js"' }] };
-    const current = "D:/Dev/node/node.exe D:/bili/dist/claude-native-bootstrap.js";
+    const stale = { hooks: [{ type: "command", command: 'D:\\Dev\\node\\node.exe "D:\\sophialin\\dist\\claude-native-bootstrap.js"' }] };
+    const current = "D:/Dev/node/node.exe D:/sophialin/dist/claude-native-bootstrap.js";
     const { data, notes } = applyClaudeManagedBlock({ hooks: { SessionStart: [stale] } }, { baseUrl: baseUrlForPort(48787), hookCommand: current });
     const entries = (data.hooks as Record<string, unknown[]>).SessionStart;
     assert.equal(entries.length, 1);
@@ -137,72 +137,72 @@ test("stripClaudeManagedBlock: empty containers are dropped, foreign values surv
 
 // — URL/port helpers ————————————————————————————————————————————
 
-test("isBiliClaudeBaseUrl: only loopback /bili/ wraps match", () => {
+test("isBiliClaudeBaseUrl: only loopback /sophialin/ wraps match", () => {
     assert.equal(isBiliClaudeBaseUrl(baseUrlForPort(48787)), true);
-    assert.equal(isBiliClaudeBaseUrl("http://127.0.0.1:8787/bili/https://relay.example"), true);
+    assert.equal(isBiliClaudeBaseUrl("http://127.0.0.1:8787/sophialin/https://relay.example"), true);
     assert.equal(isBiliClaudeBaseUrl("https://api.anthropic.com"), false);
     assert.equal(isBiliClaudeBaseUrl("http://127.0.0.1:8787/v1"), false);
     assert.equal(isBiliClaudeBaseUrl(undefined), false);
 });
 
-test("claudeNativeBaseUrl: default wraps api.anthropic.com; BILI_CLAUDE_UPSTREAM wraps the relay", () => {
-    const prev = process.env.BILI_CLAUDE_UPSTREAM;
-    const prevPort = process.env.BILI_CLAUDE_NATIVE_PORT;
+test("claudeNativeBaseUrl: default wraps api.anthropic.com; SOPHIALIN_CLAUDE_UPSTREAM wraps the relay", () => {
+    const prev = process.env.SOPHIALIN_CLAUDE_UPSTREAM;
+    const prevPort = process.env.SOPHIALIN_CLAUDE_NATIVE_PORT;
     try {
-        delete process.env.BILI_CLAUDE_UPSTREAM;
-        delete process.env.BILI_CLAUDE_NATIVE_PORT;
+        delete process.env.SOPHIALIN_CLAUDE_UPSTREAM;
+        delete process.env.SOPHIALIN_CLAUDE_NATIVE_PORT;
         // #1660: no explicit override → the claude lane's zone preference
         // (sticky record > 18787 base) — readZonePort has no record in tests.
-        assert.equal(claudeNativeBaseUrl().includes(`/bili/https://api.anthropic.com`), true);
-        assert.equal(claudeNativeBaseUrl(), `http://127.0.0.1:${ZONE_PORT_BASE}/bili/https://api.anthropic.com`);
-        process.env.BILI_CLAUDE_UPSTREAM = "https://relay.example/";
-        assert.equal(claudeNativeBaseUrl(), `http://127.0.0.1:${ZONE_PORT_BASE}/bili/https://relay.example`);
+        assert.equal(claudeNativeBaseUrl().includes(`/sophialin/https://api.anthropic.com`), true);
+        assert.equal(claudeNativeBaseUrl(), `http://127.0.0.1:${ZONE_PORT_BASE}/sophialin/https://api.anthropic.com`);
+        process.env.SOPHIALIN_CLAUDE_UPSTREAM = "https://relay.example/";
+        assert.equal(claudeNativeBaseUrl(), `http://127.0.0.1:${ZONE_PORT_BASE}/sophialin/https://relay.example`);
     } finally {
-        if (prev === undefined) delete process.env.BILI_CLAUDE_UPSTREAM;
-        else process.env.BILI_CLAUDE_UPSTREAM = prev;
-        if (prevPort === undefined) delete process.env.BILI_CLAUDE_NATIVE_PORT;
-        else process.env.BILI_CLAUDE_NATIVE_PORT = prevPort;
+        if (prev === undefined) delete process.env.SOPHIALIN_CLAUDE_UPSTREAM;
+        else process.env.SOPHIALIN_CLAUDE_UPSTREAM = prev;
+        if (prevPort === undefined) delete process.env.SOPHIALIN_CLAUDE_NATIVE_PORT;
+        else process.env.SOPHIALIN_CLAUDE_NATIVE_PORT = prevPort;
     }
 });
 
 test("claudeNativeBaseUrlForOrigin: wraps an arbitrary origin; explicit upstream preserved (#1660)", () => {
-    assert.equal(claudeNativeBaseUrlForOrigin("http://127.0.0.1:18788", undefined, {}), "http://127.0.0.1:18788/bili/https://api.anthropic.com");
-    assert.equal(claudeNativeBaseUrlForOrigin("http://127.0.0.1:18788/", "https://relay.example/", {}), "http://127.0.0.1:18788/bili/https://relay.example");
-    assert.equal(claudeNativeBaseUrlForOrigin("http://127.0.0.1:18788", "https://api.anthropic.com", { BILI_CLAUDE_UPSTREAM: "https://env.example" }), "http://127.0.0.1:18788/bili/https://api.anthropic.com");
+    assert.equal(claudeNativeBaseUrlForOrigin("http://127.0.0.1:18788", undefined, {}), "http://127.0.0.1:18788/sophialin/https://api.anthropic.com");
+    assert.equal(claudeNativeBaseUrlForOrigin("http://127.0.0.1:18788/", "https://relay.example/", {}), "http://127.0.0.1:18788/sophialin/https://relay.example");
+    assert.equal(claudeNativeBaseUrlForOrigin("http://127.0.0.1:18788", "https://api.anthropic.com", { SOPHIALIN_CLAUDE_UPSTREAM: "https://env.example" }), "http://127.0.0.1:18788/sophialin/https://api.anthropic.com");
     // already-wrapped input is not double-wrapped
-    assert.equal(claudeNativeBaseUrlForOrigin("http://127.0.0.1:18788", "http://127.0.0.1:18788/bili/https://api.anthropic.com", {}), "http://127.0.0.1:18788/bili/https://api.anthropic.com");
+    assert.equal(claudeNativeBaseUrlForOrigin("http://127.0.0.1:18788", "http://127.0.0.1:18788/sophialin/https://api.anthropic.com", {}), "http://127.0.0.1:18788/sophialin/https://api.anthropic.com");
 });
 
 test("unwrapBiliBaseUrl: strips any loopback-port wrapper; foreign values untouched (#1660)", () => {
-    assert.equal(unwrapBiliBaseUrl("http://127.0.0.1:48787/bili/https://api.anthropic.com"), "https://api.anthropic.com");
-    assert.equal(unwrapBiliBaseUrl("http://127.0.0.1:18788/bili/https://relay.example"), "https://relay.example");
+    assert.equal(unwrapBiliBaseUrl("http://127.0.0.1:48787/sophialin/https://api.anthropic.com"), "https://api.anthropic.com");
+    assert.equal(unwrapBiliBaseUrl("http://127.0.0.1:18788/sophialin/https://relay.example"), "https://relay.example");
     assert.equal(unwrapBiliBaseUrl("https://api.anthropic.com"), undefined);
     assert.equal(unwrapBiliBaseUrl("http://127.0.0.1:8787/v1"), undefined);
 });
 
 test("resolveClaudeNativePort: env only, undefined without an explicit override (#1660)", () => {
     assert.equal(resolveClaudeNativePort({}), undefined);
-    assert.equal(resolveClaudeNativePort({ BILI_CLAUDE_NATIVE_PORT: "49999" }), 49999);
-    assert.equal(resolveClaudeNativePort({ BILI_CLAUDE_NATIVE_PORT: "0" }), undefined);
-    assert.equal(resolveClaudeNativePort({ BILI_CLAUDE_NATIVE_PORT: "not-a-number" }), undefined);
+    assert.equal(resolveClaudeNativePort({ SOPHIALIN_CLAUDE_NATIVE_PORT: "49999" }), 49999);
+    assert.equal(resolveClaudeNativePort({ SOPHIALIN_CLAUDE_NATIVE_PORT: "0" }), undefined);
+    assert.equal(resolveClaudeNativePort({ SOPHIALIN_CLAUDE_NATIVE_PORT: "not-a-number" }), undefined);
 });
 
-// #1335: the attach-gate escape hatch — env BILI_NATIVE_ATTACH_EXTERNAL wins
+// #1335: the attach-gate escape hatch — env SOPHIALIN_NATIVE_ATTACH_EXTERNAL wins
 // over the config file's native.attachExternal; the file value must be exactly
 // true (garbage leaves the gate closed); default false.
 test("resolveNativeAttachExternal: env parsing (1/true open, 0/false close, junk falls through)", () => {
     const prev = process.env.XDG_CONFIG_HOME;
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-attachext-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-attachext-"));
     process.env.XDG_CONFIG_HOME = dir;
     try {
         assert.equal(resolveNativeAttachExternal({}), false, "no env, no file → gate closed");
-        assert.equal(resolveNativeAttachExternal({ BILI_NATIVE_ATTACH_EXTERNAL: "" }), false, "blank env falls through to file");
-        assert.equal(resolveNativeAttachExternal({ BILI_NATIVE_ATTACH_EXTERNAL: "1" }), true);
-        assert.equal(resolveNativeAttachExternal({ BILI_NATIVE_ATTACH_EXTERNAL: "true" }), true);
-        assert.equal(resolveNativeAttachExternal({ BILI_NATIVE_ATTACH_EXTERNAL: " TRUE " }), true, "case-insensitive and trimmed");
-        assert.equal(resolveNativeAttachExternal({ BILI_NATIVE_ATTACH_EXTERNAL: "0" }), false);
-        assert.equal(resolveNativeAttachExternal({ BILI_NATIVE_ATTACH_EXTERNAL: "false" }), false);
-        assert.equal(resolveNativeAttachExternal({ BILI_NATIVE_ATTACH_EXTERNAL: "yes" }), false, "junk env is not a truthy answer");
+        assert.equal(resolveNativeAttachExternal({ SOPHIALIN_NATIVE_ATTACH_EXTERNAL: "" }), false, "blank env falls through to file");
+        assert.equal(resolveNativeAttachExternal({ SOPHIALIN_NATIVE_ATTACH_EXTERNAL: "1" }), true);
+        assert.equal(resolveNativeAttachExternal({ SOPHIALIN_NATIVE_ATTACH_EXTERNAL: "true" }), true);
+        assert.equal(resolveNativeAttachExternal({ SOPHIALIN_NATIVE_ATTACH_EXTERNAL: " TRUE " }), true, "case-insensitive and trimmed");
+        assert.equal(resolveNativeAttachExternal({ SOPHIALIN_NATIVE_ATTACH_EXTERNAL: "0" }), false);
+        assert.equal(resolveNativeAttachExternal({ SOPHIALIN_NATIVE_ATTACH_EXTERNAL: "false" }), false);
+        assert.equal(resolveNativeAttachExternal({ SOPHIALIN_NATIVE_ATTACH_EXTERNAL: "yes" }), false, "junk env is not a truthy answer");
     } finally {
         if (prev === undefined) delete process.env.XDG_CONFIG_HOME;
         else process.env.XDG_CONFIG_HOME = prev;
@@ -212,15 +212,15 @@ test("resolveNativeAttachExternal: env parsing (1/true open, 0/false close, junk
 
 test("resolveNativeAttachExternal: file native.attachExternal requires exact true; env still wins", () => {
     const prev = process.env.XDG_CONFIG_HOME;
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-attachext-"));
-    const cfgDir = path.join(dir, "billion-context");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-attachext-"));
+    const cfgDir = path.join(dir, "sophialin-context");
     fs.mkdirSync(cfgDir, { recursive: true });
-    const cfgFile = path.join(cfgDir, "billion-context.json");
+    const cfgFile = path.join(cfgDir, "sophialin-context.json");
     process.env.XDG_CONFIG_HOME = dir;
     try {
         fs.writeFileSync(cfgFile, JSON.stringify({ native: { attachExternal: true } }));
         assert.equal(resolveNativeAttachExternal({}), true, "file opens the gate");
-        assert.equal(resolveNativeAttachExternal({ BILI_NATIVE_ATTACH_EXTERNAL: "0" }), false, "env 0 overrides a permissive file");
+        assert.equal(resolveNativeAttachExternal({ SOPHIALIN_NATIVE_ATTACH_EXTERNAL: "0" }), false, "env 0 overrides a permissive file");
 
         fs.writeFileSync(cfgFile, JSON.stringify({ native: { attachExternal: "true" } }));
         assert.equal(resolveNativeAttachExternal({}), false, "string 'true' in the file is not a boolean true");
@@ -240,15 +240,15 @@ test("resolveNativeAttachExternal: file native.attachExternal requires exact tru
 // — hook planner ————————————————————————————————————————————
 
 test("planClaudeNativeBootstrap: launcher-owned / opt-out / start", () => {
-    assert.deepEqual(planClaudeNativeBootstrap({ BILLION_CONTEXT_PROXY: "http://127.0.0.1:39000" }).action, "exit");
-    assert.deepEqual(planClaudeNativeBootstrap({ BILI_PROVIDER_REWRITES: "x" }).action, "exit");
-    assert.deepEqual(planClaudeNativeBootstrap({ BILI_NATIVE_CLAUDE: "0" }).action, "passthrough");
-    assert.deepEqual(planClaudeNativeBootstrap({ BILLION_CONTEXT_PLUGIN: "0" }).action, "passthrough");
+    assert.deepEqual(planClaudeNativeBootstrap({ SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:39000" }).action, "exit");
+    assert.deepEqual(planClaudeNativeBootstrap({ SOPHIALIN_PROVIDER_REWRITES: "x" }).action, "exit");
+    assert.deepEqual(planClaudeNativeBootstrap({ SOPHIALIN_NATIVE_CLAUDE: "0" }).action, "passthrough");
+    assert.deepEqual(planClaudeNativeBootstrap({ SOPHIALIN_CONTEXT_PLUGIN: "0" }).action, "passthrough");
     // #1660: no explicit override → zone preference, non-strict launch.
     const start = planClaudeNativeBootstrap({});
     assert.deepEqual(start, { action: "start", port: ZONE_PORT_BASE, strict: false });
     // explicit override → same port, strict-port (#964 preserved).
-    assert.deepEqual(planClaudeNativeBootstrap({ BILI_CLAUDE_NATIVE_PORT: "49999" }), { action: "start", port: 49999, strict: true });
+    assert.deepEqual(planClaudeNativeBootstrap({ SOPHIALIN_CLAUDE_NATIVE_PORT: "49999" }), { action: "start", port: 49999, strict: true });
 });
 
 // — claude host pid resolution (parent-gone regression) —————————————————
@@ -493,7 +493,7 @@ test("resolveClaudeHostPid: full walk over a ps-backed table", () => {
 // Live mechanism check for the fallback path: a real `ps` subprocess, real
 // ppid chain, real match — everything except /proc itself.
 test("resolveClaudeHostPid: live ps walk finds a spawned claude host", { timeout: 30_000, skip: LIVE_E2E ? process.platform === "win32" : liveSkip }, async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-ps-live-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-ps-live-"));
     const claudeBin = path.join(dir, "claude");
     const pidFile = path.join(dir, "child.pid");
     // Node-shebang fake claude (argv[0] is `node`, script basename `claude`)
@@ -550,22 +550,22 @@ function fakeClaude(dir: string): string {
     return script;
 }
 
-function sandbox(): { dir: string; settings: string; mcpJson: string; biliConfig: string } {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-claude-"));
+function sandbox(): { dir: string; settings: string; mcpJson: string; sophialinConfig: string } {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-claude-"));
     process.env.CLAUDE_CONFIG_DIR = dir;
-    // #1660: install no longer persists claude.nativePort, but the bili
+    // #1660: install no longer persists claude.nativePort, but the sophialin
     // config path is still sandboxed so tests never touch the real user
     // config (loadConfigFile reads it for other keys).
-    const biliConfig = path.join(dir, "billion-context.json");
-    process.env.BILI_CONFIG_FILE = biliConfig;
-    return { dir, settings: path.join(dir, "settings.json"), mcpJson: path.join(dir, ".claude.json"), biliConfig };
+    const sophialinConfig = path.join(dir, "sophialin-context.json");
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
+    return { dir, settings: path.join(dir, "settings.json"), mcpJson: path.join(dir, ".claude.json"), sophialinConfig };
 }
 
-function unsandbox(prev: string | undefined, prevCfg: string | undefined = process.env.BILI_CONFIG_FILE): void {
+function unsandbox(prev: string | undefined, prevCfg: string | undefined = process.env.SOPHIALIN_CONFIG_FILE): void {
     if (prev === undefined) delete process.env.CLAUDE_CONFIG_DIR;
     else process.env.CLAUDE_CONFIG_DIR = prev;
-    if (prevCfg === undefined) delete process.env.BILI_CONFIG_FILE;
-    else process.env.BILI_CONFIG_FILE = prevCfg;
+    if (prevCfg === undefined) delete process.env.SOPHIALIN_CONFIG_FILE;
+    else process.env.SOPHIALIN_CONFIG_FILE = prevCfg;
 }
 
 test("claudeSettingsFile: CLAUDE_CONFIG_DIR replaces the whole .claude dir", () => {
@@ -595,12 +595,12 @@ test("resolveClaudeCli: bare names resolve via where.exe on Windows, untouched e
 
 test("installer round-trip: managed block + MCP face, then removal restores", () => {
     const prevDir = process.env.CLAUDE_CONFIG_DIR;
-    const prevCfg = process.env.BILI_CONFIG_FILE;
+    const prevCfg = process.env.SOPHIALIN_CONFIG_FILE;
     const prevClaude = process.env.CLAUDE;
-    const prevOpt = process.env.BILI_NATIVE_CLAUDE;
+    const prevOpt = process.env.SOPHIALIN_NATIVE_CLAUDE;
     const box = sandbox();
     try {
-        delete process.env.BILI_NATIVE_CLAUDE;
+        delete process.env.SOPHIALIN_NATIVE_CLAUDE;
         process.env.CLAUDE = fakeClaude(box.dir);
         assert.equal(claudeNativeInstalled(), false);
 
@@ -614,8 +614,8 @@ test("installer round-trip: managed block + MCP face, then removal restores", ()
         assert.equal(claudeNativeInstalled(), true);
         // #1660: install no longer persists claude.nativePort — the hook
         // resolves the same zone preference, and its repin pass follows any
-        // drift. The bili config may not even exist.
-        assert.equal(fs.existsSync(box.biliConfig), false);
+        // drift. The sophialin config may not even exist.
+        assert.equal(fs.existsSync(box.sophialinConfig), false);
 
         const removeNote = pluginRemove("claude");
         assert.ok(removeNote.includes("managed block removed"), removeNote);
@@ -627,8 +627,8 @@ test("installer round-trip: managed block + MCP face, then removal restores", ()
         unsandbox(prevDir, prevCfg);
         if (prevClaude === undefined) delete process.env.CLAUDE;
         else process.env.CLAUDE = prevClaude;
-        if (prevOpt === undefined) delete process.env.BILI_NATIVE_CLAUDE;
-        else process.env.BILI_NATIVE_CLAUDE = prevOpt;
+        if (prevOpt === undefined) delete process.env.SOPHIALIN_NATIVE_CLAUDE;
+        else process.env.SOPHIALIN_NATIVE_CLAUDE = prevOpt;
     }
 });
 
@@ -638,12 +638,12 @@ test("claudeAcpCacheCommandFile: CLAUDE_CONFIG_DIR replaces the whole .claude di
 
 test("installer writes and removes the model-mediated /acp-cache command file (#1146)", () => {
     const prevDir = process.env.CLAUDE_CONFIG_DIR;
-    const prevCfg = process.env.BILI_CONFIG_FILE;
+    const prevCfg = process.env.SOPHIALIN_CONFIG_FILE;
     const prevClaude = process.env.CLAUDE;
-    const prevOpt = process.env.BILI_NATIVE_CLAUDE;
+    const prevOpt = process.env.SOPHIALIN_NATIVE_CLAUDE;
     const box = sandbox();
     try {
-        delete process.env.BILI_NATIVE_CLAUDE;
+        delete process.env.SOPHIALIN_NATIVE_CLAUDE;
         process.env.CLAUDE = fakeClaude(box.dir);
         const note = pluginInstall("claude");
         const cmdFile = claudeAcpCacheCommandFile(process.env);
@@ -658,19 +658,19 @@ test("installer writes and removes the model-mediated /acp-cache command file (#
         unsandbox(prevDir, prevCfg);
         if (prevClaude === undefined) delete process.env.CLAUDE;
         else process.env.CLAUDE = prevClaude;
-        if (prevOpt === undefined) delete process.env.BILI_NATIVE_CLAUDE;
-        else process.env.BILI_NATIVE_CLAUDE = prevOpt;
+        if (prevOpt === undefined) delete process.env.SOPHIALIN_NATIVE_CLAUDE;
+        else process.env.SOPHIALIN_NATIVE_CLAUDE = prevOpt;
     }
 });
 
 test("installer leaves a foreign acp-cache.md untouched on install and removal (#1146)", () => {
     const prevDir = process.env.CLAUDE_CONFIG_DIR;
-    const prevCfg = process.env.BILI_CONFIG_FILE;
+    const prevCfg = process.env.SOPHIALIN_CONFIG_FILE;
     const prevClaude = process.env.CLAUDE;
-    const prevOpt = process.env.BILI_NATIVE_CLAUDE;
+    const prevOpt = process.env.SOPHIALIN_NATIVE_CLAUDE;
     const box = sandbox();
     try {
-        delete process.env.BILI_NATIVE_CLAUDE;
+        delete process.env.SOPHIALIN_NATIVE_CLAUDE;
         process.env.CLAUDE = fakeClaude(box.dir);
         const cmdFile = claudeAcpCacheCommandFile(process.env);
         fs.mkdirSync(path.dirname(cmdFile), { recursive: true });
@@ -685,23 +685,23 @@ test("installer leaves a foreign acp-cache.md untouched on install and removal (
         unsandbox(prevDir, prevCfg);
         if (prevClaude === undefined) delete process.env.CLAUDE;
         else process.env.CLAUDE = prevClaude;
-        if (prevOpt === undefined) delete process.env.BILI_NATIVE_CLAUDE;
-        else process.env.BILI_NATIVE_CLAUDE = prevOpt;
+        if (prevOpt === undefined) delete process.env.SOPHIALIN_NATIVE_CLAUDE;
+        else process.env.SOPHIALIN_NATIVE_CLAUDE = prevOpt;
     }
 });
 
 test("installer preserves foreign settings.json keys end-to-end", () => {
     const prevDir = process.env.CLAUDE_CONFIG_DIR;
-    const prevCfg = process.env.BILI_CONFIG_FILE;
+    const prevCfg = process.env.SOPHIALIN_CONFIG_FILE;
     const prevClaude = process.env.CLAUDE;
-    const prevOpt = process.env.BILI_NATIVE_CLAUDE;
+    const prevOpt = process.env.SOPHIALIN_NATIVE_CLAUDE;
     const box = sandbox();
     try {
-        delete process.env.BILI_NATIVE_CLAUDE;
+        delete process.env.SOPHIALIN_NATIVE_CLAUDE;
         process.env.CLAUDE = fakeClaude(box.dir);
         fs.writeFileSync(box.settings, JSON.stringify({ permissions: { allow: ["Bash"] }, env: { THEME: "dark" } }, null, 2));
         pluginInstall("claude");
-        assert.ok(fs.existsSync(`${box.settings}.bili-bak`), "pre-install snapshot of an existing settings file");
+        assert.ok(fs.existsSync(`${box.settings}.sophialin-bak`), "pre-install snapshot of an existing settings file");
         const after = JSON.parse(fs.readFileSync(box.settings, "utf8")) as { permissions?: unknown; env?: Record<string, string> };
         assert.deepEqual(after.permissions, { allow: ["Bash"] });
         assert.equal(after.env?.THEME, "dark");
@@ -713,20 +713,20 @@ test("installer preserves foreign settings.json keys end-to-end", () => {
         unsandbox(prevDir, prevCfg);
         if (prevClaude === undefined) delete process.env.CLAUDE;
         else process.env.CLAUDE = prevClaude;
-        if (prevOpt === undefined) delete process.env.BILI_NATIVE_CLAUDE;
-        else process.env.BILI_NATIVE_CLAUDE = prevOpt;
+        if (prevOpt === undefined) delete process.env.SOPHIALIN_NATIVE_CLAUDE;
+        else process.env.SOPHIALIN_NATIVE_CLAUDE = prevOpt;
     }
 });
 
 test("install with an explicit port bakes it; without env the hook rides the zone (#1660)", () => {
     const prevDir = process.env.CLAUDE_CONFIG_DIR;
-    const prevCfg = process.env.BILI_CONFIG_FILE;
+    const prevCfg = process.env.SOPHIALIN_CONFIG_FILE;
     const prevClaude = process.env.CLAUDE;
-    const prevOpt = process.env.BILI_NATIVE_CLAUDE;
-    const prevPortEnv = process.env.BILI_CLAUDE_NATIVE_PORT;
+    const prevOpt = process.env.SOPHIALIN_NATIVE_CLAUDE;
+    const prevPortEnv = process.env.SOPHIALIN_CLAUDE_NATIVE_PORT;
     const box = sandbox();
     try {
-        delete process.env.BILI_NATIVE_CLAUDE;
+        delete process.env.SOPHIALIN_NATIVE_CLAUDE;
         process.env.CLAUDE = fakeClaude(box.dir);
         // Live failure shape (#964): install with an explicit port, then
         // claude later runs the hook WITHOUT that env (claude does not inject
@@ -734,21 +734,21 @@ test("install with an explicit port bakes it; without env the hook rides the zon
         // copy anymore — without the env the hook resolves the zone
         // preference (non-strict), and its SessionStart repin pass rewrites
         // the baked URL to the live origin so the two can never stay desynced.
-        process.env.BILI_CLAUDE_NATIVE_PORT = "49999";
+        process.env.SOPHIALIN_CLAUDE_NATIVE_PORT = "49999";
         pluginInstall("claude");
         const settings = JSON.parse(fs.readFileSync(box.settings, "utf8")) as { env?: Record<string, string> };
         assert.equal(settings.env?.ANTHROPIC_BASE_URL, baseUrlForPort(49999));
-        assert.equal(fs.existsSync(box.biliConfig), false, "no claude.nativePort persisted anymore");
-        delete process.env.BILI_CLAUDE_NATIVE_PORT;
+        assert.equal(fs.existsSync(box.sophialinConfig), false, "no claude.nativePort persisted anymore");
+        delete process.env.SOPHIALIN_CLAUDE_NATIVE_PORT;
         // plan on a SANITIZED env copy: the dev/CI harness may itself run under
-        // a bili proxy (BILLION_CONTEXT_PROXY / BILI_PROVIDER_REWRITES force
+        // a sophialin proxy (SOPHIALIN_CONTEXT_PROXY / SOPHIALIN_PROVIDER_REWRITES force
         // "exit"), and a fresh XDG_STATE_HOME keeps the zone preference at the
         // base instead of following this machine's sticky record.
         const planEnv: NodeJS.ProcessEnv = { ...process.env, XDG_STATE_HOME: path.join(box.dir, "state") };
-        delete planEnv.BILLION_CONTEXT_PROXY;
-        delete planEnv.BILI_PROVIDER_REWRITES;
-        delete planEnv.BILI_NATIVE_CLAUDE;
-        delete planEnv.BILLION_CONTEXT_PLUGIN;
+        delete planEnv.SOPHIALIN_CONTEXT_PROXY;
+        delete planEnv.SOPHIALIN_PROVIDER_REWRITES;
+        delete planEnv.SOPHIALIN_NATIVE_CLAUDE;
+        delete planEnv.SOPHIALIN_CONTEXT_PLUGIN;
         assert.deepEqual(planClaudeNativeBootstrap(planEnv), { action: "start", port: ZONE_PORT_BASE, strict: false }, "hook (no env) rides the zone, non-strict");
         pluginRemove("claude");
         assert.equal(claudeNativeInstalled(), false);
@@ -756,30 +756,30 @@ test("install with an explicit port bakes it; without env the hook rides the zon
         unsandbox(prevDir, prevCfg);
         if (prevClaude === undefined) delete process.env.CLAUDE;
         else process.env.CLAUDE = prevClaude;
-        if (prevOpt === undefined) delete process.env.BILI_NATIVE_CLAUDE;
-        else process.env.BILI_NATIVE_CLAUDE = prevOpt;
-        if (prevPortEnv === undefined) delete process.env.BILI_CLAUDE_NATIVE_PORT;
-        else process.env.BILI_CLAUDE_NATIVE_PORT = prevPortEnv;
+        if (prevOpt === undefined) delete process.env.SOPHIALIN_NATIVE_CLAUDE;
+        else process.env.SOPHIALIN_NATIVE_CLAUDE = prevOpt;
+        if (prevPortEnv === undefined) delete process.env.SOPHIALIN_CLAUDE_NATIVE_PORT;
+        else process.env.SOPHIALIN_CLAUDE_NATIVE_PORT = prevPortEnv;
     }
 });
 
 test("repinClaudeManagedBaseUrl: follows a drifted origin, preserves the relay, never touches a foreign URL (#1660)", () => {
     const prevDir = process.env.CLAUDE_CONFIG_DIR;
-    const prevCfg = process.env.BILI_CONFIG_FILE;
-    const prevUp = process.env.BILI_CLAUDE_UPSTREAM;
+    const prevCfg = process.env.SOPHIALIN_CONFIG_FILE;
+    const prevUp = process.env.SOPHIALIN_CLAUDE_UPSTREAM;
     const box = sandbox();
     try {
-        delete process.env.BILI_CLAUDE_UPSTREAM;
+        delete process.env.SOPHIALIN_CLAUDE_UPSTREAM;
         // A store left over from an install that baked 48787 + a custom relay.
         fs.writeFileSync(
             box.settings,
-            JSON.stringify({ env: { ANTHROPIC_BASE_URL: "http://127.0.0.1:48787/bili/https://relay.example" } }),
+            JSON.stringify({ env: { ANTHROPIC_BASE_URL: "http://127.0.0.1:48787/sophialin/https://relay.example" } }),
             "utf8",
         );
         const notes = repinClaudeManagedBaseUrl("http://127.0.0.1:18788");
         const after = JSON.parse(fs.readFileSync(box.settings, "utf8")) as { env?: Record<string, string>; hooks?: unknown };
         // The relay survives the repin; only the origin moves.
-        assert.equal(after.env?.ANTHROPIC_BASE_URL, "http://127.0.0.1:18788/bili/https://relay.example");
+        assert.equal(after.env?.ANTHROPIC_BASE_URL, "http://127.0.0.1:18788/sophialin/https://relay.example");
         assert.ok(Array.isArray(after.hooks?.SessionStart), "the hook is upserted alongside");
         assert.ok(notes.length > 0);
 
@@ -797,35 +797,35 @@ test("repinClaudeManagedBaseUrl: follows a drifted origin, preserves the relay, 
         assert.equal(foreign.env?.ANTHROPIC_BASE_URL, "https://corporate-gateway.example");
     } finally {
         unsandbox(prevDir, prevCfg);
-        if (prevUp === undefined) delete process.env.BILI_CLAUDE_UPSTREAM;
-        else process.env.BILI_CLAUDE_UPSTREAM = prevUp;
+        if (prevUp === undefined) delete process.env.SOPHIALIN_CLAUDE_UPSTREAM;
+        else process.env.SOPHIALIN_CLAUDE_UPSTREAM = prevUp;
     }
 });
 
-test("installer refuses under BILI_NATIVE_CLAUDE=0", () => {
+test("installer refuses under SOPHIALIN_NATIVE_CLAUDE=0", () => {
     const prevDir = process.env.CLAUDE_CONFIG_DIR;
-    const prevCfg = process.env.BILI_CONFIG_FILE;
-    const prevOpt = process.env.BILI_NATIVE_CLAUDE;
+    const prevCfg = process.env.SOPHIALIN_CONFIG_FILE;
+    const prevOpt = process.env.SOPHIALIN_NATIVE_CLAUDE;
     const box = sandbox();
     try {
-        process.env.BILI_NATIVE_CLAUDE = "0";
+        process.env.SOPHIALIN_NATIVE_CLAUDE = "0";
         assert.throws(() => pluginInstall("claude"), /refused/);
         assert.equal(fs.existsSync(box.settings), false);
     } finally {
         unsandbox(prevDir, prevCfg);
-        if (prevOpt === undefined) delete process.env.BILI_NATIVE_CLAUDE;
-        else process.env.BILI_NATIVE_CLAUDE = prevOpt;
+        if (prevOpt === undefined) delete process.env.SOPHIALIN_NATIVE_CLAUDE;
+        else process.env.SOPHIALIN_NATIVE_CLAUDE = prevOpt;
     }
 });
 
 test("installer refuses malformed settings.json instead of overwriting", () => {
     const prevDir = process.env.CLAUDE_CONFIG_DIR;
-    const prevCfg = process.env.BILI_CONFIG_FILE;
+    const prevCfg = process.env.SOPHIALIN_CONFIG_FILE;
     const prevClaude = process.env.CLAUDE;
-    const prevOpt = process.env.BILI_NATIVE_CLAUDE;
+    const prevOpt = process.env.SOPHIALIN_NATIVE_CLAUDE;
     const box = sandbox();
     try {
-        delete process.env.BILI_NATIVE_CLAUDE;
+        delete process.env.SOPHIALIN_NATIVE_CLAUDE;
         process.env.CLAUDE = fakeClaude(box.dir);
         fs.writeFileSync(box.settings, "{ not json");
         assert.throws(() => pluginInstall("claude"), /not valid JSON/);
@@ -834,8 +834,8 @@ test("installer refuses malformed settings.json instead of overwriting", () => {
         unsandbox(prevDir, prevCfg);
         if (prevClaude === undefined) delete process.env.CLAUDE;
         else process.env.CLAUDE = prevClaude;
-        if (prevOpt === undefined) delete process.env.BILI_NATIVE_CLAUDE;
-        else process.env.BILI_NATIVE_CLAUDE = prevOpt;
+        if (prevOpt === undefined) delete process.env.SOPHIALIN_NATIVE_CLAUDE;
+        else process.env.SOPHIALIN_NATIVE_CLAUDE = prevOpt;
     }
 });
 
@@ -890,7 +890,7 @@ async function waitForPort(port: number, ms: number): Promise<boolean> {
     return false;
 }
 
-// The proxy writes <state>/billion-context/proxy-origin synchronously inside
+// The proxy writes <state>/sophialin-context/proxy-origin synchronously inside
 // its 'listening' callback — AFTER the kernel already accepts TCP connects on
 // the port. A reader that just saw the port come up can hit a real window
 // where the file is not on disk yet (#1031); poll briefly instead of one
@@ -910,7 +910,7 @@ async function waitForInstanceFile(file: string, ms: number): Promise<string> {
 
 function runHook(distScript: string, port: number, xdg: Record<string, string>): Promise<{ code: number | null; stderr: string }> {
     // Hermetic tmp: the hook's spawned proxy logs to
-    // <tmpdir>/bili-proxy-<port>.log. The minimal child env has no platform
+    // <tmpdir>/sophialin-proxy-<port>.log. The minimal child env has no platform
     // tmp vars, so pin every one of them to the sandbox (Node reads TMPDIR on
     // POSIX, TMP/TEMP on Windows — with none set it falls back to an
     // unwritable root, e.g. C:\). Derived here from home so EVERY caller is
@@ -926,7 +926,7 @@ function runHook(distScript: string, port: number, xdg: Record<string, string>):
                 XDG_STATE_HOME: xdg.state,
                 XDG_CACHE_HOME: xdg.cache,
                 XDG_DATA_HOME: xdg.data,
-                BILI_CLAUDE_NATIVE_PORT: String(port),
+                SOPHIALIN_CLAUDE_NATIVE_PORT: String(port),
                 NO_COLOR: "1",
                 TMPDIR: tmp,
                 TEMP: tmp,
@@ -946,7 +946,7 @@ function runHook(distScript: string, port: number, xdg: Record<string, string>):
 test("hook e2e: an occupied stable port fails loud — never port-hops", { timeout: 120_000, skip: liveSkip }, async () => {
     const distScript = path.resolve(import.meta.dirname, "..", "dist", "claude-native-bootstrap.js");
     ensureDistBuilt(distScript);
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-claude-hook-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-claude-hook-"));
     const xdg = {
         home,
         config: path.join(home, "cfg"),
@@ -955,7 +955,7 @@ test("hook e2e: an occupied stable port fails loud — never port-hops", { timeo
         data: path.join(home, "data"),
     };
     // A foreign listener squats the stable port (a relay, another test
-    // stub, anything non-bili). Without strict-port the spawned proxy
+    // stub, anything non-sophialin). Without strict-port the spawned proxy
     // would EADDRINUSE-hop to port+1 and "succeed" — stranding every
     // claude model call on the dead original port (found live on the
     // host of issue #964: two test listeners on 48787/48788).
@@ -979,17 +979,17 @@ test("hook e2e: an occupied stable port fails loud — never port-hops", { timeo
 test("hook e2e: a healthy proxy on ANOTHER port is never attached (static URL)", { timeout: 120_000, skip: liveSkip }, async () => {
     const distScript = path.resolve(import.meta.dirname, "..", "dist", "claude-native-bootstrap.js");
     ensureDistBuilt(distScript);
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-claude-hook-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-claude-hook-"));
     const xdg = { home, config: path.join(home, "cfg"), state: path.join(home, "state"), cache: path.join(home, "cache"), data: path.join(home, "data") };
     const portA = await freePort();
     const portB = await freePort([portA]);
-    const instFile = path.join(xdg.state, "billion-context", "proxy-origin");
+    const instFile = path.join(xdg.state, "sophialin-context", "proxy-origin");
     let pidA = 0;
     let pidB = 0;
     try {
         // Bring up a healthy proxy on portA first — its instance file is
         // exactly what a probe would attach to (this mirrors the live host:
-        // another bili proxy already running when claude's hook fires).
+        // another sophialin proxy already running when claude's hook fires).
         const rA = await runHook(distScript, portA, xdg);
         assert.equal(rA.code, 0);
         assert.ok(await waitForPort(portA, 60_000), "proxy A up");
@@ -1047,7 +1047,7 @@ function ensureDistBuilt(distScript: string): void {
 test("hook e2e: dist script spawns a proxy on the stable port, second run attaches", { timeout: 120_000, skip: liveSkip }, async () => {
     const distScript = path.resolve(import.meta.dirname, "..", "dist", "claude-native-bootstrap.js");
     ensureDistBuilt(distScript);
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-claude-hook-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-claude-hook-"));
     const xdg = {
         home,
         config: path.join(home, "cfg"),
@@ -1056,7 +1056,7 @@ test("hook e2e: dist script spawns a proxy on the stable port, second run attach
         data: path.join(home, "data"),
     };
     const port = await freePort();
-    const instanceFile = path.join(xdg.state, "billion-context", "proxy-origin");
+    const instanceFile = path.join(xdg.state, "sophialin-context", "proxy-origin");
     let proxyPid = 0;
     try {
         const r1 = await runHook(distScript, port, xdg);
@@ -1098,7 +1098,7 @@ test("hook e2e: dist script spawns a proxy on the stable port, second run attach
 test("hook e2e: watchdog tracks the claude host, not the transient sh wrapper", { timeout: 120_000, skip: LIVE_E2E ? process.platform !== "linux" : liveSkip }, async () => {
     const distScript = path.resolve(import.meta.dirname, "..", "dist", "claude-native-bootstrap.js");
     ensureDistBuilt(distScript);
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-claude-hook-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-claude-hook-"));
     const xdg = { home, config: path.join(home, "cfg"), state: path.join(home, "state"), cache: path.join(home, "cache"), data: path.join(home, "data") };
     const tmp = path.join(xdg.home, "tmp");
     fs.mkdirSync(tmp, { recursive: true });
@@ -1115,7 +1115,7 @@ test("hook e2e: watchdog tracks the claude host, not the transient sh wrapper", 
     fs.writeFileSync(
         claudeBin,
         '#!/usr/bin/env node\nconst { spawn } = require("node:child_process");\n' +
-            'spawn("/bin/sh", ["-c", process.env.BILI_FAKE_HOOK_CMD], { stdio: "ignore" });\n' +
+            'spawn("/bin/sh", ["-c", process.env.SOPHIALIN_FAKE_HOOK_CMD], { stdio: "ignore" });\n' +
             "setInterval(() => {}, 60000);\n",
     );
     fs.chmodSync(claudeBin, 0o755);
@@ -1127,18 +1127,18 @@ test("hook e2e: watchdog tracks the claude host, not the transient sh wrapper", 
             XDG_STATE_HOME: xdg.state,
             XDG_CACHE_HOME: xdg.cache,
             XDG_DATA_HOME: xdg.data,
-            BILI_CLAUDE_NATIVE_PORT: String(port),
+            SOPHIALIN_CLAUDE_NATIVE_PORT: String(port),
             NO_COLOR: "1",
             TMPDIR: tmp,
             TEMP: tmp,
             TMP: tmp,
-            BILI_FAKE_HOOK_CMD: `"${process.execPath}" '${distScript}'`,
+            SOPHIALIN_FAKE_HOOK_CMD: `"${process.execPath}" '${distScript}'`,
         },
         stdio: "ignore",
         detached: true,
     });
     const claudePid = claudeProc.pid ?? 0;
-    const instanceFile = path.join(xdg.state, "billion-context", "proxy-origin");
+    const instanceFile = path.join(xdg.state, "sophialin-context", "proxy-origin");
     let proxyPid = 0;
     try {
         assert.ok(await waitForPort(port, 60_000), "proxy up behind the fake claude session");
@@ -1172,23 +1172,23 @@ test("hook e2e: watchdog tracks the claude host, not the transient sh wrapper", 
 });
 
 // #7: the stable-port proxy is shared across sessions, so the parent-gone
-// watchdog had to become a WATCHER SET — POST /__bili/watcher lets an
+// watchdog had to become a WATCHER SET — POST /__sophialin/watcher lets an
 // attached session register its claude host, and the proxy dies only when
 // every owner is gone. This test pins the route contract against a real
 // dist proxy, no fake claude needed (platform-neutral):
 //   - armed proxies accept registrations (200) and reject garbage (400);
-//   - daemon proxies (no BILI_PARENT_PID) NEVER take watchers (409) —
+//   - daemon proxies (no SOPHIALIN_PARENT_PID) NEVER take watchers (409) —
 //     registering one must not arm a lifetime watchdog on a daemon;
 //   - an armed proxy exits when its registered keeper dies.
 test("watcher route: shared proxies take watcher registrations, daemons refuse (#7)", { timeout: 120_000, skip: liveSkip }, async () => {
     const distCli = path.resolve(import.meta.dirname, "..", "dist", "index.js");
     ensureDistBuilt(distCli);
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-watcher-route-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-watcher-route-"));
     const xdg = { home, config: path.join(home, "cfg"), state: path.join(home, "state"), cache: path.join(home, "cache"), data: path.join(home, "data") };
     const port = await freePort();
     const origin = `http://127.0.0.1:${port}`;
     const post = (body: unknown, headers: Record<string, string> = {}) =>
-        fetch(`${origin}/__bili/watcher`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
+        fetch(`${origin}/__sophialin/watcher`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
     // Keeper: a live pid the armed proxy watches. Its death must take the
     // proxy down (the sweep side of the set watchdog). A second keeper pins
     // the idle GRACE: registering within WATCHER_IDLE_GRACE_MS of the last
@@ -1209,13 +1209,13 @@ test("watcher route: shared proxies take watcher registrations, daemons refuse (
     let armed = 0;
     let daemon = 0;
     try {
-        armed = spawnProxy(distCli, port, { ...baseEnv, BILI_PARENT_PID: String(keeperPid) });
+        armed = spawnProxy(distCli, port, { ...baseEnv, SOPHIALIN_PARENT_PID: String(keeperPid) });
         assert.ok(await waitForPort(port, 60_000), "armed proxy up");
-        // The watcher route MUST sit inside the /__bili/ admin family: a URL
+        // The watcher route MUST sit inside the /__sophialin/ admin family: a URL
         // outside isAdminPath (e.g. a /__bili__/ spelling) silently skips the
         // tunnel-header, loopback and trusted-origin gates. Both probes below
         // must be rejected by the GATE (403), never reach the route.
-        assert.equal((await post({ pid: keeperPid }, { "x-bili-tunnel": "1" })).status, 403, "watcher route is behind the tunnel-header gate");
+        assert.equal((await post({ pid: keeperPid }, { "x-sophialin-tunnel": "1" })).status, 403, "watcher route is behind the tunnel-header gate");
         assert.equal((await post({ pid: keeperPid }, { origin: "https://evil.example" })).status, 403, "watcher route is behind the trusted-origin gate");
         assert.equal((await post({})).status, 400, "empty body rejected");
         assert.equal((await post({ pid: 0 })).status, 400, "pid 0 rejected");
@@ -1226,7 +1226,7 @@ test("watcher route: shared proxies take watcher registrations, daemons refuse (
         assert.match(JSON.stringify(await ok.json()), /"ok":true/, "ok:true body");
         // #1322: health must expose the lifecycle state so callers can tell a
         // session-owned proxy from a daemon before they commit to it.
-        const armedHealth = (await (await fetch(`${origin}/__bili/health`)).json()) as { watchdog?: { armed?: boolean; parentPid?: number; watchers?: number[] } };
+        const armedHealth = (await (await fetch(`${origin}/__sophialin/health`)).json()) as { watchdog?: { armed?: boolean; parentPid?: number; watchers?: number[] } };
         assert.equal(armedHealth.watchdog?.armed, true, "armed proxy reports armed");
         assert.equal(armedHealth.watchdog?.parentPid, keeperPid, "spawning owner reported");
         assert.deepEqual(armedHealth.watchdog?.watchers, [keeperPid], "owner seeded the set");
@@ -1248,7 +1248,7 @@ test("watcher route: shared proxies take watcher registrations, daemons refuse (
         while (Date.now() < deadline && (await canConnect(port))) await new Promise((r) => setTimeout(r, 250));
         assert.equal(await canConnect(port), false, "armed proxy exits when its watcher dies");
 
-        // Daemon mode: no BILI_PARENT_PID → registrations refused, and a
+        // Daemon mode: no SOPHIALIN_PARENT_PID → registrations refused, and a
         // refused registration must not arm a watchdog that kills it later.
         daemon = spawnProxy(distCli, port, baseEnv);
         assert.ok(await waitForPort(port, 60_000), "daemon proxy up on the same port");
@@ -1257,7 +1257,7 @@ test("watcher route: shared proxies take watcher registrations, daemons refuse (
         assert.ok(await canConnect(port), "daemon stays up — no watchdog got armed");
         // #1322: the refusal must be visible through health — this is the field
         // that lets an attaching session notice the lifecycle contract is void.
-        const daemonHealth = (await (await fetch(`${origin}/__bili/health`)).json()) as { watchdog?: { armed?: boolean; parentPid?: number; watchers?: number[] } };
+        const daemonHealth = (await (await fetch(`${origin}/__sophialin/health`)).json()) as { watchdog?: { armed?: boolean; parentPid?: number; watchers?: number[] } };
         assert.equal(daemonHealth.watchdog?.armed, false, "unarmed proxy reports unarmed");
         assert.equal(daemonHealth.watchdog?.parentPid, undefined, "no owner pid");
         assert.deepEqual(daemonHealth.watchdog?.watchers, [], "refused registration joined nothing");
@@ -1270,21 +1270,21 @@ test("watcher route: shared proxies take watcher registrations, daemons refuse (
     }
 });
 
-// #1322/#1335/#1660 end-to-end: a MANUALLY started `bili start` daemon
+// #1322/#1335/#1660 end-to-end: a MANUALLY started `sophialin start` daemon
 // squats on the pinned port BEFORE any session begins. Old world: the hook
 // refused it (unarmed) and the strict pinned port then failed fast — the
 // operator had to kill their own daemon. #1660 user-zone semantics: a manual
 // start is BY DEFINITION user-maintained, so the hook attaches and rides it;
 // the daemon's fate stays the operator's. The strict fail-fast still exists
 // for lifecycle-less LANE'd squatters (unit-tested in launcher.test.ts) and
-// for non-bili listeners (spawn EADDRINUSE). Linux-only like the other hook
+// for non-sophialin listeners (spawn EADDRINUSE). Linux-only like the other hook
 // e2es (fake claude walks /proc).
-test("hook e2e: manual `bili start` on the pinned port is attached, not refused (#1322/#1335/#1660)", { timeout: 180_000, skip: LIVE_E2E ? process.platform !== "linux" : liveSkip }, async () => {
+test("hook e2e: manual `sophialin start` on the pinned port is attached, not refused (#1322/#1335/#1660)", { timeout: 180_000, skip: LIVE_E2E ? process.platform !== "linux" : liveSkip }, async () => {
     const distCli = path.resolve(import.meta.dirname, "..", "dist", "index.js");
     const distScript = path.resolve(import.meta.dirname, "..", "dist", "claude-native-bootstrap.js");
     ensureDistBuilt(distCli);
     ensureDistBuilt(distScript);
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-claude-squatter-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-claude-squatter-"));
     const xdg = { home, config: path.join(home, "cfg"), state: path.join(home, "state"), cache: path.join(home, "cache"), data: path.join(home, "data") };
     fs.mkdirSync(path.join(home, "tmp"), { recursive: true });
     const port = await freePort();
@@ -1328,7 +1328,7 @@ test("hook e2e: manual `bili start` on the pinned port is attached, not refused 
             { mode: 0o755 },
         );
         claudePid = spawn(claudeBin, [], {
-            env: { ...baseEnv, BILI_CLAUDE_NATIVE_PORT: String(port), HOOK_CMD: `"${process.execPath}" "${distScript}"`, HOOK_ERRFILE: errFile, HOOK_DONE: doneFile },
+            env: { ...baseEnv, SOPHIALIN_CLAUDE_NATIVE_PORT: String(port), HOOK_CMD: `"${process.execPath}" "${distScript}"`, HOOK_ERRFILE: errFile, HOOK_DONE: doneFile },
             detached: true,
             stdio: "ignore",
         }).pid ?? 0;
@@ -1346,7 +1346,7 @@ test("hook e2e: manual `bili start` on the pinned port is attached, not refused 
         claudePid = 0;
         await new Promise((r) => setTimeout(r, 15_000));
         assert.ok(await canConnect(port), "daemon survives session end — operator decides its fate");
-        const h = (await (await fetch(`http://127.0.0.1:${port}/__bili/health`)).json()) as { watchdog?: { armed?: boolean; watchers?: number[] } };
+        const h = (await (await fetch(`http://127.0.0.1:${port}/__sophialin/health`)).json()) as { watchdog?: { armed?: boolean; watchers?: number[] } };
         assert.equal(h.watchdog?.armed, false, "health explains the manual start (no session lifecycle)");
         assert.deepEqual(h.watchdog?.watchers, [], "the session's watcher unregistered on exit");
     } finally {
@@ -1363,7 +1363,7 @@ function spawnProxy(distCli: string, port: number, env: NodeJS.ProcessEnv): numb
 
 // #7 end-to-end: two concurrent claude sessions share ONE stable-port proxy.
 // The first session's hook SPAWNS it (watchdog seeded with session A's host);
-// the second ATTACHES and must register its own host via POST /__bili/watcher.
+// the second ATTACHES and must register its own host via POST /__sophialin/watcher.
 // Old code: A's exit killed the shared proxy and session B went down with it
 // (Connection refused mid-session). Fixed: the proxy survives A's death while
 // B lives, and dies only after the LAST session exits. Linux-only like the
@@ -1371,7 +1371,7 @@ function spawnProxy(distCli: string, port: number, env: NodeJS.ProcessEnv): numb
 test("hook e2e: shared proxy survives the first session's exit, dies after the last (#7)", { timeout: 180_000, skip: LIVE_E2E ? process.platform !== "linux" : liveSkip }, async () => {
     const distScript = path.resolve(import.meta.dirname, "..", "dist", "claude-native-bootstrap.js");
     ensureDistBuilt(distScript);
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-claude-share-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-claude-share-"));
     const xdg = { home, config: path.join(home, "cfg"), state: path.join(home, "state"), cache: path.join(home, "cache"), data: path.join(home, "data") };
     const tmp = path.join(xdg.home, "tmp");
     fs.mkdirSync(tmp, { recursive: true });
@@ -1382,7 +1382,7 @@ test("hook e2e: shared proxy survives the first session's exit, dies after the l
     fs.writeFileSync(
         claudeBin,
         '#!/usr/bin/env node\nconst { spawn } = require("node:child_process");\n' +
-            'spawn("/bin/sh", ["-c", process.env.BILI_FAKE_HOOK_CMD], { stdio: "ignore" });\n' +
+            'spawn("/bin/sh", ["-c", process.env.SOPHIALIN_FAKE_HOOK_CMD], { stdio: "ignore" });\n' +
             "setInterval(() => {}, 60000);\n",
     );
     fs.chmodSync(claudeBin, 0o755);
@@ -1393,18 +1393,18 @@ test("hook e2e: shared proxy survives the first session's exit, dies after the l
         XDG_STATE_HOME: xdg.state,
         XDG_CACHE_HOME: xdg.cache,
         XDG_DATA_HOME: xdg.data,
-        BILI_CLAUDE_NATIVE_PORT: String(port),
+        SOPHIALIN_CLAUDE_NATIVE_PORT: String(port),
         NO_COLOR: "1",
         TMPDIR: tmp,
         TEMP: tmp,
         TMP: tmp,
-        BILI_FAKE_HOOK_CMD: `"${process.execPath}" '${distScript}'`,
+        SOPHIALIN_FAKE_HOOK_CMD: `"${process.execPath}" '${distScript}'`,
     };
     const spawnClaude = (): number => {
         const proc = spawn(claudeBin, [], { env: sessionEnv, stdio: "ignore", detached: true });
         return proc.pid ?? 0;
     };
-    const instanceFile = path.join(xdg.state, "billion-context", "proxy-origin");
+    const instanceFile = path.join(xdg.state, "sophialin-context", "proxy-origin");
     const claudeA = spawnClaude();
     let proxyPid = 0;
     let claudeB = 0;

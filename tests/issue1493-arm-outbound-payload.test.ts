@@ -7,7 +7,7 @@ process.env.NODE_ENV = "test";
 // #1688: these scenarios assert the single-attempt network-failure shape (first
 // socket drop → immediate 502 → arm); pin the legacy no-retry budget so the
 // first drop still surfaces as 502 instead of being transparently replayed.
-process.env.BILI_REPLAY_RETRY_MAX = "1";
+process.env.SOPHIALIN_REPLAY_RETRY_MAX = "1";
 
 import { defaultConfig } from "acp-kernel";
 import { startServer, type ProxyOptions } from "../src/server.ts";
@@ -158,12 +158,12 @@ test("#1493: network-level failure arms at the outbound payload (fits) → below
     const { proxy, port } = await startProxy(upstreamPort, "pixels");
 
     try {
-        const url = `http://127.0.0.1:${port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const body = JSON.stringify({ model: "claude-relay", max_tokens: 1024, stream: true, system: "You are a helpful assistant.", messages: imageConversation() });
         const idsBefore = new Set(listSessions().map((x) => x.id));
 
         const r1 = await fetch(url, { method: "POST", headers: { "content-type": "application/json", "x-acp-session": "net-sess" }, body });
-        assert.equal(r1.status, 502, "network failure surfaces as bili's 502");
+        assert.equal(r1.status, 502, "network failure surfaces as sophialin's 502");
         await r1.text();
 
         const sid = listSessions().find((x) => !idsBefore.has(x.id))?.id;
@@ -192,7 +192,7 @@ test("#1493: relay 5xx arms at the outbound payload (fits) → below the emergen
     const { proxy, port } = await startProxy(upstreamPort, "pixels");
 
     try {
-        const url = `http://127.0.0.1:${port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const body = JSON.stringify({ model: "claude-relay", max_tokens: 1024, stream: true, system: "You are a helpful assistant.", messages: imageConversation() });
         const idsBefore = new Set(listSessions().map((x) => x.id));
 
@@ -231,7 +231,7 @@ test("#1498-F2: transform-failure fallback arms at the RAW view, not wire overhe
     const TEXT_CHARS = 60_000;
     const history = [{ role: "user", content: "x".repeat(TEXT_CHARS) }];
     try {
-        const url = `http://127.0.0.1:${port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const headers = { "content-type": "application/json", "x-acp-session": "f2-sess" };
         const body = JSON.stringify({ model: "claude-relay", max_tokens: 1024, stream: true, system: "You are a helpful assistant.", messages: history });
 

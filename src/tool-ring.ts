@@ -8,8 +8,8 @@ import { stableStringify } from "./prefix-affinity.js";
  * conversation_id tool parameter, no tail note): the wire stays byte-stable so
  * fork/`--continue` inherit the upstream prefix cache 100% (#1611). A shared
  * MCP shim that cannot derive a conversation id still needs its
- * POST /__bili/plugin/tool routed to the right session. The proxy is the only
- * path model output takes, so it WITNESSES every complete bili tool call as it
+ * POST /__sophialin/plugin/tool routed to the right session. The proxy is the only
+ * path model output takes, so it WITNESSES every complete sophialin tool call as it
  * streams out (name + arguments). This ring keeps, per session, the last N
  * witnessed calls; an id-less POST is matched by hashing its (name, args) the
  * same way both sides do, and the witness names the session.

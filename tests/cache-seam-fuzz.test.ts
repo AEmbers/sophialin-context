@@ -194,7 +194,7 @@ async function drive(sc: Scenario, sessionId: string): Promise<string[]> {
         proxy = await startServer(proxyOptions);
         await listen(proxy);
         const proxyPort = (proxy.address() as { port: number }).port;
-        const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/chat/completions`;
+        const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/chat/completions`;
         const clientTools = sc.toolsOnClient ? [{ type: "function", function: { name: "shell", description: "run a shell command", parameters: { type: "object", properties: { command: { type: "string" } }, required: ["command"] } } }] : undefined;
         const hist: Msg[] = [{ role: "system", content: "You are a coding agent. Follow conventions. Run tests." }];
         for (let t = 1; t <= sc.turns; t++) {

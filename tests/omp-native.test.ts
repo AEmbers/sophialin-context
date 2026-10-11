@@ -10,34 +10,34 @@ import { pluginInstall, pluginRemove, pluginStatusAll, selfPackageRoot, ompPlugi
 import { rmrf } from "./tmp-rm.ts";
 
 // #957 coexistence: markNativeHost must be set synchronously during module
-// evaluation so any in-process bili extension backs off in THIS process.
+// evaluation so any in-process sophialin extension backs off in THIS process.
 test("module evaluation marks the process as a native omp host", () => {
-    assert.equal(process.env.BILLION_CONTEXT_NATIVE, "omp");
+    assert.equal(process.env.SOPHIALIN_CONTEXT_NATIVE, "omp");
 });
 
-test("shouldBootstrapNativeOmp: true in a bare host with no bili env", () => {
+test("shouldBootstrapNativeOmp: true in a bare host with no sophialin env", () => {
     assert.equal(shouldBootstrapNativeOmp({}), true);
 });
 
 test("shouldBootstrapNativeOmp: false when the plugin or native mode is opted out", () => {
-    assert.equal(shouldBootstrapNativeOmp({ BILLION_CONTEXT_PLUGIN: "0" }), false);
-    assert.equal(shouldBootstrapNativeOmp({ BILI_NATIVE_OMP: "0" }), false);
-    assert.equal(shouldBootstrapNativeOmp({ BILI_NATIVE_PI: "0" }), true, "another host's opt-out does not affect omp");
+    assert.equal(shouldBootstrapNativeOmp({ SOPHIALIN_CONTEXT_PLUGIN: "0" }), false);
+    assert.equal(shouldBootstrapNativeOmp({ SOPHIALIN_NATIVE_OMP: "0" }), false);
+    assert.equal(shouldBootstrapNativeOmp({ SOPHIALIN_NATIVE_PI: "0" }), true, "another host's opt-out does not affect omp");
 });
 
-test("shouldBootstrapNativeOmp: false when a bili launch already owns a proxy", () => {
-    assert.equal(shouldBootstrapNativeOmp({ BILLION_CONTEXT_PROXY: "http://127.0.0.1:36485" }), false);
-    assert.equal(shouldBootstrapNativeOmp({ BILLION_CONTEXT_PROXY: "  " }), true);
-    assert.equal(shouldBootstrapNativeOmp({ BILI_PROVIDER_REWRITES: '{"vllm":"http://127.0.0.1:1/bili/http://x"}' }), false);
+test("shouldBootstrapNativeOmp: false when a sophialin launch already owns a proxy", () => {
+    assert.equal(shouldBootstrapNativeOmp({ SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:36485" }), false);
+    assert.equal(shouldBootstrapNativeOmp({ SOPHIALIN_CONTEXT_PROXY: "  " }), true);
+    assert.equal(shouldBootstrapNativeOmp({ SOPHIALIN_PROVIDER_REWRITES: '{"vllm":"http://127.0.0.1:1/sophialin/http://x"}' }), false);
 });
 
-test("ompTrafficRidesBili: true for self-bootstrap, launcher proxy, /bili/ rewrites", () => {
+test("ompTrafficRidesBili: true for self-bootstrap, launcher proxy, /sophialin/ rewrites", () => {
     assert.equal(ompTrafficRidesBili({}), true, "bare host: gate passes, self-bootstrap will own the proxy");
-    assert.equal(ompTrafficRidesBili({ BILLION_CONTEXT_PROXY: "http://127.0.0.1:8787" }), true, "launcher/MITM launch");
-    assert.equal(ompTrafficRidesBili({ BILI_PROVIDER_REWRITES: '{"vllm":"http://127.0.0.1:1/bili/http://x"}' }), true, "/bili/-rewrite launch");
-    assert.equal(ompTrafficRidesBili({ BILI_NATIVE_OMP: "0", BILLION_CONTEXT_PROXY: "  " }), false, "opted out + blank proxy — traffic goes direct");
-    assert.equal(ompTrafficRidesBili({ BILI_NATIVE_OMP: "0" }), false, "opted out — traffic goes direct");
-    assert.equal(ompTrafficRidesBili({ BILI_NATIVE_OMP: "0", BILLION_CONTEXT_PROXY: "http://127.0.0.1:8787" }), true, "launcher wins over the native opt-out");
+    assert.equal(ompTrafficRidesBili({ SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8787" }), true, "launcher/MITM launch");
+    assert.equal(ompTrafficRidesBili({ SOPHIALIN_PROVIDER_REWRITES: '{"vllm":"http://127.0.0.1:1/sophialin/http://x"}' }), true, "/sophialin/-rewrite launch");
+    assert.equal(ompTrafficRidesBili({ SOPHIALIN_NATIVE_OMP: "0", SOPHIALIN_CONTEXT_PROXY: "  " }), false, "opted out + blank proxy — traffic goes direct");
+    assert.equal(ompTrafficRidesBili({ SOPHIALIN_NATIVE_OMP: "0" }), false, "opted out — traffic goes direct");
+    assert.equal(ompTrafficRidesBili({ SOPHIALIN_NATIVE_OMP: "0", SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8787" }), true, "launcher wins over the native opt-out");
 });
 
 test("#1774 first-event timeout value: default when unset, user-pinned values (incl. 0) win", () => {
@@ -69,7 +69,7 @@ test("default export is an ExtensionFactory (loaded by omp's extensions loader)"
     assert.equal(typeof factory, "function");
 });
 
-// — installer: `bili plugin install omp` targets the native entry (#957) ——
+// — installer: `sophialin plugin install omp` targets the native entry (#957) ——
 
 const NATIVE_ENTRY = path.join(selfPackageRoot(), "dist", "agent", "omp-native.js");
 

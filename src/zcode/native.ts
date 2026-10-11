@@ -28,23 +28,23 @@ import {
 } from "./json-edit.js";
 
 const SIGNING_BLOCK_MESSAGE =
-    'zcode v3.14+ client signing (#1621) rejects the http://127.0.0.1 /bili/ origin at model creation ("Client signing handshake requires HTTPS.") — skipping native routing; provider store left untouched. For compression on this build use the GUI cert-MITM setup (Settings → Network: HTTP proxy + root CA path).';
+    'zcode v3.14+ client signing (#1621) rejects the http://127.0.0.1 /sophialin/ origin at model creation ("Client signing handshake requires HTTPS.") — skipping native routing; provider store left untouched. For compression on this build use the GUI cert-MITM setup (Settings → Network: HTTP proxy + root CA path).';
 
 export type ZcodeNativePlan =
     | { readonly mode: "off" }
     | { readonly mode: "attach"; readonly attachOrigin: string }
     | { readonly mode: "spawn" };
 
-// Kill-switches > attach (BILLION_CONTEXT_ATTACH ?? BILLION_CONTEXT_PROXY) >
-// spawn. A preset BILLION_CONTEXT_PROXY is the launcher (or a user attach):
+// Kill-switches > attach (SOPHIALIN_CONTEXT_ATTACH ?? SOPHIALIN_CONTEXT_PROXY) >
+// spawn. A preset SOPHIALIN_CONTEXT_PROXY is the launcher (or a user attach):
 // we ATTACH to it instead of spawning. The shared provider store is still
 // rewritten to the attached origin on every bootstrap (#1623: last-writer-
 // wins across all instances; watchdog drift repair keeps the pointer alive),
 // so an external store pin only survives when it matches the attached origin.
 // Same contract as planNativeKimi (#963) / planNativeDsh (#941).
 export function planNativeZcode(env: NodeJS.ProcessEnv = process.env): ZcodeNativePlan {
-    if (env.BILLION_CONTEXT_PLUGIN === "0" || env.BILI_NATIVE_ZCODE === "0") return { mode: "off" };
-    if (env.BILI_PROVIDER_REWRITES !== undefined) return { mode: "off" };
+    if (env.SOPHIALIN_CONTEXT_PLUGIN === "0" || env.SOPHIALIN_NATIVE_ZCODE === "0") return { mode: "off" };
+    if (env.SOPHIALIN_PROVIDER_REWRITES !== undefined) return { mode: "off" };
     const attach = nativeAttachOrigin(env) ?? proxyEnvOrigin(env);
     if (attach !== undefined) return { mode: "attach", attachOrigin: attach };
     return { mode: "spawn" };
@@ -52,7 +52,7 @@ export function planNativeZcode(env: NodeJS.ProcessEnv = process.env): ZcodeNati
 
 export async function probeProxyHealth(origin: string, timeoutMs = 2000): Promise<boolean> {
     try {
-        const res = await fetch(`${origin}/__bili/plugin/status?conversationId=zcode&fallback=latest`, { signal: AbortSignal.timeout(timeoutMs) });
+        const res = await fetch(`${origin}/__sophialin/plugin/status?conversationId=zcode&fallback=latest`, { signal: AbortSignal.timeout(timeoutMs) });
         // A live proxy answers this in EVERY boot state — 200 once a session
         // exists, 404 before the first request — so 404 is healthy too; only
         // a network failure means "not up yet".
@@ -73,7 +73,7 @@ export async function waitForProxyHealthy(origin: string, deadlineMs = 15000, in
     }
 }
 
-const CONFIG_LOCK_DIR = ".bili-config.lock";
+const CONFIG_LOCK_DIR = ".sophialin-config.lock";
 const CONFIG_LOCK_TIMEOUT_MS = 5000;
 const CONFIG_LOCK_STALE_MS = 30000;
 
@@ -135,7 +135,7 @@ export interface RouteZcodeOptions {
     readonly policy?: ZcodeRoutePolicy;
 }
 
-// #1002 snapshot discipline: .bili-bak holds the state before bili's LATEST
+// #1002 snapshot discipline: .sophialin-bak holds the state before sophialin's LATEST
 // write, re-snapshotted whenever the file changed since our previous write —
 // i.e. user edits made while native mode is active are never lost on restore.
 function hashText(text: string): string {
@@ -143,8 +143,8 @@ function hashText(text: string): string {
 }
 
 function snapshotAndWrite(file: string, text: string): void {
-    const bak = `${file}.bili-bak`;
-    const last = `${file}.bili-last`;
+    const bak = `${file}.sophialin-bak`;
+    const last = `${file}.sophialin-last`;
     if (fs.existsSync(file)) {
         let cur: string;
         try {
@@ -166,22 +166,22 @@ function snapshotAndWrite(file: string, text: string): void {
 
 function removeSnapshots(file: string): void {
     try {
-        fs.rmSync(`${file}.bili-bak`, { force: true });
+        fs.rmSync(`${file}.sophialin-bak`, { force: true });
     } catch {}
     try {
-        fs.rmSync(`${file}.bili-last`, { force: true });
+        fs.rmSync(`${file}.sophialin-last`, { force: true });
     } catch {}
 }
 
 /** Policy for entry points that don't thread a resolved policy through
  *  options (mcp-entry watchdog, SessionStart hook, drift repair, exit
  *  handoff): read env + providers table now. Route scope is env-only
- *  (BILI_ZCODE_ROUTE) — the compat escape hatch; exemptions come from
+ *  (SOPHIALIN_ZCODE_ROUTE) — the compat escape hatch; exemptions come from
  *  `direct: true` provider routes (#1622). */
 export function zcodePolicyFromEnv(env: NodeJS.ProcessEnv): ZcodeRoutePolicy {
-    const raw = (env.BILI_ZCODE_ROUTE ?? "").trim().toLowerCase();
+    const raw = (env.SOPHIALIN_ZCODE_ROUTE ?? "").trim().toLowerCase();
     const route = raw === "plans" || raw === "none" ? raw : "all";
-    const signRaw = (env.BILI_ZCODE_SIGNING_FIXED ?? "").trim().toLowerCase();
+    const signRaw = (env.SOPHIALIN_ZCODE_SIGNING_FIXED ?? "").trim().toLowerCase();
     return { route, directPrefixes: zcodeDirectPrefixes(env), assumeSigningFixed: signRaw === "1" || signRaw === "true" };
 }
 
@@ -267,7 +267,7 @@ export async function activateZcodePluginMode(applied: ZcodeRouteApplied, opts: 
 }
 
 /** Revert both provider stores to pre-native routing (watchdog give-up /
- *  kill-switch): strips the /bili/ wrapper in place so edits made while native
+ *  kill-switch): strips the /sophialin/ wrapper in place so edits made while native
  *  mode was active survive. */
 export function unrouteZcode(opts: { env?: NodeJS.ProcessEnv; dataDir?: string; log?: (msg: string) => void }): void {
     const env = opts.env ?? process.env;
@@ -278,7 +278,7 @@ export function unrouteZcode(opts: { env?: NodeJS.ProcessEnv; dataDir?: string; 
             for (const file of zcodeStoreCandidates(dataDir, kind, env)) {
                 try {
                     const text = fs.readFileSync(file, "utf8");
-                    if (text.includes("/bili/")) {
+                    if (text.includes("/sophialin/")) {
                         fs.writeFileSync(file, unrouteZcodeText(text, kind).text);
                         log(`reverted ${path.basename(file)} to pre-native routing`);
                     }
@@ -295,7 +295,7 @@ export interface RestoreZcodeBackupResult {
     readonly restored: boolean;
 }
 
-/** Uninstall-level restore: put the pristine .bili-bak text back verbatim
+/** Uninstall-level restore: put the pristine .sophialin-bak text back verbatim
  *  for every store that has one. */
 export function restoreZcodeBackup(opts: { env?: NodeJS.ProcessEnv; dataDir?: string; log?: (msg: string) => void }): RestoreZcodeBackupResult {
     const env = opts.env ?? process.env;
@@ -305,7 +305,7 @@ export function restoreZcodeBackup(opts: { env?: NodeJS.ProcessEnv; dataDir?: st
     for (const kind of ["legacy", "new"] as const) {
         for (const file of zcodeStoreCandidates(dataDir, kind, env)) {
             try {
-                const bak = fs.readFileSync(`${file}.bili-bak`, "utf8");
+                const bak = fs.readFileSync(`${file}.sophialin-bak`, "utf8");
                 fs.writeFileSync(file, bak);
                 removeSnapshots(file);
                 log(`restored ${path.basename(file)} from the pre-install snapshot`);
@@ -318,7 +318,7 @@ export function restoreZcodeBackup(opts: { env?: NodeJS.ProcessEnv; dataDir?: st
 }
 
 export function defaultLog(msg: string): void {
-    process.stderr.write(`[bili-zcode] ${msg}\n`);
+    process.stderr.write(`[sophialin-zcode] ${msg}\n`);
 }
 
 export type BootstrapMode =
@@ -345,16 +345,16 @@ export async function bootstrapZcodeNative(opts: BootstrapZcodeOptions = {}): Pr
     const plan = planNativeZcode(env);
     if (plan.mode === "off") return { mode: "off" };
 
-    // #1622: routing is on by default; BILI_ZCODE_ROUTE=none is the env-only
+    // #1622: routing is on by default; SOPHIALIN_ZCODE_ROUTE=none is the env-only
     // opt-out (behaves like plan "off"), "plans" the legacy whitelist mode.
     const policy = zcodePolicyFromEnv(env);
     if (policy.route === "none") {
-        log('zcode route is "none" (BILI_ZCODE_ROUTE) — leaving the provider store direct');
+        log('zcode route is "none" (SOPHIALIN_ZCODE_ROUTE) — leaving the provider store direct');
         return { mode: "off" };
     }
 
     // #1621: degrade BEFORE any proxy bring-up; the caller's off-path runs
-    // unrouteZcode, which also strips wrappers left by older bili versions.
+    // unrouteZcode, which also strips wrappers left by older sophialin versions.
     const dataDir = opts.dataDir ?? resolveZcodeDataDir(env);
     if (zcodeSigningBlocksRouting(detectZcodeStore(dataDir, env).kind, policy)) {
         log(SIGNING_BLOCK_MESSAGE);
@@ -367,7 +367,7 @@ export async function bootstrapZcodeNative(opts: BootstrapZcodeOptions = {}): Pr
         origin = plan.attachOrigin;
         attached = true;
         if (!(await waitForProxyHealthy(origin, opts.healthDeadlineMs))) {
-            throw new Error(`attach target ${origin} is not healthy — start your bili proxy first`);
+            throw new Error(`attach target ${origin} is not healthy — start your sophialin proxy first`);
         }
     } else {
         const ensure = opts.ensureProxy ?? defaultEnsureProxy;
@@ -382,10 +382,10 @@ export async function bootstrapZcodeNative(opts: BootstrapZcodeOptions = {}): Pr
 }
 
 async function defaultEnsureProxy(): Promise<{ origin: string; attached: boolean }> {
-    // The spawned proxy's parent-gone watchdog (#server.ts BILI_PARENT_PID)
+    // The spawned proxy's parent-gone watchdog (#server.ts SOPHIALIN_PARENT_PID)
     // keys off OUR pid: zcode kills this MCP child when its session ends, so
     // the per-session proxy tears itself down with it. #1660 zone semantics:
-    // BILI_ZCODE_PORT (explicit) keeps strict-port behavior; otherwise the
+    // SOPHIALIN_ZCODE_PORT (explicit) keeps strict-port behavior; otherwise the
     // zcode lane binds its zone preference (sticky record > 18787 base) and
     // the proxy child's EADDRINUSE +1 ladder resolves collisions zero-config
     // — wrappers written by one session stay valid for the next one even

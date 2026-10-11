@@ -17,18 +17,18 @@ function close(server: http.Server): Promise<void> {
 }
 
 test("passthroughState resolves env over file over default", () => {
-    const root = path.join(tmpdir(), `bili-passthrough-state-${process.pid}-${Date.now()}`);
-    const biliConfig = path.join(root, "billion-context.json");
+    const root = path.join(tmpdir(), `sophialin-passthrough-state-${process.pid}-${Date.now()}`);
+    const sophialinConfig = path.join(root, "sophialin-context.json");
     mkdirSync(root, { recursive: true });
-    const previous = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const previous = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const previousEnv = process.env.ACP_PASSTHROUGH;
     delete process.env.ACP_PASSTHROUGH;
     try {
-        writeFileSync(biliConfig, "{}\n", "utf8");
+        writeFileSync(sophialinConfig, "{}\n", "utf8");
         assert.deepEqual(passthroughState(process.env), { enabled: false, source: null });
 
-        writeFileSync(biliConfig, '{"passthrough":true}\n', "utf8");
+        writeFileSync(sophialinConfig, '{"passthrough":true}\n', "utf8");
         assert.deepEqual(passthroughState(process.env), { enabled: true, source: "file" });
 
         process.env.ACP_PASSTHROUGH = "1";
@@ -38,7 +38,7 @@ test("passthroughState resolves env over file over default", () => {
         assert.deepEqual(passthroughState(process.env), { enabled: false, source: "env" });
     } finally {
         if (previousEnv === undefined) delete process.env.ACP_PASSTHROUGH; else process.env.ACP_PASSTHROUGH = previousEnv;
-        if (previous === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = previous;
+        if (previous === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = previous;
         rmrf(root);
     }
 });
@@ -46,13 +46,13 @@ test("passthroughState resolves env over file over default", () => {
 test("web config exposes and toggles passthrough (#405)", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-passthrough-web-${process.pid}-${Date.now()}`);
-    const biliConfig = path.join(root, "billion-context.json");
+    const root = path.join(tmpdir(), `sophialin-passthrough-web-${process.pid}-${Date.now()}`);
+    const sophialinConfig = path.join(root, "sophialin-context.json");
     mkdirSync(root, { recursive: true });
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
 
-    const previous = { config: process.env.BILI_CONFIG_FILE, env: process.env.ACP_PASSTHROUGH };
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const previous = { config: process.env.SOPHIALIN_CONFIG_FILE, env: process.env.ACP_PASSTHROUGH };
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     delete process.env.ACP_PASSTHROUGH;
     const opts: ProxyOptions = {
         port: 0,
@@ -79,35 +79,35 @@ test("web config exposes and toggles passthrough (#405)", async () => {
     const port = (proxy.address() as { port: number }).port;
     const base = `http://127.0.0.1:${port}`;
     const getConfig = async (): Promise<{ passthrough: { enabled: boolean; source: string | null } }> =>
-        await (await fetch(`${base}/__bili/config`)).json() as { passthrough: { enabled: boolean; source: string | null } };
+        await (await fetch(`${base}/__sophialin/config`)).json() as { passthrough: { enabled: boolean; source: string | null } };
     try {
         // Default off — the panel must be able to SEE it (#405: silent kill).
         assert.deepEqual((await getConfig()).passthrough, { enabled: false, source: null });
 
         // Turn on via panel → file gets passthrough:true, source "file".
-        const on = await fetch(`${base}/__bili/config`, {
+        const on = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ passthrough: true }),
         });
         assert.equal(on.status, 200);
         assert.deepEqual((await getConfig()).passthrough, { enabled: true, source: "file" });
-        assert.match(readFileSync(biliConfig, "utf8"), /"passthrough":\s*true/);
+        assert.match(readFileSync(sophialinConfig, "utf8"), /"passthrough":\s*true/);
         assert.equal(opts.passthrough, true, "hot-flip: live options updated without restart");
 
         // Clear via panel → file key removed, compression back on.
-        const off = await fetch(`${base}/__bili/config`, {
+        const off = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ passthrough: null }),
         });
         assert.equal(off.status, 200);
         assert.deepEqual((await getConfig()).passthrough, { enabled: false, source: null });
-        assert.doesNotMatch(readFileSync(biliConfig, "utf8"), /"passthrough"/);
+        assert.doesNotMatch(readFileSync(sophialinConfig, "utf8"), /"passthrough"/);
         assert.equal(opts.passthrough, false);
 
         // Invalid payload.
-        const bad = await fetch(`${base}/__bili/config`, {
+        const bad = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ passthrough: "yes" }),
@@ -117,7 +117,7 @@ test("web config exposes and toggles passthrough (#405)", async () => {
         // Env-forced: GET reports source "env"; PUT is refused with the way out.
         process.env.ACP_PASSTHROUGH = "1";
         assert.deepEqual((await getConfig()).passthrough, { enabled: true, source: "env" });
-        const forced = await fetch(`${base}/__bili/config`, {
+        const forced = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ passthrough: null }),
@@ -128,7 +128,7 @@ test("web config exposes and toggles passthrough (#405)", async () => {
     } finally {
         await close(proxy);
         if (previous.env === undefined) delete process.env.ACP_PASSTHROUGH; else process.env.ACP_PASSTHROUGH = previous.env;
-        if (previous.config === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = previous.config;
+        if (previous.config === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = previous.config;
         rmrf(root);
     }
 });

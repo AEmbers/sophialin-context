@@ -205,7 +205,7 @@ export function summaryFingerprintLine(blockId: string, summary: string): string
 
 // #1718: log-safe variant of the fingerprint line. Summaries are
 // conversation-derived text (local paths, task state, decisions, commands), so
-// bili.log must carry only the length — never the head/tail excerpts. The
+// sophialin.log must carry only the length — never the head/tail excerpts. The
 // model-facing receipt keeps the full fingerprint (#1294 integrity check);
 // the two consumers diverge by design.
 export function summaryFingerprintLogLine(blockId: string, summary: string): string {
@@ -402,7 +402,7 @@ export function applyRanges(parsed: ReturnType<typeof parseCompressInput>, ctx: 
         // retrieve-by-ref / range-restore work for FOLDED content, not just
         // oversized tool results stored at arrival. First-write-wins keeps
         // arrival-time entries authoritative; reasoning is skipped. Proxy mode
-        // only: plugin-mode agents own their folds, so bili never sees those
+        // only: plugin-mode agents own their folds, so sophialin never sees those
         // originals.
         if (ccrEnabled(ctx.session)) {
             const newBlocks = res.state.blocks.filter((b) => !beforeIds.has(b.blockId));
@@ -476,7 +476,7 @@ export function applyRanges(parsed: ReturnType<typeof parseCompressInput>, ctx: 
         // the success line too, not only on total failure.
         let msg = `[Compressed ${detail} → ${r.blocksCreated} block(s), ~${r.tokensCompressed} tokens saved.${warn}${applyErrorNote(r)}]`;
         // #1718: log copy mirrors the receipt but swaps each fingerprint line
-        // for its length-only form — summary excerpts must not reach bili.log.
+        // for its length-only form — summary excerpts must not reach sophialin.log.
         let logMsg = msg;
         // #1494: a partial fold must not read as a clean success — surface the
         // parse-dropped entries (and log them server-side) so the model

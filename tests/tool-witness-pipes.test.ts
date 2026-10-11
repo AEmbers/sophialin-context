@@ -1,5 +1,5 @@
 // #1685: the proxy is the only path model output takes, so it WITNESSES every
-// complete bili tool call as it streams out. These tests pin the recording
+// complete sophialin tool call as it streams out. These tests pin the recording
 // side of the witness ring on every plugin-mode response lane (openai/anthropic
 ///google chat SSE, responses SSE, non-stream JSON): stream a named tool call,
 // then assert lookupToolWitness names the session — the input the #1685

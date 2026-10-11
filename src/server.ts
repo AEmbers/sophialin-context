@@ -64,10 +64,11 @@ import {
     type GoogleSystemInstruction,
     type GoogleTool,
 } from "acp-kernel/wire";
-import { ABSORB_TOOL_NAME, COMPRESS_TOOL, BILI_ACP_TOOLS_ANTHROPIC, BILI_ACP_TOOLS_ANTHROPIC_NO_RANGE, BILI_ACP_TOOLS_GOOGLE, BILI_ACP_TOOLS_GOOGLE_NO_RANGE, BILI_ACP_TOOLS_OPENAI, BILI_ACP_TOOLS_OPENAI_NO_RANGE, BILI_ACP_TOOLS_RESPONSES, BILI_ACP_TOOLS_RESPONSES_NO_RANGE, BILI_ACP_READONLY_TOOLS_RESPONSES, BILI_ACP_READONLY_TOOLS_RESPONSES_NO_RANGE, COMPRESS_TOOL_NAME, IMAGE_FULL_TOOL, IMAGE_FULL_TOOL_GOOGLE, IMAGE_FULL_TOOL_OPENAI, IMAGE_FULL_TOOL_RESPONSES, RULE_TOOL, RULE_TOOL_GOOGLE, RULE_TOOL_OPENAI, RULE_TOOL_RESPONSES, absorbToolsFor, retrieveToolsFor, buildAbsorbSystemPrompt, buildCompressSystemPrompt, buildCompressHybridSystemPrompt, withMarkerIntegrityNote, withStagedCompressGuidance, withSummaryBudgetNote } from "./compress-tool.js";
+import { ABSORB_TOOL_NAME, COMPRESS_TOOL, SOPHIALIN_ACP_TOOLS_ANTHROPIC, SOPHIALIN_ACP_TOOLS_ANTHROPIC_NO_RANGE, SOPHIALIN_ACP_TOOLS_GOOGLE, SOPHIALIN_ACP_TOOLS_GOOGLE_NO_RANGE, SOPHIALIN_ACP_TOOLS_OPENAI, SOPHIALIN_ACP_TOOLS_OPENAI_NO_RANGE, SOPHIALIN_ACP_TOOLS_RESPONSES, SOPHIALIN_ACP_TOOLS_RESPONSES_NO_RANGE, SOPHIALIN_ACP_READONLY_TOOLS_RESPONSES, SOPHIALIN_ACP_READONLY_TOOLS_RESPONSES_NO_RANGE, COMPRESS_TOOL_NAME, IMAGE_FULL_TOOL, IMAGE_FULL_TOOL_GOOGLE, IMAGE_FULL_TOOL_OPENAI, IMAGE_FULL_TOOL_RESPONSES, RULE_TOOL, RULE_TOOL_GOOGLE, RULE_TOOL_OPENAI, RULE_TOOL_RESPONSES, absorbToolsFor, retrieveToolsFor, buildAbsorbSystemPrompt, buildCompressSystemPrompt, buildCompressHybridSystemPrompt, withMarkerIntegrityNote, withStagedCompressGuidance, withSummaryBudgetNote } from "./compress-tool.js";
 import { applyAbsorbView, absorbEnabled, absorbToolName, storeEffectiveAbsorb } from "./absorb.js";
 import { adoptContentStore, ccrEnabled, ccrLoopConfig, ccrPluginWireOk, commitRetrievals, commitRetrievalNotes, contentStoreOf, dropRetrievals, executeRetrieve, pruneExpiredRetrievals, reconcileReloadedRetrievals, renderRetrievalNotes, retrieveToolName, snapshotPendingRetrievals, snapshotRetrievalNotes, storeEffectiveCcr, type CcrSettings } from "./store.js";
 import { applyImageCompressionPass, imageCompressionEnabled, imageFullTrailingNote, imageUsageSuffix, storeEffectiveImageCompression, type ImageCompressionSettings } from "./image-compress.js";
+import { applyImageOffloadPass, imageOffloadCount, storeEffectiveImageOffload } from "./image-offload.js";
 import { rulesEnabled, storeEffectiveRules } from "./rules-feature.js";
 import { storeEffectiveSearchPlanAware } from "./decompress-shared.js";
 import { rewriteJsonResponse, type RewriteCtx } from "./stream.js";
@@ -114,17 +115,17 @@ import { consumePluginRegisterFor, flushConversations, handlePluginCompact, hand
 import { setupMitm, readMitmUpstream, getBlindTunnelStats, liveBlindTunnels } from "./mitm.js";
 import { evaluateChain, extractChainCarriers, stampOutbound, stripEmbeddedChainCarriers } from "./chain-checkpoint.js";
 import type { BiliMessage } from "acp-kernel/wire";
-import { BILI_PASSTHROUGH_HEADER, BILI_PLUGIN_BYPASS_HEADER, hardenOpenaiAssistantContent, isLoopbackAddress, inspectContextOverflow, reserveOutputHeadroom, resolveOutputHeadroomCap, shouldReserveOutputHeadroom, systemToUser, usageOutputTotal, usageTotals, type ContextOverflowInfo, type WireProtocol } from "./util.js";
+import { SOPHIALIN_PASSTHROUGH_HEADER, SOPHIALIN_PLUGIN_BYPASS_HEADER, hardenOpenaiAssistantContent, isLoopbackAddress, inspectContextOverflow, reserveOutputHeadroom, resolveOutputHeadroomCap, shouldReserveOutputHeadroom, systemToUser, usageOutputTotal, usageTotals, type ContextOverflowInfo, type WireProtocol } from "./util.js";
 import { safePrefix, safeSuffix } from "./text-safe.js";
 
-import { BILI_TUNNEL_HEADER, checkTunnelDestination, classifyIp, localMachineIps, normalizeIpLiteral, parseIpLiteral, tunnelAllowlistFromEnv } from "./tunnel-guard.js";
+import { SOPHIALIN_TUNNEL_HEADER, checkTunnelDestination, classifyIp, localMachineIps, normalizeIpLiteral, parseIpLiteral, tunnelAllowlistFromEnv } from "./tunnel-guard.js";
 import { dumpRejectedBody } from "./error-dump.js";
 
 import { decodeRequestBody, DecompressedTooLargeError } from "./content-encoding.js";
 import { applyCompatRoles, applyCompatRolesJson, detectRoleRejection, detectSystemPlacementError, resolveCompatRoles, type CompatRoles } from "./compat-roles.js";
 import { applyOutputSteering, applyOutputSteeringJson } from "./output-steering.js";
 import { bodyDumpEnabled, getUnrecognizedPathStats, isModelDiscoveryPath, logDumpFailure, logUnrecognizedPath } from "./server/observability.js";
-import { BILI_HOP_HEADER, anthropicBetaContextWindow, capRegistryWindowByStandard, expandedContextSuffixWindow, LAUNCHER_MODEL_WINDOWS, LAUNCHER_MODEL_MAX_OUTPUTS, launcherContextWindow, launcherMaxOutput, parseLauncherModelWindows, windowSourceLogged } from "./server/context-window.js";
+import { SOPHIALIN_HOP_HEADER, anthropicBetaContextWindow, capRegistryWindowByStandard, expandedContextSuffixWindow, LAUNCHER_MODEL_WINDOWS, LAUNCHER_MODEL_MAX_OUTPUTS, launcherContextWindow, launcherMaxOutput, parseLauncherModelWindows, windowSourceLogged } from "./server/context-window.js";
 import { buildForwardHeaders, connectionNamedHeaders, NO_IDENTITY_MESSAGE, RESPONSE_ONLY_STRIP_HEADERS, safeSessionId, UPSTREAM_HOP_HEADERS } from "./server/headers.js";
 import { isSideRequest, outputBudgetField, restoreOutputBudget, SIDE_REQUEST_MAX_TOKENS, sideRequestGuard } from "./server/side-request.js";
 import { clampOutgoingOutput, countSystemAndToolsTokens, emergencyNudge, estimateInputTokens, estimateWireOverhead, projectThinkingMass } from "./server/budget.js";
@@ -172,9 +173,9 @@ const nonConversationRelayWarned = new Set<string>();
 
 // #1073: a forward-proxy-style (absolute-form) request whose authority IS this
 // instance's own listening endpoint — e.g. a health prober configured with our
-// port as its http_proxy asking for http://127.0.0.1:<self-port>/__bili/health.
+// port as its http_proxy asking for http://127.0.0.1:<self-port>/__sophialin/health.
 // Fetching that URL means serving it locally; routing it through the tunnel
-// path would only trip bili's own self-layer / admin gate with a 403 instead of
+// path would only trip sophialin's own self-layer / admin gate with a 403 instead of
 // returning real health state. Returns the stripped origin-form path when the
 // request qualifies, else undefined. Management prefixes only — model-style
 // paths keep the loud self-layer 403 (#562). Hostname destinations other than
@@ -190,7 +191,7 @@ export function selfAdminProbePath(reqUrl: string, localPort: number | undefined
         const mine = host === "0.0.0.0" || host === "::" || host === "localhost" || localMachineIps().has(normalizeIpLiteral(host));
         if (!mine) return undefined;
         const p = u.pathname;
-        if (p === "/__bili/" || p.startsWith("/__bili/") || p === "/__acp/" || p.startsWith("/__acp/")) return p + u.search;
+        if (p === "/__sophialin/" || p.startsWith("/__sophialin/") || p === "/__acp/" || p.startsWith("/__acp/")) return p + u.search;
     } catch {
         // malformed absolute URL — not a probe
     }
@@ -200,7 +201,7 @@ export function selfAdminProbePath(reqUrl: string, localPort: number | undefined
 export function resolveUpstream(_opts: ProxyOptions, reqUrl: string, req?: http.IncomingMessage): { upstream: string; rewrittenUrl: string; explicitProtocol?: WireProtocol; tunnel?: boolean } | undefined {
     // MITM mode: the request arrived over a CONNECT tunnel we terminated
     // locally (client set HTTP_PROXY and issued CONNECT host:443). The socket
-    // carries the real upstream origin; the request path has no /bili/ prefix
+    // carries the real upstream origin; the request path has no /sophialin/ prefix
     // — it's a bare /api/anthropic/v1/messages. Reconstruct the full upstream
     // URL so handle()/forward() route to the host the CONNECT targeted. The
     // client's Authorization header (OAuth token for the subscription) is
@@ -208,7 +209,7 @@ export function resolveUpstream(_opts: ProxyOptions, reqUrl: string, req?: http.
     const mitmUpstream = readMitmUpstream(req?.socket);
     if (mitmUpstream) {
         // Use a `mitm://` scheme in rewrittenUrl so per-URL config (proxy,
-        // context overrides) can DISTINGUISH MITM traffic from /bili/ path
+        // context overrides) can DISTINGUISH MITM traffic from /sophialin/ path
         // traffic to the SAME host. The real upstream stays https:// (in
         // `upstream`) for the actual fetch; forward() strips the mitm:// scheme
         // back to https:// before calling fetch (fetch would reject mitm://).
@@ -216,16 +217,16 @@ export function resolveUpstream(_opts: ProxyOptions, reqUrl: string, req?: http.
         const mitmKey = mitmUpstream.replace(/^https:\/\//, "mitm://");
         return { upstream: mitmUpstream, rewrittenUrl: mitmKey + (reqUrl ?? "") };
     }
-    // Zero-config mode: a request like `/bili/https://open.bigmodel.cn/api/anthropic`
-    // embeds the full upstream URL after the `/bili/` prefix. Strip the prefix,
+    // Zero-config mode: a request like `/sophialin/https://open.bigmodel.cn/api/anthropic`
+    // embeds the full upstream URL after the `/sophialin/` prefix. Strip the prefix,
     // take the rest verbatim as the upstream. This is the ONLY routing mode —
-    // there are no named providers. The `/bili/` prefix doubles as a signal:
-    // client-side billion-context extensions (billion-context-pi / opencode-acp)
+    // there are no named providers. The `/sophialin/` prefix doubles as a signal:
+    // client-side sophialin-context extensions (billion-context-pi / opencode-acp)
     // can detect it in their own baseUrl and self-disable, avoiding double
     // compression.
     const KNOWN_PROTOCOLS = ["responses", "anthropic", "openai", "google"] as const;
-    if (reqUrl.startsWith("/bili/")) {
-        let rest = reqUrl.slice(6);
+    if (reqUrl.startsWith("/sophialin/")) {
+        let rest = reqUrl.slice("/sophialin/".length);
         let explicitProtocol: WireProtocol | undefined;
         for (const p of KNOWN_PROTOCOLS) {
             const prefix = `${p}/`;
@@ -247,7 +248,7 @@ export function resolveUpstream(_opts: ProxyOptions, reqUrl: string, req?: http.
     // Forward-proxy mode (#535 phase 2): a client honoring an http_proxy env
     // sent this request in absolute form (`GET http://host/path HTTP/1.1`) —
     // exactly what httpx emits for plain-http base URLs through a proxy. Route
-    // it like the /bili/ embedded form: the absolute URL IS the upstream, same
+    // it like the /sophialin/ embedded form: the absolute URL IS the upstream, same
     // tunnel semantics.
     //
     // #562: do NOT decide "is this the proxy itself?" from the client-provided
@@ -274,7 +275,7 @@ export function resolveUpstream(_opts: ProxyOptions, reqUrl: string, req?: http.
 
 // #806: request-scoped IDLE watchdog. A wedged request (accepted, logged
 // "forward", then never dispatched/answered) had NO deadline of its own —
-// undici timeouts don't apply across CONNECT tunnels and bili's fetch timer
+// undici timeouts don't apply across CONNECT tunnels and sophialin's fetch timer
 // only arms once fetchWithTimeout is entered. Armed at ACCEPT (before handle());
 // fires when the response goes silent for the whole budget. IDLE, not total:
 // every res.write re-arms, so long healthy streams survive. Firing aborts the
@@ -289,7 +290,7 @@ function registerRequestAbort(res: http.ServerResponse, ac: AbortController): vo
 }
 
 export function requestWatchdogBudgetMs(): number {
-    const raw = process.env.BILI_REQUEST_WATCHDOG_MS;
+    const raw = process.env.SOPHIALIN_REQUEST_WATCHDOG_MS;
     if (!raw) return 2 * upstreamTimeoutMs();
     const v = Number(raw);
     return Number.isFinite(v) ? Math.floor(v) : 2 * upstreamTimeoutMs();
@@ -309,7 +310,7 @@ function armRequestWatchdog(req: http.IncomingMessage, res: http.ServerResponse,
         try {
             if (!res.headersSent) {
                 res.writeHead(504, { "content-type": "application/json", "connection": "close" });
-                res.end(JSON.stringify({ error: { type: "gateway_timeout", message: `billion-context watchdog: no output within ${Math.round(budgetMs / 1000)}s; retry the request` } }));
+                res.end(JSON.stringify({ error: { type: "gateway_timeout", message: `sophialin-context watchdog: no output within ${Math.round(budgetMs / 1000)}s; retry the request` } }));
             } else if (!res.writableEnded) {
                 res.end();
             }
@@ -370,20 +371,20 @@ export async function startServer(opts: ProxyOptions): Promise<http.Server> {
     const core = createCore();
     const config: Config = opts.kernelConfig;
     const log = (level: string, msg: string) => logMsg(opts, level, msg);
-    // #300: per-server identity stamped into the x-bili-hop marker on outbound
+    // #300: per-server identity stamped into the x-sophialin-hop marker on outbound
     // forwards. Per-server (not module-level) so two servers in one process
     // (tests) are distinct instances; a restart changing the id is harmless
     // (the chain check only compares against the other running instance).
     const instanceId = randomUUID();
     const instanceStartedAt = Date.now();
     // #7 (shared stable-port proxy): the parent-gone watchdog watches a SET of
-    // pids, not one. The spawning hook seeds it via BILI_PARENT_PID; every
-    // ATTACHING session (POST /__bili/watcher) adds its claude host, so a
+    // pids, not one. The spawning hook seeds it via SOPHIALIN_PARENT_PID; every
+    // ATTACHING session (POST /__sophialin/watcher) adds its claude host, so a
     // proxy shared across sessions dies when the LAST owner exits — not when
     // the first spawner does. Per-server like instanceId above; armed here
     // (before listen) so a racing first registration can never observe an
     // unarmed watchdog.
-    const parentWatchPid = Number.parseInt(process.env.BILI_PARENT_PID ?? "", 10);
+    const parentWatchPid = Number.parseInt(process.env.SOPHIALIN_PARENT_PID ?? "", 10);
     const initialWatcherPid = Number.isInteger(parentWatchPid) && parentWatchPid > 0 && parentWatchPid !== process.pid ? parentWatchPid : null;
     const proxyWatchers = new Set<number>();
     if (initialWatcherPid !== null) proxyWatchers.add(initialWatcherPid);
@@ -447,7 +448,7 @@ export async function startServer(opts: ProxyOptions): Promise<http.Server> {
             }
         }
     });
-    // Bili does not support WebSocket. An explicit 'upgrade' listener is
+    // Sophialin does not support WebSocket. An explicit 'upgrade' listener is
     // required: without one Node's behavior is version-dependent (some
     // versions destroy the socket with no response), delaying clients with
     // built-in fast-fallback (e.g. Codex) that need a clean 426 to switch to
@@ -469,7 +470,7 @@ export async function startServer(opts: ProxyOptions): Promise<http.Server> {
     // 5000ms; the default here matches it exactly (zero behavior change), but
     // the knob exists so pooled clients can deliberately extend or shorten the
     // reuse window instead of guessing at Node internals.
-    const katRaw = Number(process.env.BILI_KEEP_ALIVE_TIMEOUT_MS);
+    const katRaw = Number(process.env.SOPHIALIN_KEEP_ALIVE_TIMEOUT_MS);
     const keepAliveTimeoutMs = Number.isInteger(katRaw) && katRaw > 0 ? katRaw : 5000;
     server.keepAliveTimeout = keepAliveTimeoutMs;
     // #1529: terminal backstop for the clientError drain path. After the bail
@@ -479,16 +480,16 @@ export async function startServer(opts: ProxyOptions): Promise<http.Server> {
     // silence instead. Safe against the #1452 RST signature: resume() has
     // drained the recv buffer for the whole window, so no unread residual
     // bytes ride the destroy. 0 restores hold-until-peer-death (status quo).
-    const backstopRaw = Number(process.env.BILI_CLIENT_ERROR_BACKSTOP_MS);
+    const backstopRaw = Number(process.env.SOPHIALIN_CLIENT_ERROR_BACKSTOP_MS);
     const clientErrorBackstopMs = Number.isInteger(backstopRaw) && backstopRaw >= 0 ? backstopRaw : 30_000;
     log("info", `[conn] keepAliveTimeout=${keepAliveTimeoutMs}ms clientErrorBackstop=${clientErrorBackstopMs}ms`);
-    // #1714: BILI_STREAM_STALL_MS is retired (#1706 incident: a stale 400ms
+    // #1714: SOPHIALIN_STREAM_STALL_MS is retired (#1706 incident: a stale 400ms
     // export turned every thinking-phase silence into a false truncation).
     // The value is now ignored; name it once at startup so stale shell exports
     // announce themselves instead of silently dying.
-    const retiredStallEnv = process.env.BILI_STREAM_STALL_MS;
+    const retiredStallEnv = process.env.SOPHIALIN_STREAM_STALL_MS;
     if (retiredStallEnv !== undefined && retiredStallEnv.trim() !== "") {
-        log("warn", `[config] BILI_STREAM_STALL_MS=${retiredStallEnv} is no longer read (#1714) — ignored; upstream silence is bounded by the ${Math.round(upstreamTimeoutMs() / 60000)}-minute idle budget (BILI_UPSTREAM_TIMEOUT_MS)`);
+        log("warn", `[config] SOPHIALIN_STREAM_STALL_MS=${retiredStallEnv} is no longer read (#1714) — ignored; upstream silence is bounded by the ${Math.round(upstreamTimeoutMs() / 60000)}-minute idle budget (SOPHIALIN_UPSTREAM_TIMEOUT_MS)`);
     }
     // #1452: per-connection lifecycle ledger — turns "which side closed this
     // socket, and why" from forensic inference into one debug line per
@@ -618,7 +619,7 @@ export async function startServer(opts: ProxyOptions): Promise<http.Server> {
     // inside one 36.7h process while fresh processes stayed clean under
     // higher load; fd/connection-table drift was unfalsifiable without
     // periodic ground truth. One info line per interval, zero payload.
-    const exposureRaw = Number(process.env.BILI_EXPOSURE_LOG_INTERVAL_MS);
+    const exposureRaw = Number(process.env.SOPHIALIN_EXPOSURE_LOG_INTERVAL_MS);
     const exposureIntervalMs = Number.isInteger(exposureRaw) ? Math.max(0, exposureRaw) : 3_600_000;
     if (exposureIntervalMs > 0) {
         const exposureStartedAt = Date.now();
@@ -638,23 +639,23 @@ export async function startServer(opts: ProxyOptions): Promise<http.Server> {
         const allowRemoteConnect = opts.host === "0.0.0.0" || opts.host === "::" || !isLoopbackAddress(opts.host);
         // #1012: blind tunnels are client AUX traffic (MCP/web), not model
         // egress — they resolve with the aux fallback so the launcher-forwarded
-        // user proxy (BILI_INHERITED_*) applies here and ONLY here; the model
+        // user proxy (SOPHIALIN_INHERITED_*) applies here and ONLY here; the model
         // paths below keep the clean-env direct semantics (e1c6c92).
         setupMitm(server, opts.mitm.domains, (msg) => log("info", msg), (host) => resolveProxy(opts.routes, opts.proxy, `https://${host}`, opts.auxProxyFallback ?? opts.proxyFallback), allowRemoteConnect);
     }
     // Launcher mode handshake (#407): the child self-binds and retries on
     // EADDRINUSE instead of dying, reporting the real origin via the instance
-    // file (launchToken match). Manual `bili start` keeps fail-fast semantics.
-    // #964: BILI_STRICT_PORT (claude SessionStart hook) opts OUT of the retry
+    // file (launchToken match). Manual `sophialin start` keeps fail-fast semantics.
+    // #964: SOPHIALIN_STRICT_PORT (claude SessionStart hook) opts OUT of the retry
     // — the native posture dials a static baked-in URL, so a port-hop
     // "success" would strand every model request on the dead original port.
-    const launchToken = process.env.BILI_LAUNCH_TOKEN?.trim();
-    const strictPort = process.env.BILI_STRICT_PORT === "1";
+    const launchToken = process.env.SOPHIALIN_LAUNCH_TOKEN?.trim();
+    const strictPort = process.env.SOPHIALIN_STRICT_PORT === "1";
     // #1225: lane identity + code fingerprint recorded into the instance file
     // so later launches can decide reuse by WHO started us and WHICH code we
     // run — not just config shape (same-version stale dist kept serving after
     // a rebuild; different clients cross-wrote one shared proxy).
-    const launcherLane = process.env.BILI_LAUNCHER_LANE?.trim() || undefined;
+    const launcherLane = process.env.SOPHIALIN_LAUNCHER_LANE?.trim() || undefined;
     const ownFingerprint = entryScriptFingerprint(process.argv[1]);
     const MAX_LISTEN_ATTEMPTS = 17;
     let listenAttempts = 0;
@@ -725,8 +726,8 @@ export async function startServer(opts: ProxyOptions): Promise<http.Server> {
         log(
             "info",
             `acp-proxy v${VERSION} listening on http://${displayHost}:${actualPort}` +
-                ` — web UI: http://${displayHost}:${actualPort}/__bili/` +
-                ` — zero-config: prefix any baseURL with http://${displayHost}:${actualPort}/bili/` +
+                ` — web UI: http://${displayHost}:${actualPort}/__sophialin/` +
+                ` — zero-config: prefix any baseURL with http://${displayHost}:${actualPort}/sophialin/` +
                 (nOverrides ? ` — context overrides for ${nOverrides} upstream URL(s)` : "")
                 + (opts.mitm.enabled ? ` — MITM proxy on (whitelist)${opts.mitm.domains.length ? ` +${opts.mitm.domains.join(",")}` : ""}` : "")
                 + (opts.passthrough ? " — PASSTHROUGH (compression OFF)" : ""),
@@ -754,14 +755,14 @@ export async function startServer(opts: ProxyOptions): Promise<http.Server> {
         if (process.env.ACP_MODEL_CONTEXT_LIMIT !== undefined) envKnobs.push(`ACP_MODEL_CONTEXT_LIMIT=${process.env.ACP_MODEL_CONTEXT_LIMIT}`);
         if (process.env.ACP_COMPRESS_TOOL !== undefined) envKnobs.push(`ACP_COMPRESS_TOOL=${process.env.ACP_COMPRESS_TOOL}`);
         if (process.env.ACP_COMPRESS_NUDGE !== undefined) envKnobs.push(`ACP_COMPRESS_NUDGE=${process.env.ACP_COMPRESS_NUDGE}`);
-        if (process.env.BILI_PERSIST !== undefined) envKnobs.push(`BILI_PERSIST=${process.env.BILI_PERSIST}`);
+        if (process.env.SOPHIALIN_PERSIST !== undefined) envKnobs.push(`SOPHIALIN_PERSIST=${process.env.SOPHIALIN_PERSIST}`);
         if (envKnobs.length > 0) {
             log("info", `[config] env overrides active (win over the config file): ${envKnobs.join(", ")}`);
         }
         if (nonLoopbackBind) {
             log(
                 "warn",
-                `[security] bound to ${opts.host} — proxy endpoints (/bili/, CONNECT for whitelisted model hosts) are reachable from the network with NO authentication; /__bili/ management endpoints stay loopback-only. Restrict access with a firewall on untrusted networks. Remote agents: point baseURL at http://<this-host>:${actualPort}/bili/`,
+                `[security] bound to ${opts.host} — proxy endpoints (/sophialin/, CONNECT for whitelisted model hosts) are reachable from the network with NO authentication; /__sophialin/ management endpoints stay loopback-only. Restrict access with a firewall on untrusted networks. Remote agents: point baseURL at http://<this-host>:${actualPort}/sophialin/`,
             );
         }
         if (opts.debug) {
@@ -794,7 +795,7 @@ export async function startServer(opts: ProxyOptions): Promise<http.Server> {
         const hint =
             err.code === "EADDRINUSE"
                 ? strictPort
-                    ? ` — port ${lastTriedPort} is pinned (strict-port mode) but already in use. Free it or point the client at another port (e.g. BILI_CLAUDE_NATIVE_PORT for the claude native posture).`
+                    ? ` — port ${lastTriedPort} is pinned (strict-port mode) but already in use. Free it or point the client at another port (e.g. SOPHIALIN_CLAUDE_NATIVE_PORT for the claude native posture).`
                     : ` — port ${lastTriedPort} is already in use. Stop the other process or use --port <N>.`
                 : err.code === "EACCES"
                   ? ` — port ${lastTriedPort} requires privileges. Use a port >= 1024.`
@@ -886,7 +887,7 @@ export async function startServer(opts: ProxyOptions): Promise<http.Server> {
     // for a flush (#414): they watch the launcher pid and run the graceful
     // path themselves when it disappears (≤2s after the parent exits).
     // #7: the watch is a SET — attached sessions register their host via
-    // POST /__bili/watcher — so shutdown fires only when every owner is
+    // POST /__sophialin/watcher — so shutdown fires only when every owner is
     // gone. The empty set must persist through WATCHER_IDLE_GRACE_MS first:
     // a spawner that exits right after a second session launches would
     // otherwise kill the proxy before the attacher's registration lands
@@ -936,7 +937,7 @@ type Prepared = {
     stream: boolean;
     compressInjected: boolean;
     /** True when the session is driven by a cooperative agent-side plugin
-     *  (x-bili-plugin header, see src/plugin.ts): tools are native, the
+     *  (x-sophialin-plugin header, see src/plugin.ts): tools are native, the
      *  response must pass through verbatim, and usage is sniffed instead of
      *  captured by the compress loop. */
     pluginMode?: boolean;
@@ -996,19 +997,19 @@ type Prepared = {
      *  #460 strip pipes in forward() run with session=undefined. */
     sidePassthrough?: boolean;
     /** Set when a codex native-compaction request was intercepted and a
-     *  success response was forged locally (BILI_CODEX_COMPACT=intercept +
+     *  success response was forged locally (SOPHIALIN_CODEX_COMPACT=intercept +
      *  gate passed). forward() serves `body` without contacting upstream. */
     codexForge?: { kind: "endpoint" | "trigger"; body: string; contentType: string };
 };
 
 
-// #767: per-request image billing mode — env BILI_IMAGE_BILLING (live, like
-// BILI_IMAGE_TOKEN_CAP) wins over the per-provider route entry, which wins over
+// #767: per-request image billing mode — env SOPHIALIN_IMAGE_BILLING (live, like
+// SOPHIALIN_IMAGE_TOKEN_CAP) wins over the per-provider route entry, which wins over
 // the global config level; "auto"/unset classifies known first-party pixel-tile
 // hosts by upstream URL. Every payload-size decision below consults this so one
 // over-estimate cannot block all of them at once.
 function imageBillingFor(opts: ProxyOptions, upstreamUrl: string | undefined): ResolvedImageBilling {
-    const env = process.env.BILI_IMAGE_BILLING;
+    const env = process.env.SOPHIALIN_IMAGE_BILLING;
     const configured = env === "pixels" || env === "bytes" ? env : findRoute(opts.routes, upstreamUrl)?.imageBilling ?? opts.imageBilling ?? "auto";
     return resolveImageBilling(configured, upstreamUrl);
 }
@@ -1097,30 +1098,30 @@ async function handle(
     proxyWatchers: Set<number>,
     initialWatcherPid: number | null,
 ): Promise<void> {
-    // SECURITY: the /__bili/ management endpoints (config read/write, reload,
+    // SECURITY: the /__sophialin/ management endpoints (config read/write, reload,
     // session stats) are privileged — a remote caller who can reach them can
     // rewrite upstream routing to exfiltrate API keys (MITM). Restrict them
     // to loopback connections. The proxy default host is 127.0.0.1 (loopback
     // only), but a user can set --host 0.0.0.0 to share the proxy on a LAN —
     // in that case we still must NOT expose management to the LAN. Only the
-    // proxy /bili/ and CONNECT (model traffic) endpoints remain open to all.
+    // proxy /sophialin/ and CONNECT (model traffic) endpoints remain open to all.
     // #1073: an absolute-form request addressed to THIS instance's own endpoint
     // is a fetch of us, not a tunnel — strip the authority so the admin gate
     // below sees a normal origin-form request and answers with real health
     // state instead of 403ing via the tunnel path.
     const selfProbePath = selfAdminProbePath(req.url ?? "", req.socket.localPort);
     if (selfProbePath !== undefined) req.url = selfProbePath;
-    const isAdminPath = req.url === "/__bili/" || req.url?.startsWith("/__bili/") || req.url === "/__acp/" || req.url?.startsWith("/__acp/");
-    // #409: management must never be reachable THROUGH the bili tunnel, not
+    const isAdminPath = req.url === "/__sophialin/" || req.url?.startsWith("/__sophialin/") || req.url === "/__acp/" || req.url?.startsWith("/__acp/");
+    // #409: management must never be reachable THROUGH the sophialin tunnel, not
     // even from a loopback client: the tunnel's inner connection originates
     // from the proxy itself, so the remoteAddress gate alone is satisfied and
-    // a `--host 0.0.0.0` peer could otherwise PUT /__bili/config over the
-    // tunnel. forward() stamps this marker on every /bili/ absolute-URL
+    // a `--host 0.0.0.0` peer could otherwise PUT /__sophialin/config over the
+    // tunnel. forward() stamps this marker on every /sophialin/ absolute-URL
     // forward; clients have no legitimate reason to send it, and a spoofed
     // value only locks the spoofer out of admin paths.
-    if (isAdminPath && headerValue(req, BILI_TUNNEL_HEADER) !== undefined) {
+    if (isAdminPath && headerValue(req, SOPHIALIN_TUNNEL_HEADER) !== undefined) {
         res.writeHead(403, { "content-type": "application/json" });
-        res.end(JSON.stringify({ error: "management endpoints are not reachable through the bili tunnel" }));
+        res.end(JSON.stringify({ error: "management endpoints are not reachable through the sophialin tunnel" }));
         return;
     }
     if (isAdminPath && !isLoopbackAddress(req.socket.remoteAddress)) {
@@ -1133,23 +1134,23 @@ async function handle(
     // pinning to the configured value would 403 every admin request.
     if (isAdminPath && !isTrustedAdminOrigin(req.headers.origin, req.headers.host, adminTrustedHostnames(opts.host))) {
         res.writeHead(403, { "content-type": "application/json" });
-        res.end(JSON.stringify({ error: "management request origin does not match the local bili UI" }));
+        res.end(JSON.stringify({ error: "management request origin does not match the local sophialin UI" }));
         return;
     }
-    if (req.method === "GET" && req.url === "/__bili/stats") return sendStats(res);
-    if (req.method === "GET" && req.url?.startsWith("/__bili/cache-report")) return sendCacheReport(res, req.url);
-    if (req.method === "GET" && req.url === "/__bili/status") return sendStatus(res, opts);
-    if (req.method === "GET" && req.url === "/__bili/overview") return sendOverview(res, opts);
-    if (req.method === "GET" && req.url === "/__bili/sessions") return sendWebSessions(res);
-    if (req.method === "GET" && req.url?.startsWith("/__bili/logs")) return sendWebLogs(res, req);
-    if (req.method === "GET" && req.url?.startsWith("/__bili/sessions/") && req.url.endsWith("/detail")) return sendWebSessionDetail(res, req.url);
+    if (req.method === "GET" && req.url === "/__sophialin/stats") return sendStats(res);
+    if (req.method === "GET" && req.url?.startsWith("/__sophialin/cache-report")) return sendCacheReport(res, req.url);
+    if (req.method === "GET" && req.url === "/__sophialin/status") return sendStatus(res, opts);
+    if (req.method === "GET" && req.url === "/__sophialin/overview") return sendOverview(res, opts);
+    if (req.method === "GET" && req.url === "/__sophialin/sessions") return sendWebSessions(res);
+    if (req.method === "GET" && req.url?.startsWith("/__sophialin/logs")) return sendWebLogs(res, req);
+    if (req.method === "GET" && req.url?.startsWith("/__sophialin/sessions/") && req.url.endsWith("/detail")) return sendWebSessionDetail(res, req.url);
     if (req.method === "GET" && req.url === "/") {
         // Browser visits root → redirect to the web UI. curl / health probes
         // (Accept: */* or no Accept) still get the JSON health check so
         // existing scripts and Docker-style health probes keep working.
         const accept = req.headers.accept ?? "";
         if (accept.includes("text/html")) {
-            res.writeHead(302, { location: "/__bili/" });
+            res.writeHead(302, { location: "/__sophialin/" });
             res.end();
             return;
         }
@@ -1157,7 +1158,7 @@ async function handle(
         res.end(JSON.stringify({ ok: true, upstream: opts.upstream }));
         return;
     }
-    if (req.method === "GET" && req.url === "/__bili/health") {
+    if (req.method === "GET" && req.url === "/__sophialin/health") {
         res.writeHead(200, { "content-type": "application/json" });
         // #1322: watchdog state is part of the health contract — attachers and
         // operators can see whether this proxy dies with its sessions (armed)
@@ -1166,14 +1167,14 @@ async function handle(
         return;
     }
     // Web config UI (served as HTML, separate from the JSON health check above).
-    if (req.method === "GET" && req.url === "/__bili/") {
+    if (req.method === "GET" && req.url === "/__sophialin/") {
         const origin = `http://${opts.host === "0.0.0.0" ? "localhost" : opts.host}:${opts.port}`;
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
         res.end(renderUI(origin));
         return;
     }
-    if (req.method === "GET" && req.url === "/__bili/config") return handleConfigGet(res);
-    if (req.method === "PUT" && req.url === "/__bili/config") {
+    if (req.method === "GET" && req.url === "/__sophialin/config") return handleConfigGet(res);
+    if (req.method === "PUT" && req.url === "/__sophialin/config") {
         return handleConfigPut(req, res, () => {
             const fresh = loadOptions();
             if (fresh.passthrough !== opts.passthrough) {
@@ -1196,8 +1197,8 @@ async function handle(
             Object.assign(opts.routes, loadRoutes());
         }, opts.port);
     }
-    if (req.method === "POST" && req.url === "/__bili/config/reload") return handleConfigReload(opts, res, log);
-    if (req.method === "GET" && req.url === "/__bili/upstream") {
+    if (req.method === "POST" && req.url === "/__sophialin/config/reload") return handleConfigReload(opts, res, log);
+    if (req.method === "GET" && req.url === "/__sophialin/upstream") {
         const target = opts.upstream;
         const decision = resolveProxyDecision(opts.routes, opts.proxy, target, opts.proxyFallback);
         const connection = getUpstreamConnectionStatus();
@@ -1220,7 +1221,7 @@ async function handle(
         }));
         return;
     }
-    if (req.method === "POST" && req.url === "/__bili/upstream/test") {
+    if (req.method === "POST" && req.url === "/__sophialin/upstream/test") {
         const target = opts.upstream;
         const targetUrl = new URL(target).origin;
         const proxyUrl = resolveProxyDecision(opts.routes, opts.proxy, target, opts.proxyFallback).proxy;
@@ -1251,8 +1252,8 @@ async function handle(
     // manifest serves the exact tool schemas the wire injector uses, and the
     // tool endpoint lets an agent-side plugin execute compress/decompress/
     // search_context/acp_status against the session the plugin drives. Both
-    // live under the /__bili/ loopback + trusted-origin gate above.
-    if (req.method === "GET" && req.url === "/__bili/plugin/manifest") {
+    // live under the /__sophialin/ loopback + trusted-origin gate above.
+    if (req.method === "GET" && req.url === "/__sophialin/plugin/manifest") {
         // [#1271/#1278] kernelConfig carries no file/global compress settings; resolve the
         // GLOBAL view exactly like the request path does (applyCompressSettings) so every
         // opt-in tool — acp_retrieve (#1271), absorb (#1278) — is advertised exactly when the
@@ -1262,7 +1263,7 @@ async function handle(
         // requires. Do not "simplify" this back to `config`.
         return handlePluginManifest(res, applyCompressSettings(config, opts.modelContextLimit, opts.compress));
     }
-    if (req.method === "GET" && req.url?.startsWith("/__bili/plugin/status")) {
+    if (req.method === "GET" && req.url?.startsWith("/__sophialin/plugin/status")) {
         const query = req.url.slice(req.url.indexOf("?") + 1);
         const params = new URLSearchParams(query);
         const conversationId = params.get("conversationId")?.trim() ?? "";
@@ -1276,10 +1277,10 @@ async function handle(
         const webOrigin = `http://${opts.host === "0.0.0.0" ? "localhost" : opts.host}:${req.socket?.localPort ?? opts.port}`;
         return handlePluginStatus(conversationId, res, { core, config, log, webOrigin }, params.get("fallback") === "latest");
     }
-    if (req.method === "POST" && req.url === "/__bili/watcher") {
+    if (req.method === "POST" && req.url === "/__sophialin/watcher") {
         // #7: an ATTACHING claude session registers its host pid so the shared
         // proxy outlives the first spawner's exit. Only proxies started in
-        // parent-watch mode (BILI_PARENT_PID) take watchers — daemons stay
+        // parent-watch mode (SOPHIALIN_PARENT_PID) take watchers — daemons stay
         // daemons, and a rejected registration leaves behavior unchanged.
         try {
             const body = await readBody(req);
@@ -1303,7 +1304,7 @@ async function handle(
             return;
         }
     }
-    if (req.method === "POST" && req.url === "/__bili/plugin/tool") {
+    if (req.method === "POST" && req.url === "/__sophialin/plugin/tool") {
         try {
             const body = await readBody(req);
             const webOrigin = `http://${opts.host === "0.0.0.0" ? "localhost" : opts.host}:${req.socket?.localPort ?? opts.port}`;
@@ -1314,7 +1315,7 @@ async function handle(
             return;
         }
     }
-    if (req.method === "POST" && req.url === "/__bili/plugin/register") {
+    if (req.method === "POST" && req.url === "/__sophialin/plugin/register") {
         try {
             const body = await readBody(req);
             handlePluginRegister(body.toString("utf8"), res);
@@ -1325,7 +1326,7 @@ async function handle(
             return;
         }
     }
-    if (req.method === "POST" && req.url === "/__bili/plugin/runtime-info") {
+    if (req.method === "POST" && req.url === "/__sophialin/plugin/runtime-info") {
         try {
             const body = await readBody(req);
             handlePluginRuntimeInfo(body.toString("utf8"), res);
@@ -1336,7 +1337,7 @@ async function handle(
             return;
         }
     }
-    if (req.method === "POST" && req.url === "/__bili/plugin/compact") {
+    if (req.method === "POST" && req.url === "/__sophialin/plugin/compact") {
         try {
             const body = await readBody(req);
             handlePluginCompact(body.toString("utf8"), res);
@@ -1347,7 +1348,7 @@ async function handle(
             return;
         }
     }
-    // Unknown /__bili/ or /__acp/ path → 404 locally. These are bili's own
+    // Unknown /__sophialin/ or /__acp/ path → 404 locally. These are sophialin's own
     // management prefixes; forwarding would leak the internal path to the
     // upstream (which 403s it) — #346.
     if (isAdminPath) {
@@ -1369,13 +1370,13 @@ async function handle(
      *  one). Undefined for every other protocol. */
     let googleModel: string | undefined;
     // #903: cost clock starts BEFORE the body read — local= covers body
-    // reception + parse + processTurn + rebuild/serialize, i.e. everything bili
+    // reception + parse + processTurn + rebuild/serialize, i.e. everything sophialin
     // does before handing off. inboundBytes stays the raw wire size (pre-decode).
     const reqT0 = performance.now();
     let inboundBytes = 0;
     // #1117: read before the body decode below — a passthrough-marked request
     // must relay its ORIGINAL bytes (content-encoding included) untouched.
-    const passthroughMark = headerValue(req, BILI_PASSTHROUGH_HEADER) === "1";
+    const passthroughMark = headerValue(req, SOPHIALIN_PASSTHROUGH_HEADER) === "1";
     try {
         bodyBuffer = await readBody(req);
         inboundBytes = bodyBuffer.length;
@@ -1383,8 +1384,8 @@ async function handle(
         urlPath = url.split("?", 2)[0];
         responsesCompact = urlPath.endsWith("/responses/compact");
         route = resolveUpstream(opts, req.url ?? "", req);
-        // #409: destination admission for the zero-config /bili/ absolute-URL
-        // tunnel. CONNECT has its own gates (mitm.ts); this is the /bili/
+        // #409: destination admission for the zero-config /sophialin/ absolute-URL
+        // tunnel. CONNECT has its own gates (mitm.ts); this is the /sophialin/
         // counterpart — self-proxy, link-local/metadata always denied;
         // loopback/private denied for remote clients unless allowlisted.
         if (route?.tunnel) {
@@ -1433,7 +1434,7 @@ async function handle(
                 if (decoded.decoded) delete req.headers["content-encoding"];
             } catch (decErr) {
                 if (decErr instanceof DecompressedTooLargeError) throw decErr;
-                // #619: bili can't decode this content-encoding -> don't 400. Drop
+                // #619: sophialin can't decode this content-encoding -> don't 400. Drop
                 // protocol so the request falls to the verbatim passthrough below,
                 // relaying the ORIGINAL still-encoded bytes (the reassignment never
                 // ran and the content-encoding header stays intact) so the upstream
@@ -1455,7 +1456,7 @@ async function handle(
         return;
     }
     // #1117: an unattributed in-process caller (native patch marked it — its
-    // URL was already /bili/-routed by the settings overlay, so refusal was
+    // URL was already /sophialin/-routed by the settings overlay, so refusal was
     // impossible client-side) relays byte-untouched, mirroring a direct send
     // without the overlay: no session, no injection, no guard. Same raw
     // forward as the #920 bypass.
@@ -1464,28 +1465,28 @@ async function handle(
         await forward(req, res, opts, scrubAnthropicPck(protocol, bodyBuffer, log), null, core, config, log, route, instanceId, undefined);
         return;
     }
-    // #300: bili→bili chain detection. If the inbound request already carries
-    // the x-bili-hop marker, an upstream bili instance already ran the
+    // #300: sophialin→sophialin chain detection. If the inbound request already carries
+    // the x-sophialin-hop marker, an upstream sophialin instance already ran the
     // compression pipeline on it. Processing it again would double-compress
     // and corrupt session state (#292). Skip ALL processing (no tool/tag
     // injection, no acp-loop, no session state) and pass the request through
     // verbatim. Clients never send this header, so its presence on an inbound
-    // request always means "came from a bili instance".
-    const hopMarker = headerValue(req, BILI_HOP_HEADER);
+    // request always means "came from a sophialin instance".
+    const hopMarker = headerValue(req, SOPHIALIN_HOP_HEADER);
     if (hopMarker !== undefined) {
         const selfLoop = hopMarker === instanceId;
         log("warn", selfLoop
-            ? `[chain] inbound request carries THIS instance's ${BILI_HOP_HEADER} marker (${hopMarker}) — self-loop detected. Passing through without processing; check your upstream config (it may point back to this instance).`
-            : `[chain] inbound request carries ${BILI_HOP_HEADER} from another bili instance (${hopMarker}) — bili→bili chain detected. Passing through without processing to avoid double compression; keep only one bili instance in the chain.`);
+            ? `[chain] inbound request carries THIS instance's ${SOPHIALIN_HOP_HEADER} marker (${hopMarker}) — self-loop detected. Passing through without processing; check your upstream config (it may point back to this instance).`
+            : `[chain] inbound request carries ${SOPHIALIN_HOP_HEADER} from another sophialin instance (${hopMarker}) — sophialin→sophialin chain detected. Passing through without processing to avoid double compression; keep only one sophialin instance in the chain.`);
     }
     // #1086: byte pre-filter for the ACP-artifact content fallback — the only
-    // remaining signal when a middlebox strips x-bili-hop. The DECISION is
+    // remaining signal when a middlebox strips x-sophialin-hop. The DECISION is
     // deferred until session identity is resolved below: artifacts in a
     // session THIS instance processed are self-produced and must run through
     // the kernel (v0.1.133 judged them chains before binding, which stopped
     // compression permanently on single-instance setups).
     // #1100: "no local state ⇒ foreign" is only sound when persistence proves
-    // ownership across a restart. With BILI_PERSIST=0 an instance can't recover
+    // ownership across a restart. With SOPHIALIN_PERSIST=0 an instance can't recover
     // ownership, so "no state" is ambiguous with our own replayed session — a
     // decisive passthrough would re-brick compression (#1086). Skip the fallback
     // entirely when the store is disabled; the hop marker above still catches chains.
@@ -1495,7 +1496,7 @@ async function handle(
     // plugin stamps this header per request for sessions with acp state on
     // disk; acp owns their context in-process, so binding/injecting/compressing
     // here would double-manage it. Raw forward, zero state touched.
-    if (headerValue(req, BILI_PLUGIN_BYPASS_HEADER) === "1") {
+    if (headerValue(req, SOPHIALIN_PLUGIN_BYPASS_HEADER) === "1") {
         log("debug", `bypass: ${req.method ?? "?"} ${maskUrlForLog(req.url ?? "")} — raw passthrough (legacy in-process compression)`);
         await forward(req, res, opts, scrubAnthropicPck(protocol, bodyBuffer, log), null, core, config, log, route, instanceId, undefined);
         return;
@@ -1524,13 +1525,13 @@ async function handle(
         return null;
     })();
     // #1395 step 3 (#1421): chain-checkpoint ENFORCEMENT — first-processor-
-    // wins. A verifiable checkpoint means an upstream bili already ran the
+    // wins. A verifiable checkpoint means an upstream sophialin already ran the
     // pipeline on this exact body: forward it verbatim (pipeline skipped)
     // instead of re-running kernel/injection. Only trusted verdicts skip;
     // stale-unmatched carriers are stripped and processed normally (this
     // instance becomes the processor and re-stamps on egress in forward()).
     // Gated like the legacy artifact fallback (chainContentDetection) and
-    // skipped when x-bili-hop is present (that path already decides).
+    // skipped when x-sophialin-hop is present (that path already decides).
     let chainSkip = false;
     if (protocol && hopMarker === undefined && opts.chainContentDetection !== false && parsed !== null && typeof parsed === "object") {
         try {
@@ -1599,7 +1600,7 @@ async function handle(
     // except Gemini, whose URL path holds it (`/v1beta/models/<model>:…`).
     const bodyModel = parsed && typeof parsed === "object" && "model" in parsed && typeof parsed.model === "string" ? parsed.model : undefined;
     const requestModel = bodyModel ?? googleModel;
-    // Capture the CLIENT's raw incoming request (before bili rebuilds) to
+    // Capture the CLIENT's raw incoming request (before sophialin rebuilds) to
     // resolve whether codex sends previous_response_id + full input vs delta.
     if (opts.debug && parsed && typeof parsed === "object") {
         const p = parsed as Record<string, unknown>;
@@ -1660,9 +1661,9 @@ async function handle(
             // serve, so it outranks every static source (the model table /
             // registry list the STANDARD window, e.g. 200K for claude); (1) a cooperative
             // plugin's report (the agent's own config — most authoritative, gated
-            // on the x-bili-plugin marker so a plain client cannot rewrite the
+            // on the x-sophialin-plugin marker so a plain client cannot rewrite the
             // nudge denominator by name); (1b) the launcher's per-model
-            // windows (BILI_LAUNCHER_MODEL_WINDOWS — the client's own
+            // windows (SOPHIALIN_LAUNCHER_MODEL_WINDOWS — the client's own
             // models.json/models.yml contextWindow, authoritative for this
             // deployment, no header trust needed since only the launcher
             // sets the env); (2) the user's per-route per-model declaration —
@@ -1690,7 +1691,7 @@ async function handle(
             // runtime-info entry matches THIS request's model — a stale
             // post-switch entry must never size a different model. #1531:
             // header-less plugin agents (omp native binds via identity
-            // register + prompt_cache_key stamping, never x-bili-plugin)
+            // register + prompt_cache_key stamping, never x-sophialin-plugin)
             // resolve their report by conversation signal instead of the
             // header — with the header present the agent table still wins
             // exclusively (a plain client can only ever miss, not hit).
@@ -1734,14 +1735,14 @@ async function handle(
                     // sized against a guessed denominator. Say so once per model
                     // instead of degrading silently into registry-peek.
                     if (runtimeAgent !== undefined && pluginWindow === undefined && runtimeWindow === undefined) {
-                        log("warn", `[window] model=${model} agent=${runtimeAgent} sent no context window (x-bili-plugin-context-window absent, no matching runtime-info) — host-configured limit not reaching the proxy; sizing against ${wsSource}`);
+                        log("warn", `[window] model=${model} agent=${runtimeAgent} sent no context window (x-sophialin-plugin-context-window absent, no matching runtime-info) — host-configured limit not reaching the proxy; sizing against ${wsSource}`);
                     }
                 }
             }
             resolvedNativeWindow = native;
             // #321 PR-E1: a codex client carries its OWN window perception
             // (bundled model table + 272K unknown-model fallback) and
-            // auto-compacts at 90% of it. If bili's budget exceeds what codex
+            // auto-compacts at 90% of it. If sophialin's budget exceeds what codex
             // believes, codex's native compaction fires first — the #292
             // misalignment. Cap the effective window at codex's perception.
             // An operator's explicit compress.modelContextLimit is exempt
@@ -1789,22 +1790,22 @@ async function handle(
     if (routePassthrough && hopMarker === undefined && protocol && parsed) {
         log("info", `[route-passthrough] ${maskUrlsInText(route?.rewrittenUrl ?? "")} matches a passthrough route — forwarding verbatim, kernel bypassed`);
     }
-    // #300: `hopMarker !== undefined` means an upstream bili already processed
+    // #300: `hopMarker !== undefined` means an upstream sophialin already processed
     // this request — skip the whole pipeline (prepared stays null) so the
     // passthrough path below forwards it verbatim. #1421: `chainSkip` is the
     // content-level twin of the same decision (verifiable checkpoint present).
     if (!opts.passthrough && !routePassthrough && !chainSkip && hopMarker === undefined && protocol && parsed && typeof parsed === "object") {
         const sessionHeader = headerValue(req, opts.sessionHeader);
         // Plugin mode (issue #1, "内外呼应"): a cooperative agent-side plugin
-        // announces itself with x-bili-plugin. The proxy then treats the
+        // announces itself with x-sophialin-plugin. The proxy then treats the
         // session's tool surface as NATIVE (plugin-registered from the
         // manifest) — wire tool injection is suppressed and the compress loop
         // never intercepts proxy-named tool calls. Philosophy prompt + nudge
         // keep flowing from here; state + folding stay proxy-owned.
         //
         // Launcher mode (#162) is the header-less variant: hosts that cannot
-        // attach per-request headers (claude/codex spawned by `bili claude`
-        // / `bili codex`) POST /__bili/plugin/register first (Claude Code
+        // attach per-request headers (claude/codex spawned by `sophialin claude`
+        // / `sophialin codex`) POST /__sophialin/plugin/register first (Claude Code
         // SessionStart hook / codex spawn). The FIRST request that creates a
         // NEW session consumes the pending register — that session is plugin
         // mode from then on, keyed by the registered conversation id, and the
@@ -2024,16 +2025,16 @@ async function handle(
         // no longer forces byte-identical passthrough — record one observation for
         // /acp diagnostics and fall through to processTurn so this session
         // establishes its own ownership state. Decisive verbatim passthrough
-        // stays reserved for the x-bili-hop header (above).
+        // stays reserved for the x-sophialin-hop header (above).
         if (artifactSeed) {
             const artifactKind = detectAcpArtifacts(bodyBuffer, parsed);
-            // #1197: a cooperative plugin announces itself with x-bili-plugin —
-            // its protocol RE-SENDS bili's compression artifacts (the compress
+            // #1197: a cooperative plugin announces itself with x-sophialin-plugin —
+            // its protocol RE-SENDS sophialin's compression artifacts (the compress
             // tool call + result live in the agent's own re-sent history by
             // design), so content-shape evidence can never outrank that
             // announcement. The #1086 fallback guards NON-cooperative clients
             // chained behind a header-stripping middlebox; a plugin client that
-            // is ALSO double-chained through another bili AND had the hop header
+            // is ALSO double-chained through another sophialin AND had the hop header
             // stripped is contrived, and weighing it against silently losing
             // compression + /acp for every resumed plugin session (the #1197
             // incident) says: process.
@@ -2048,8 +2049,8 @@ async function handle(
                 // request. Record the observation for /acp diagnostics and fall
                 // through to processTurn so this session establishes ownership.
                 // Decisive passthrough stays reserved for the authenticated
-                // x-bili-hop header (above + at the passthrough tail). Trade-off:
-                // a bili→bili relay that STRIPS x-bili-hop double-processes until
+                // x-sophialin-hop header (above + at the passthrough tail). Trade-off:
+                // a sophialin→sophialin relay that STRIPS x-sophialin-hop double-processes until
                 // both sides ship the request checkpoint (#1421) — once stamped,
                 // the content-level gate above catches it regardless of headers.
                 // #1218: recorded under the session id AND the client's own
@@ -2058,7 +2059,7 @@ async function handle(
                 const firstVerdict = recordChainVerdict(sessionId, artifactKind, protocol);
                 if (clientConv !== undefined && clientConv !== sessionId) recordChainVerdict(clientConv, artifactKind, protocol);
                 if (firstVerdict) {
-                    log("warn", `[chain] inbound ${protocol} request carries ACP compression artifacts (${artifactKind}) but neither ${BILI_HOP_HEADER} nor local compression state for session ${sessionId}. Historical ACP content is advisory-only — continuing to processTurn so this session establishes ownership (#1357); a header-stripping bili→bili relay may now double-process until both sides ship the request checkpoint (#1421).`);
+                    log("warn", `[chain] inbound ${protocol} request carries ACP compression artifacts (${artifactKind}) but neither ${SOPHIALIN_HOP_HEADER} nor local compression state for session ${sessionId}. Historical ACP content is advisory-only — continuing to processTurn so this session establishes ownership (#1357); a header-stripping sophialin→sophialin relay may now double-process until both sides ship the request checkpoint (#1421).`);
                 }
             } else if (artifactKind !== null) {
                 log("debug", `[chain] ACP artifacts (${artifactKind}) belong to this instance's own session ${sessionId} — self-produced, processing normally (#1086)`);
@@ -2190,8 +2191,8 @@ async function handle(
             const hint = sniffScanClient(req.headers) ?? (ua ? ua.slice(0, 120) : undefined);
             if (hint) session.metadata.clientHint = hint;
         }
-        // [#1333] Real pi plugin traffic arrives pre-stamped: `x-bili-plugin`
-        // + `x-bili-plugin-conversation` (set by the extension, pi.ts:127)
+        // [#1333] Real pi plugin traffic arrives pre-stamped: `x-sophialin-plugin`
+        // + `x-sophialin-plugin-conversation` (set by the extension, pi.ts:127)
         // set pluginAgent/pluginConversation from headers above, so the
         // identity branch never runs for it. The identity register (which
         // carries the derived child's parentConversationId) is keyed by that
@@ -2230,10 +2231,10 @@ async function handle(
                     for (const f of res.findings) {
                         if (isDesignAbsorbed(f, pluginAgent)) continue;
                         const risk = f.match === "known"
-                            ? "it is bili's sibling compressor — two compressors on one conversation will double-compress and corrupt message refs"
+                            ? "it is sophialin's sibling compressor — two compressors on one conversation will double-compress and corrupt message refs"
                             : "its name matches compression keywords — IF it also compresses context, the two compressors will double-compress and corrupt message refs";
                         recordConflict(session, "third-party-plugin", `${f.client}: ${f.entry} (${f.source})${f.match === "keyword" ? " [suspected]" : ""}`);
-                        log("warn", `[conflict] co-resident compression plugin detected on ${f.client}: ${f.entry} (${f.source}) — ${risk} (#1206). Remove or disable the other plugin, or route this client exclusively through bili.`);
+                        log("warn", `[conflict] co-resident compression plugin detected on ${f.client}: ${f.entry} (${f.source}) — ${risk} (#1206). Remove or disable the other plugin, or route this client exclusively through sophialin.`);
                     }
                 }
             } catch (err) {
@@ -2319,7 +2320,7 @@ async function handle(
         }
         // Responses, OpenAI-chat AND Anthropic-wire clients that send their
         // own session id as `prompt_cache_key` (omp) get that conversation
-        // recorded even WITHOUT the x-bili-plugin header, so the /acp command
+        // recorded even WITHOUT the x-sophialin-plugin header, so the /acp command
         // — which looks the session up by the client's session id — can find
         // it. The session id itself now ALSO derives from prompt_cache_key (the
         // preferPromptCacheKeyIdentity calls above, which only kick in when the
@@ -2334,7 +2335,7 @@ async function handle(
         }
         // Two compression modes, decided here per request and bound per session
         // (see TECHNICAL-NOTES.md "Two compression modes"):
-        //  - pluginMode (x-bili-plugin header / registered agent): the ACP-native
+        //  - pluginMode (x-sophialin-plugin header / registered agent): the ACP-native
         //    agent (pi/omp) OWNS compression — it executes `compress` locally, the
         //    call+result live in its own re-sent history, and the summary carrier
         //    is the TOOL CALL. The proxy suppresses tool injection (injectTools
@@ -2386,6 +2387,11 @@ async function handle(
         // round-trip needs a tool channel on this wire; without one the model
         // could request originals it never gets back (silent-loss trap).
         storeEffectiveImageCompression(session, opts.compress.injectTool && !pluginMode && storeChannelOk && resolvedImageCompressionCfg?.enabled === true ? resolvedImageCompressionCfg : undefined);
+        // DSH-offload compat: NO channel gating here — unlike image_full,
+        // dropping wire content needs no tool surface. The restore hint inside
+        // the placeholder is gated separately (applyImageOffloadPass reads
+        // imageCompressionEnabled, i.e. the same condition as the line above).
+        storeEffectiveImageOffload(session, opts.compress.imageOffload?.enabled === true ? opts.compress.imageOffload : undefined);
         // [#1336] no channel gating: search_context is already available on
         // whichever mode served this session and the re-rank is pure output-
         // side policy on its result — both proxy and plugin lanes apply it.
@@ -2408,7 +2414,7 @@ async function handle(
         // skipped. processedMessages stays empty so the loop can never engage.
         // #1699: opencode v2 title-gen requests carry no max_tokens, so the budget
         // heuristic alone misses them. The host stamps its per-request persona id
-        // (x-bili-plugin-agent); a known side-request agent routes verbatim by intent.
+        // (x-sophialin-plugin-agent); a known side-request agent routes verbatim by intent.
         const requestAgent = pluginRequestAgentHeader(req.headers);
         if (!countTokens && !responsesCompact && protocol !== null && isSideRequest(parsed, requestAgent)) {
             // #554: the passthrough below skips EVERY input-side guard by design
@@ -2574,13 +2580,13 @@ async function handle(
         // back to a hardcoded 200K.
         session.metadata.effectiveContextLimit = reqConfig.modelContextLimit;
         // #955 runtime-info: record the model id + window source for this
-        // session so /__bili/plugin/status can show them pre-first-request and
+        // session so /__sophialin/plugin/status can show them pre-first-request and
         // post-hoc forensics can tell which source sized the window.
         if (reqModelId !== undefined) session.metadata.lastModel = reqModelId;
         session.metadata.lastWindowSource = wsSourceForLog ?? null;
         // #833: remember the FINAL resolved Config (post self-heal + headroom,
         // same instant as effectiveContextLimit above) so request-context-free
-        // display paths (/__bili/plugin/status Nudge line, plugin tool API)
+        // display paths (/__sophialin/plugin/status Nudge line, plugin tool API)
         // render from the values the kernel actually used this turn.
         storeEffectiveConfig(session, reqConfig);
         // acquireInFlight must precede the lock so evictOldest() cannot flush
@@ -2610,7 +2616,7 @@ async function handle(
                     const cs = resolveCompress(opts.routes, route?.rewrittenUrl, requestModel, opts.compress);
                     // #1279: stamp this request's effective cache-economics price
                     // profile on the session so request-context-free report faces
-                    // (acp_cache / /acp-cache / __bili/cache-report) price folds
+                    // (acp_cache / /acp-cache / __sophialin/cache-report) price folds
                     // with the profile that governed this turn; unset clears it
                     // (latest-wins, like activePack). User config at any level wins
                     // wholesale; when no level configures one, fall back to the
@@ -2650,7 +2656,7 @@ async function handle(
                         : protocol === "openai"
                           ? await prepareOpenai(work as OpenAIRequestBody, req, opts, core, reqConfig, reqPrompts, reqSurface, log, session, pluginMode, upstreamOrigin, nativeWindow, reasoningCfg, visibilityMarkers, route?.rewrittenUrl)
                           : responsesCompact
-                            // #618 review nit: when no bili compaction item is present,
+                            // #618 review nit: when no sophialin compaction item is present,
                             // prepareResponsesCompact falls back to the raw bodyBuffer — forward
                             // the re-serialized post-strip work instead so dropped images don't
                             // ride along. Unchanged bodies keep the original buffer byte-identical.
@@ -2659,10 +2665,10 @@ async function handle(
                 };
                 // #332: codex's native remote-compaction request (trigger form)
                 // is dispatched BEFORE prepare/preflight. When it is not
-                // intercepted, preserve what codex sent except for local bili
+                // intercepted, preserve what codex sent except for local sophialin
                 // compaction markers: a preflight-compressed/rebuilt payload
                 // diverges from codex's local history, non-OpenAI backends 400 the
-                // compaction_trigger item, and folding bili's state as a side
+                // compaction_trigger item, and folding sophialin's state as a side
                 // effect of handling codex's own compaction is wrong.
                 const isCodexCompactTrigger =
                     protocol === "responses" &&
@@ -2684,8 +2690,8 @@ async function handle(
                     const { items, replaced, dropped } = replaceBiliCompactionItems(Array.isArray(original.input) ? original.input : []);
                     const normalized = replaced + dropped > 0;
                     const forwardBody = normalized ? Buffer.from(JSON.stringify({ ...original, input: items })) : bodyBuffer;
-                    const why = mode !== "intercept" ? "BILI_CODEX_COMPACT=pass" : !gatePre ? "gate preconditions not met" : "transform/forge failed";
-                    log("info", `[${session.id}] codex compaction_trigger request not intercepted (${why}) — forwarding ${normalized ? `with bili summaries normalized (replaced=${replaced}, dropped=${dropped})` : "verbatim"} (no preflight, no rebuild, no window clamp)`);
+                    const why = mode !== "intercept" ? "SOPHIALIN_CODEX_COMPACT=pass" : !gatePre ? "gate preconditions not met" : "transform/forge failed";
+                    log("info", `[${session.id}] codex compaction_trigger request not intercepted (${why}) — forwarding ${normalized ? `with sophialin summaries normalized (replaced=${replaced}, dropped=${dropped})` : "verbatim"} (no preflight, no rebuild, no window clamp)`);
                     logRequestCost(log, session.id, inboundMsgs, inboundBytes, reqT0, forwardBody);
                     return { body: forwardBody, prepared: null };
                 }
@@ -2759,7 +2765,7 @@ async function handle(
                 }
                 // #1266: capture the CLIENT's raw incoming wire AFTER session
                 // binding so the filename carries the session id — INCOMING↔REQ
-                // dumps pair by id for `bili acp-cache diff`. Moved from the
+                // dumps pair by id for `sophialin acp-cache diff`. Moved from the
                 // pre-prepare site where no session was bound yet. Requests
                 // rejected before prepare lose their INCOMING dump — fine, they
                 // never reach upstream and produce no REQ dump either.
@@ -2805,7 +2811,7 @@ async function handle(
                     : undefined;
                 await forward(req, res, opts, pendingForward.body, pendingForward.prepared, core, reqConfig, log, route, instanceId, affinity, overflowRefold);
                 // Remember for ALL modes (not just plugin): wire clients (dsh,
-                // hermes, unplug'd pi) read the same panel via /__bili/plugin/status
+                // hermes, unplug'd pi) read the same panel via /__sophialin/plugin/status
                 // and need the nudge/breakdown sections too; locked so a racing
                 // plugin tool call sees a consistent window.
                 if (pendingForward.prepared) {
@@ -2901,7 +2907,7 @@ export function warnReasoningPairs(
 }
 
 /** [#684] Anthropic-wire twin of the openai sentinel, narrowed by [#1327]:
- *  warn only when bili itself lost thinking — a tool_use block that rode an
+ *  warn only when sophialin itself lost thinking — a tool_use block that rode an
  *  inbound assistant message WITH a thinking block now rides an outbound
  *  assistant message with none. Outbound-only asymmetry (some tool_use turns
  *  think, others don't) is ordinary Claude Code traffic: turns without
@@ -3393,6 +3399,11 @@ async function prepareAnthropic(
         // decision + recipe; originals cached for the image_full restore channel).
         // Deterministic encode ⇒ re-runs are byte-stable for the prefix cache.
         await applyImageCompressionPass(session, processedMessages as BiliMessage[], { config, billing: imageBillingFor(opts, upstreamOrigin), log });
+        // DSH-offload compat: run AFTER compression (shrink first, then drop —
+        // offloading before shrinking would remove bytes the recipe could have
+        // kept) and on the same message list, so the wire rebuild sees one
+        // consistent body.
+        applyImageOffloadPass(session, processedMessages as BiliMessage[], { settings: opts.compress.imageOffload, log });
         // [#1271/#1343] plugin mode: acp_retrieve already acked via the tool API; snapshot
         // the queued full text onto THIS forward (stays in the queue until commit/drop, so an
         // upstream failure drops-and-logs it instead of vanishing it).
@@ -3624,6 +3635,7 @@ async function prepareOpenai(
         // [#1095] arrival-time image downscale (see prepareAnthropic) — one
         // deterministic encode per fingerprint; byte-stable re-runs.
         await applyImageCompressionPass(session, processedMessages as BiliMessage[], { config, billing: imageBillingFor(opts, billingUpstream ?? upstreamOrigin), log });
+        applyImageOffloadPass(session, processedMessages as BiliMessage[], { settings: opts.compress.imageOffload, log });
         // [#1271/#1343] plugin mode: acp_retrieve already acked via the tool API; snapshot
         // the queued full text onto THIS forward (stays in the queue until commit/drop, so an
         // upstream failure drops-and-logs it instead of vanishing it).
@@ -3649,7 +3661,7 @@ async function prepareOpenai(
         if (sysNotes.length > 0) {
             rebuiltMessages = [...rebuiltMessages, ...sysNotes.map((text) => ({ role: "user" as const, content: text }))];
         }
-        // #532: capture what bili injects outside the fold space (client system
+        // #532: capture what sophialin injects outside the fold space (client system
         // + compress prompt). A head system message already in the rebuilt view
         // is classified by the kernel breakdown — counting only these parts
         // avoids double-counting it.
@@ -3860,6 +3872,11 @@ async function prepareGoogle(
         reapOrphansLogged(session, msgs, log, sessionId);
         // [#1095] arrival-time image downscale (see prepareAnthropic).
         await applyImageCompressionPass(session, processedMessages as BiliMessage[], { config, billing: imageBillingFor(opts, upstreamOrigin), log });
+        // DSH-offload compat: run AFTER compression (shrink first, then drop —
+        // offloading before shrinking would remove bytes the recipe could have
+        // kept) and on the same message list, so the wire rebuild sees one
+        // consistent body.
+        applyImageOffloadPass(session, processedMessages as BiliMessage[], { settings: opts.compress.imageOffload, log });
         rebuiltContents = coreToGoogle(processedMessages as BiliMessage[]);
 
         // ONLY the static compress prompt joins the client's system text — the
@@ -3988,7 +4005,7 @@ async function prepareResponses(
     // request; replace it with a plain summary-carrying user message so the
     // handoff rides the replayable history (kernel-compressible, retained by
     // codex's own user-message rule) instead of a foreign opaque blob. Real
-    // OpenAI blobs carry no bili marker and pass through untouched.
+    // OpenAI blobs carry no sophialin marker and pass through untouched.
     let echoReplaced = false;
     if (Array.isArray(parsed.input)) {
         const { items, replaced, dropped } = replaceBiliCompactionItems(parsed.input);
@@ -3997,7 +4014,7 @@ async function prepareResponses(
             // drop-only echo removed a marker blob without inserting one, so the
             // forge-time captured summaries must still be re-injected (#1064).
             if (replaced > 0) echoReplaced = true;
-            log("info", `[${sessionId}] replaced ${replaced} echoed bili compaction item(s) with summary handoff message(s)${dropped > 0 ? `, dropped ${dropped} legacy marker item(s)` : ""}`);
+            log("info", `[${sessionId}] replaced ${replaced} echoed sophialin compaction item(s) with summary handoff message(s)${dropped > 0 ? `, dropped ${dropped} legacy marker item(s)` : ""}`);
             parsed.input = items as typeof parsed.input;
         }
     }
@@ -4151,6 +4168,7 @@ async function prepareResponses(
         reapOrphansLogged(session, msgs, log, sessionId);
         // [#1095] arrival-time image downscale (see prepareAnthropic).
         await applyImageCompressionPass(session, processedMessages as BiliMessage[], { config, billing: imageBillingFor(opts, billingUpstream ?? upstreamOrigin), log });
+        applyImageOffloadPass(session, processedMessages as BiliMessage[], { settings: opts.compress.imageOffload, log });
         rebuiltInput = patchResponsesInput(projection, processedMessages);
         if (Array.isArray(rebuiltInput)) rebuiltInput = mergeAdjacentConfigurationUpdates(hoistTrappedToolItems(rebuiltInput));
         // Fallback path: when the echo did NOT come back this turn (client
@@ -4176,8 +4194,8 @@ async function prepareResponses(
                 const ccrOn = ccrEnabled(session);
                 const respExtra = [...(absorbActive ? [absorbTools.responses] : []), ...(rulesActive ? [RULE_TOOL_RESPONSES] : []), ...(ccrOn ? [retrieveToolsFor(retrieveToolName(session)).responses] : []), ...(imageCompressionEnabled(session) ? [IMAGE_FULL_TOOL_RESPONSES] : [])];
                 toolsOut = responsesTextProtocol
-                    ? injectResponsesTool(parsed.tools, ccrOn ? BILI_ACP_READONLY_TOOLS_RESPONSES : BILI_ACP_READONLY_TOOLS_RESPONSES_NO_RANGE, surface?.toolPrompts)
-                    : injectResponsesTool(parsed.tools, respExtra.length > 0 ? [...(ccrOn ? BILI_ACP_TOOLS_RESPONSES : BILI_ACP_TOOLS_RESPONSES_NO_RANGE), ...respExtra] : (ccrOn ? BILI_ACP_TOOLS_RESPONSES : BILI_ACP_TOOLS_RESPONSES_NO_RANGE), surface?.toolPrompts);
+                    ? injectResponsesTool(parsed.tools, ccrOn ? SOPHIALIN_ACP_READONLY_TOOLS_RESPONSES : SOPHIALIN_ACP_READONLY_TOOLS_RESPONSES_NO_RANGE, surface?.toolPrompts)
+                    : injectResponsesTool(parsed.tools, respExtra.length > 0 ? [...(ccrOn ? SOPHIALIN_ACP_TOOLS_RESPONSES : SOPHIALIN_ACP_TOOLS_RESPONSES_NO_RANGE), ...respExtra] : (ccrOn ? SOPHIALIN_ACP_TOOLS_RESPONSES : SOPHIALIN_ACP_TOOLS_RESPONSES_NO_RANGE), surface?.toolPrompts);
             }
         } else if (projection.systemParts.length > 0 || forgedSummaries.length > 0) {
             const devContent = [...projection.systemParts, ...forgedSummaries].join("\n\n---\n\n");
@@ -4413,7 +4431,7 @@ function prepareResponsesCompact(
     log: (level: string, msg: string) => void,
 ): Prepared {
     ++session.stats.requests;
-    // A bili-forged compaction item is never for the upstream (it carries our
+    // A sophialin-forged compaction item is never for the upstream (it carries our
     // sentinel blob) — strip it on every forwarding path, same as the normal
     // /responses pipeline does.
     const cleaned = Array.isArray(parsed.input) ? stripBiliCompactionItems(parsed.input) : parsed.input;
@@ -4570,16 +4588,16 @@ function injectSystem(
     return buildSystem(full, parsed.system);
 }
 
-// #920: in proxy mode bili OWNS the compression tool names. Agent-side tools
+// #920: in proxy mode sophialin OWNS the compression tool names. Agent-side tools
 // with the same name (opencode-acp's statically-registered DCP set ships in
 // every opencode request body — the v1 tool registry is process-global and
 // cannot be filtered per request) are dropped here so the upstream sees
-// exactly one definition per name, and it is bili's (its arg schemas are what
+// exactly one definition per name, and it is sophialin's (its arg schemas are what
 // the compress loop dispatches on). Plugin mode never calls these helpers.
 function injectTool(tools: unknown[] | undefined, extras?: readonly { name: string }[], toolPrompts?: ToolPrompts, ccrOn = false): unknown[] {
     // #1712: decompress's startId/endId execute only on CCR-armed sessions
     // (#1179), so serve the no-range schema when CCR is off.
-    const acp = applyAcpToolOverrides(ccrOn ? BILI_ACP_TOOLS_ANTHROPIC : BILI_ACP_TOOLS_ANTHROPIC_NO_RANGE, toolPrompts);
+    const acp = applyAcpToolOverrides(ccrOn ? SOPHIALIN_ACP_TOOLS_ANTHROPIC : SOPHIALIN_ACP_TOOLS_ANTHROPIC_NO_RANGE, toolPrompts);
     const list = extras ?? [];
     if (!Array.isArray(tools)) return [...acp, ...list];
     const owned = new Set<string>(acp.map((t) => t.name));
@@ -4592,7 +4610,7 @@ function injectTool(tools: unknown[] | undefined, extras?: readonly { name: stri
 }
 
 function injectOpenaiTool(tools: OpenAITool[] | undefined, extras?: readonly OpenAITool[], toolPrompts?: ToolPrompts, ccrOn = false): OpenAITool[] {
-    const acp = applyAcpToolOverrides(ccrOn ? BILI_ACP_TOOLS_OPENAI : BILI_ACP_TOOLS_OPENAI_NO_RANGE, toolPrompts) as OpenAITool[];
+    const acp = applyAcpToolOverrides(ccrOn ? SOPHIALIN_ACP_TOOLS_OPENAI : SOPHIALIN_ACP_TOOLS_OPENAI_NO_RANGE, toolPrompts) as OpenAITool[];
     const list = extras ?? [];
     if (!Array.isArray(tools)) return [...acp, ...list] as OpenAITool[];
     const owned = new Set<string>(acp.map((t) => t.function.name));
@@ -4609,7 +4627,7 @@ function injectOpenaiTool(tools: OpenAITool[] | undefined, extras?: readonly Ope
  *  (`tools[].functionDeclarations[]`), so presence is collected across every
  *  entry and the missing declarations are appended as one new entry. */
 function injectGoogleTool(tools: GoogleTool[] | undefined, extra?: { name: string }[], toolPrompts?: ToolPrompts, ccrOn = false): GoogleTool[] {
-    const acp = applyAcpToolOverrides(ccrOn ? BILI_ACP_TOOLS_GOOGLE : BILI_ACP_TOOLS_GOOGLE_NO_RANGE, toolPrompts) as GoogleFunctionDeclaration[];
+    const acp = applyAcpToolOverrides(ccrOn ? SOPHIALIN_ACP_TOOLS_GOOGLE : SOPHIALIN_ACP_TOOLS_GOOGLE_NO_RANGE, toolPrompts) as GoogleFunctionDeclaration[];
     const wanted: { name: string }[] = extra ? [...acp, ...extra] : [...acp];
     if (!Array.isArray(tools)) return [{ functionDeclarations: wanted as GoogleFunctionDeclaration[] }];
     const present = new Set<string>();
@@ -4632,10 +4650,10 @@ const FORCE_TEXT_PROTOCOL = process.env.ACP_COMPRESS_PROTOCOL === "text";
 /** Inject all ACP tools (compress/decompress/search_context/acp_status) in
  *  Responses API flat format, matching the PROXY_TOOL_NAMES set the compress
  *  loop dispatches on. Idempotent. */
-function injectResponsesTool(tools: unknown[] | undefined, toolsToAdd: readonly { name: string }[] = BILI_ACP_TOOLS_RESPONSES, toolPrompts?: ToolPrompts): unknown[] {
+function injectResponsesTool(tools: unknown[] | undefined, toolsToAdd: readonly { name: string }[] = SOPHIALIN_ACP_TOOLS_RESPONSES, toolPrompts?: ToolPrompts): unknown[] {
     const base = applyAcpToolOverrides(toolsToAdd, toolPrompts);
     if (!Array.isArray(tools)) return [...base];
-    // Same #920 rule as injectTool/injectOpenaiTool: bili owns these names.
+    // Same #920 rule as injectTool/injectOpenaiTool: sophialin owns these names.
     const owned = new Set<string>(base.map((t) => t.name));
     const kept = tools.filter((t) => {
         const n = (t as { name?: string })?.name;
@@ -4707,9 +4725,9 @@ function buildForwardTarget(
     // over any inbound value (only set when this instance processed the
     // request; a passthrough leaves the inbound marker — if any — intact so it
     // keeps propagating down the chain).
-    if (hopMarker !== undefined) headers[BILI_HOP_HEADER] = hopMarker;
-    // #409: mark every /bili/ absolute-URL forward so a management plane
-    // reached through this tunnel (self, NAT hairpin, chained bili) can
+    if (hopMarker !== undefined) headers[SOPHIALIN_HOP_HEADER] = hopMarker;
+    // #409: mark every /sophialin/ absolute-URL forward so a management plane
+    // reached through this tunnel (self, NAT hairpin, chained sophialin) can
     // recognize and reject it — see the admin gate in handle().
     // #1073: exception — loopback peer → loopback IP-literal destination on a
     // management path: any same-machine process can already connect straight
@@ -4725,17 +4743,17 @@ function buildForwardTarget(
             const lit = parseIpLiteral(du.hostname.replace(/^\[|\]$/g, ""));
             destLoopback = lit !== null && classifyIp(lit) === "loopback";
             const dp = du.pathname;
-            destAdminPath = dp === "/__bili/" || dp.startsWith("/__bili/") || dp === "/__acp/" || dp.startsWith("/__acp/");
+            destAdminPath = dp === "/__sophialin/" || dp.startsWith("/__sophialin/") || dp === "/__acp/" || dp.startsWith("/__acp/");
         } catch {
             // unparseable upstream URL — stamp defensively
         }
-        if (!(isLoopbackAddress(req.socket.remoteAddress) && destLoopback && destAdminPath)) headers[BILI_TUNNEL_HEADER] = "1";
+        if (!(isLoopbackAddress(req.socket.remoteAddress) && destLoopback && destAdminPath)) headers[SOPHIALIN_TUNNEL_HEADER] = "1";
     }
     headers["host"] = new URL(upstreamUrl).host;
     // codex advertises its own server-side context compaction via this beta
-    // feature. It conflicts with bili's client-side compress (bili IS the
+    // feature. It conflicts with sophialin's client-side compress (sophialin IS the
     // compression layer) and third-party aggregators reject it with
-    // "invalid range / ref not found". Strip it so bili's compress is the
+    // "invalid range / ref not found". Strip it so sophialin's compress is the
     // sole mechanism.
     const betaKey = Object.keys(headers).find((h) => h.toLowerCase() === "x-codex-beta-features");
     if (betaKey) {
@@ -4791,7 +4809,7 @@ const PREFLIGHT_HOLD_GRACE_DEFAULT_MS = 30_000;
 const PREFLIGHT_KEEPALIVE_MS = 15_000;
 
 function preflightHoldGraceMs(): number {
-    const raw = process.env.BILI_PREFLIGHT_HOLD_MS;
+    const raw = process.env.SOPHIALIN_PREFLIGHT_HOLD_MS;
     if (!raw) return PREFLIGHT_HOLD_GRACE_DEFAULT_MS;
     const v = Number(raw);
     return Number.isFinite(v) && v >= 0 ? Math.floor(v) : PREFLIGHT_HOLD_GRACE_DEFAULT_MS;
@@ -4802,7 +4820,7 @@ function preflightHoldGraceMs(): number {
 const PREFLIGHT_DEAD_END_COOLDOWN_DEFAULT_MS = 5 * 60_000;
 
 function preflightDeadEndCooldownMs(): number {
-    const raw = process.env.BILI_PREFLIGHT_DEAD_END_COOLDOWN_MS;
+    const raw = process.env.SOPHIALIN_PREFLIGHT_DEAD_END_COOLDOWN_MS;
     if (!raw) return PREFLIGHT_DEAD_END_COOLDOWN_DEFAULT_MS;
     const v = Number(raw);
     return Number.isFinite(v) && v >= 0 ? Math.floor(v) : PREFLIGHT_DEAD_END_COOLDOWN_DEFAULT_MS;
@@ -4810,7 +4828,7 @@ function preflightDeadEndCooldownMs(): number {
 
 /** #568: commit the response early so a long preflight cannot lose the client
  *  to its header timeout. Streaming clients get an SSE stream with keep-alive
- *  comment lines (`: bili-preflight` — a spec-mandated no-op for every SSE
+ *  comment lines (`: sophialin-preflight` — a spec-mandated no-op for every SSE
  *  consumer, same pattern as OpenAI's SSE pings); non-streaming clients get
  *  chunked JSON padded with whitespace (valid JSON padding). Each byte resets
  *  undici's bodyTimeout (inactivity-based), holding the client for the whole
@@ -4820,17 +4838,17 @@ function preflightDeadEndCooldownMs(): number {
 function beginPreflightHold(res: http.ServerResponse, prepared: Prepared, log: (level: string, msg: string) => void): (() => void) | undefined {
     if (res.headersSent || res.destroyed || res.writableEnded) return undefined;
     const sid = prepared.session.id;
-    const keepAlive = prepared.stream ? ": bili-preflight\n\n" : " ";
+    const keepAlive = prepared.stream ? ": sophialin-preflight\n\n" : " ";
     try {
         if (prepared.stream) {
             res.writeHead(200, {
                 "content-type": "text/event-stream",
                 "cache-control": "no-cache",
                 "x-accel-buffering": "no",
-                "x-bili-preflight": "compressing",
+                "x-sophialin-preflight": "compressing",
             });
         } else {
-            res.writeHead(200, { "content-type": "application/json", "x-bili-preflight": "compressing" });
+            res.writeHead(200, { "content-type": "application/json", "x-sophialin-preflight": "compressing" });
         }
     } catch {
         return undefined;
@@ -4850,7 +4868,7 @@ function beginPreflightHold(res: http.ServerResponse, prepared: Prepared, log: (
 }
 
 // #1647: sibling of the #568 hold, covering the STREAMING phase. After the 2xx
-// commit, bili keeps consuming upstream bytes that never reach the client — the
+// commit, sophialin keeps consuming upstream bytes that never reach the client — the
 // rewriter/strip pipes swallow SSE comment pings (`: ping`, which llama.cpp &
 // friends emit precisely to keep intermediate hops alive), and the
 // fake-completion backstop + compress loop buffer whole rounds before emitting.
@@ -4867,7 +4885,7 @@ function beginPreflightHold(res: http.ServerResponse, prepared: Prepared, log: (
 const STREAM_KEEPALIVE_DEFAULT_MS = 15_000;
 
 function streamKeepaliveMs(): number {
-    const raw = process.env.BILI_STREAM_KEEPALIVE_MS;
+    const raw = process.env.SOPHIALIN_STREAM_KEEPALIVE_MS;
     if (!raw) return STREAM_KEEPALIVE_DEFAULT_MS;
     const v = Number(raw);
     return Number.isFinite(v) && v >= 0 ? Math.floor(v) : STREAM_KEEPALIVE_DEFAULT_MS;
@@ -4936,7 +4954,7 @@ export function beginStreamKeepalive(res: http.ServerResponse, sid: string, log:
             // skips — effective cadence ≈ 2×interval. Harmless vs the 300s
             // budget; noted here so the 2× isn't mistaken for a bug.)
             if (anyRes.__biliKeepaliveBoundary === false) return;
-            res.write(": bili-keepalive\n\n");
+            res.write(": sophialin-keepalive\n\n");
             if (!warned) {
                 warned = true;
                 log("info", `[${sid}] stream silent ${idleMs}ms — holding client with SSE keep-alive comments past its undici body timeout (#1647)`);
@@ -5076,7 +5094,7 @@ async function preflightCompressIfNeeded(
             ? `context ~${foldedTokens} tokens (down from ~${tokenCount} before preflight) exceeds the model window ${limit}`
             : `context ~${tokenCount} tokens exceeds the model window ${limit}`;
         const rangesClause = rangesLeft !== undefined ? `, with ${rangesLeft} compressible range(s) still visible` : "";
-        // #736: when the wall is bili's own shrunken window, say so — "raise the
+        // #736: when the wall is sophialin's own shrunken window, say so — "raise the
         // model context window" otherwise sends operators to the upstream when
         // their compress.modelContextLimit is the actual ceiling. Gate on
         // windowShrinkReason (set ONLY by the operator-override and codex-align
@@ -5086,7 +5104,7 @@ async function preflightCompressIfNeeded(
         // with a max_tokens, so comparing alone would emit this note for a
         // setting the operator never touched (#737 review).
         const shrinkNote = windowShrinkReason !== undefined && resolvedNativeWindow !== undefined && limit < resolvedNativeWindow
-            ? ` Note: bili's effective window ${limit} is below the model's full window ${resolvedNativeWindow} — ` +
+            ? ` Note: sophialin's effective window ${limit} is below the model's full window ${resolvedNativeWindow} — ` +
                 (windowShrinkReason === "codex"
                     ? `it was aligned down to codex's own window perception; set compress.modelContextLimit explicitly if your upstream serves the larger window.`
                     : `your compress.modelContextLimit setting overrides it; if the upstream actually serves the larger window, raise or remove that setting (hot-reloaded, no session restart needed).`)
@@ -5147,7 +5165,7 @@ async function preflightCompressIfNeeded(
     // old pre-check failed fast here on the normal-config compressibleRanges,
     // which excluded the soft zone — bricking the #330 livelock.
     log("warn", `[${session.id}] context ${tokenCount} tokens reached preflight target ${compressionTarget} (model window ${limit}, model=${model}); preflight compressing before forward`);
-    // #300: stamp the chain marker so a downstream bili skips these
+    // #300: stamp the chain marker so a downstream sophialin skips these
     // summarization calls too (preflight always processes).
     const { upstreamUrl, headers, proxyUrl } = buildForwardTarget(req, opts, route, affinity, instanceId);
     const clientAbort = new AbortController();
@@ -5305,13 +5323,13 @@ async function forward(
     }
     // #300: stamp the chain marker ONLY when this instance actually processed
     // the request (prepared !== null). A passthrough forward (prepared === null)
-    // must NOT claim processing — otherwise a downstream processing bili would
+    // must NOT claim processing — otherwise a downstream processing sophialin would
     // wrongly skip and the user loses compression. When prepared is null any
-    // inbound marker (from an upstream bili) is preserved verbatim by
+    // inbound marker (from an upstream sophialin) is preserved verbatim by
     // buildForwardTarget, so the marker keeps propagating down the chain.
     // #552: optional wire-compat role rewrite at the FINAL forward boundary —
     // the only choke point that sees every emission site (client items,
-    // bili's injected compress prompt, instructions hoisting, compress-loop
+    // sophialin's injected compress prompt, instructions hoisting, compress-loop
     // items). Opt-in via compat.roles (global + per-provider); empty map =
     // byte-for-byte passthrough.
     let wireBody: Buffer | string = body;
@@ -5323,7 +5341,7 @@ async function forward(
     const { upstreamUrl, headers, proxyUrl } = buildForwardTarget(req, opts, route, affinity, prepared !== null ? instanceId : undefined);
     // #1093 output-side compression: resolve through the standard three-level
     // compress cascade (global → provider); default off = byte-for-byte passthrough.
-    // The kernel decides (turn kind / verbosity / lower-effort); bili only lands it.
+    // The kernel decides (turn kind / verbosity / lower-effort); sophialin only lands it.
     // Resolved at provider granularity — verbosity/effort routing isn't model-specific
     // and extracting a model across all four wires here is disproportionate.
     const steerRaw = resolveCompress(opts.routes, upstreamUrl, undefined, opts.compress).outputSteering;
@@ -5369,8 +5387,8 @@ async function forward(
     }
     // #1421/#1683: outbound chain checkpoint — when egress stamping is enabled
     // (chainEgressStamp, DEFAULT OFF), every request THIS instance actually
-    // processed leaves with a request-level stamp, so a downstream bili applies
-    // first-processor-wins even when x-bili-hop was stripped in transit. The
+    // processed leaves with a request-level stamp, so a downstream sophialin applies
+    // first-processor-wins even when x-sophialin-hop was stripped in transit. The
     // carrier is model-visible (insertCheckpointCarrier), which is why this is
     // opt-in: models read it as phantom user input and burn tokens on it. Lands
     // AFTER compat roles + output steering: the digest must cover the exact
@@ -5865,7 +5883,7 @@ async function forward(
         if (bodyText.length > 600) snippet += " …";
         if (!snippet) snippet = "(no body)";
         loggerLog("warn", `[${errSid}] ← upstream ${upstream.status}${reqIdText}: ${snippet}`);
-        // #762: persist the exact forwarded body on 4xx (env-gated: BILI_DUMP_4XX=1).
+        // #762: persist the exact forwarded body on 4xx (env-gated: SOPHIALIN_DUMP_4XX=1).
         if (upstream.status >= 400 && upstream.status < 500) {
             dumpRejectedBody(upstream.status, errSid, wireBody);
         }
@@ -6271,6 +6289,7 @@ async function forward(
                     // applied after the ordering repair, matching the steady
                     // paths' sequence.
                     await applyImageCompressionPass(prepared.session, ordered as BiliMessage[], { config: loopConfig, billing: imageBillingFor(opts, route?.rewrittenUrl), log: ctx.log });
+        applyImageOffloadPass(prepared.session, ordered as BiliMessage[], { settings: opts.compress.imageOffload, log: ctx.log });
                     const imgNote = imageFullTrailingNote(prepared.session);
                     if (imgNote) (ordered as BiliMessage[]).push({ id: "bili_image_full_note", role: "user", contentType: "text", text: imgNote });
                     return ordered;
@@ -6358,7 +6377,7 @@ async function forward(
                 // #1547: settle through the shared path — stats AND the cache
                 // ledger. Before this, this branch updated stats only, so
                 // stream:false sessions produced zero ledger lines and were
-                // invisible to /acp-cache, __bili/cache-report and the
+                // invisible to /acp-cache, __sophialin/cache-report and the
                 // invalidation attribution built on them (#1536).
                 const reportedCached: number | null = typeof cached === "number" ? cached : null;
                 const billed = typeof total === "number" ? total : 0;
@@ -6525,7 +6544,7 @@ function sendCacheReport(res: http.ServerResponse, url: string): void {
 
 // #1206: orphan reaping was silent — blocks deactivated because their source
 // messages vanished from client history are the strongest runtime signal that
-// something outside bili (client auto-compaction or another compression plugin)
+// something outside sophialin (client auto-compaction or another compression plugin)
 // rewrote the conversation. Log it and record it in the session ledger.
 function reapOrphansLogged(session: Session, msgs: CoreMessage[], log: (level: string, msg: string) => void, sessionId: string): void {
     const { reaped } = reapOrphanBlocks(session, msgs, deactivateBlock);
@@ -6613,11 +6632,11 @@ async function sendWebSessions(res: http.ServerResponse): Promise<void> {
     res.end(JSON.stringify({ sessions, hiddenEmpty: hiddenEmptyCount() }, null, 2));
 }
 
-/** #1426 web UI run-log viewer: tail of the rotated logger files (bili.log.old
- *  + bili.log), optionally filtered by a case-insensitive substring (?q=).
+/** #1426 web UI run-log viewer: tail of the rotated logger files (sophialin.log.old
+ *  + sophialin.log), optionally filtered by a case-insensitive substring (?q=).
  *  ?lines= caps the tail at 2000; ?raw=1 streams the same tail as a .txt download. */
 async function sendWebLogs(res: http.ServerResponse, req: http.IncomingMessage): Promise<void> {
-    const u = new URL(req.url ?? "/__bili/logs", "http://localhost");
+    const u = new URL(req.url ?? "/__sophialin/logs", "http://localhost");
     const q = (u.searchParams.get("q") ?? "").trim();
     const fullDownload = u.searchParams.get("raw") === "1" && u.searchParams.get("all") === "1";
     let n = Number(u.searchParams.get("lines") ?? "500");
@@ -6638,7 +6657,7 @@ async function sendWebLogs(res: http.ServerResponse, req: http.IncomingMessage):
     // Cross-platform dir extraction: a naive "/" split yields "" on Windows
     // paths and the candidates would silently resolve against cwd.
     const dir = logFile ? path.dirname(logFile) + path.sep : "";
-    const candidates = [dir + "bili.log.old", dir + "bili.log"];
+    const candidates = [dir + "sophialin.log.old", dir + "sophialin.log"];
     const existing = candidates.filter((f) => {
         try { return fs.statSync(f).isFile(); } catch { return false; }
     });
@@ -6652,7 +6671,7 @@ async function sendWebLogs(res: http.ServerResponse, req: http.IncomingMessage):
     if (u.searchParams.get("raw") === "1") {
         res.writeHead(200, {
             "content-type": "text/plain; charset=utf-8",
-            "content-disposition": `attachment; filename="${fullDownload ? "billion-context-full-log.txt" : "billion-context-log.txt"}"`,
+            "content-disposition": `attachment; filename="${fullDownload ? "sophialin-context-full-log.txt" : "sophialin-context-log.txt"}"`,
         });
         res.end(r.lines.join("\n"));
         return;
@@ -6669,7 +6688,7 @@ async function sendWebLogs(res: http.ServerResponse, req: http.IncomingMessage):
 }
 
 async function sendWebSessionDetail(res: http.ServerResponse, url: string): Promise<void> {
-    const prefix = "/__bili/sessions/";
+    const prefix = "/__sophialin/sessions/";
     const suffix = "/detail";
     let id = "";
     try {
@@ -6702,7 +6721,7 @@ function formatBytes(n: number): string {
     return `${(n / (1024 * 1024 * 1024)).toFixed(1)}GiB`;
 }
 
-// #903: per-request local-cost line, logged at every point where bili finishes
+// #903: per-request local-cost line, logged at every point where sophialin finishes
 // its own processing and hands the request off (upstream forward, forged local
 // response, or fail-fast error) — see handle(). outbound is the exact body value
 // handed to forward() (string OR Buffer — Prepared.body is string|Buffer); wire
@@ -6753,6 +6772,6 @@ function logMsg(opts: ProxyOptions, level: string, msg: string): void {
 }
 
 export { getUnrecognizedPathStats, logDumpFailure, logUnrecognizedPath } from "./server/observability.js";
-export { BILI_HOP_HEADER, parseLauncherModelWindows, anthropicBetaContextWindow, capRegistryWindowByStandard, expandedContextSuffixWindow } from "./server/context-window.js";
+export { SOPHIALIN_HOP_HEADER, parseLauncherModelWindows, anthropicBetaContextWindow, capRegistryWindowByStandard, expandedContextSuffixWindow } from "./server/context-window.js";
 export { isSideRequest, outputBudgetField, restoreOutputBudget, sideRequestGuard, type OutputBudgetField } from "./server/side-request.js";
 export { countSystemAndToolsTokens, estimateInputTokens, estimateWireOverhead, clampOutputBudget, emergencyNudge, projectThinkingMass, type ThinkingMassInput } from "./server/budget.js";

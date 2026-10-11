@@ -28,7 +28,7 @@ test("instructionsFingerprintApplies: claude-over-Responses keeps the fingerprin
     assert.equal(instructionsFingerprintApplies({ "x-claude-code-session-id": "uuid-1", "x-session-affinity": "ses_abc" }), true);
     // only counts when the claude header WINS the walk — an outranking plugin
     // conversation id moves the request onto the verbatim default
-    assert.equal(instructionsFingerprintApplies({ "x-bili-plugin": "host", "x-bili-plugin-conversation": "c-1", "x-claude-code-session-id": "uuid-1" }), false);
+    assert.equal(instructionsFingerprintApplies({ "x-sophialin-plugin": "host", "x-sophialin-plugin-conversation": "c-1", "x-claude-code-session-id": "uuid-1" }), false);
 });
 
 test("instructionsFingerprintApplies: everyone else keys verbatim (#1106)", () => {
@@ -47,16 +47,16 @@ test("instructionsFingerprintApplies: everyone else keys verbatim (#1106)", () =
 });
 
 test("instructionsFingerprintApplies: plugin declaration flag is vestigial (#1106)", () => {
-    const base = { "x-bili-plugin": "opencode", "x-bili-plugin-conversation": "c-1", "x-bili-plugin-instructions-mutable": "1" };
+    const base = { "x-sophialin-plugin": "opencode", "x-sophialin-plugin-conversation": "c-1", "x-sophialin-plugin-instructions-mutable": "1" };
     assert.equal(instructionsFingerprintApplies(base), false);
-    assert.equal(instructionsFingerprintApplies({ ...base, "x-bili-plugin-instructions-mutable": undefined }), false);
-    assert.equal(instructionsFingerprintApplies({ "x-bili-plugin": "future-host", "x-bili-plugin-conversation": "c-2", "x-bili-plugin-instructions-mutable": "1" }), false);
+    assert.equal(instructionsFingerprintApplies({ ...base, "x-sophialin-plugin-instructions-mutable": undefined }), false);
+    assert.equal(instructionsFingerprintApplies({ "x-sophialin-plugin": "future-host", "x-sophialin-plugin-conversation": "c-2", "x-sophialin-plugin-instructions-mutable": "1" }), false);
 });
 
 test("conversationHeaderSource: reports the winning header with priority order intact", () => {
-    assert.deepEqual(conversationHeaderSource({ "x-bili-plugin": "pi", "x-bili-plugin-conversation": "p1", "x-session-affinity": "ses_z" }), { name: "x-bili-plugin-conversation", value: "p1" });
+    assert.deepEqual(conversationHeaderSource({ "x-sophialin-plugin": "pi", "x-sophialin-plugin-conversation": "p1", "x-session-affinity": "ses_z" }), { name: "x-sophialin-plugin-conversation", value: "p1" });
     assert.deepEqual(conversationHeaderSource({ "x-session-affinity": " ses_a ", "x-session-id": "s-b" }), { name: "x-session-affinity", value: "ses_a" });
-    assert.equal(conversationHeaderSource({ "x-bili-plugin-conversation": "orphan" }), undefined);
+    assert.equal(conversationHeaderSource({ "x-sophialin-plugin-conversation": "orphan" }), undefined);
 });
 
 function listen(server: http.Server): Promise<void> {
@@ -128,7 +128,7 @@ async function withProxy(upstreamHandler: (req: http.IncomingMessage, res: http.
     await listen(proxy);
     const proxyPort = (proxy.address() as { port: number }).port;
     try {
-        await fn(`http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/responses`, `http://127.0.0.1:${proxyPort}/__bili/stats`, bodies);
+        await fn(`http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/responses`, `http://127.0.0.1:${proxyPort}/__sophialin/stats`, bodies);
     } finally {
         await close(proxy);
         await close(upstream);
@@ -214,9 +214,9 @@ test("e2e #1106: plugin conversation without the mutable flag stays ONE session 
     setRegistryForTest({});
 
     const CONVERSATION = "plg-drift-e2e";
-    // no x-bili-plugin-instructions-mutable — under #1104 this forked; under
+    // no x-sophialin-plugin-instructions-mutable — under #1104 this forked; under
     // the #1106 allowlist default the plugin lane keys verbatim regardless
-    const headers = { "content-type": "application/json", "x-bili-plugin": "opencode", "x-bili-plugin-conversation": CONVERSATION };
+    const headers = { "content-type": "application/json", "x-sophialin-plugin": "opencode", "x-sophialin-plugin-conversation": CONVERSATION };
 
     await withProxy((_req, res) => {
         res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });

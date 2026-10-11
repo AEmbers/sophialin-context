@@ -12,7 +12,7 @@ import { SessionStore, _setStoreForTest } from "../src/persist.ts";
 import { _setForTest as setRegistryForTest } from "../src/registry.ts";
 import { rmrf } from "./tmp-rm.ts";
 
-/** #115: DNS rebinding defense on /__bili/ management endpoints. An attacker
+/** #115: DNS rebinding defense on /__sophialin/ management endpoints. An attacker
  *  who resolves evil.com → 127.0.0.1 can make a browser request arrive at the
  *  loopback proxy with Host/Origin = evil.com. The proxy must reject any
  *  admin request whose Host is not one of its own listen identities —
@@ -28,7 +28,7 @@ function request(
 ): Promise<{ status: number; body: string }> {
     const { promise, resolve, reject } = Promise.withResolvers<{ status: number; body: string }>();
     const req = http.request(
-        { host: "127.0.0.1", port, path: "/__bili/config", headers },
+        { host: "127.0.0.1", port, path: "/__sophialin/config", headers },
         (res) => {
             let body = "";
             res.on("data", (c: Buffer) => { body += c.toString("utf8"); });
@@ -43,12 +43,12 @@ function request(
 test("admin endpoints: DNS-rebinding Host is rejected with and without Origin (#115)", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-admin-origin-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-admin-origin-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const sophialinConfig = path.join(root, "sophialin-context.json");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
 
     const port = 8017 + (process.pid % 500);
     const opts: ProxyOptions = {
@@ -93,7 +93,7 @@ test("admin endpoints: DNS-rebinding Host is rejected with and without Origin (#
         const crossOrigin = await request(actualPort, { host: trusted, origin: "http://evil.com:8080" });
         assert.equal(crossOrigin.status, 403, "Origin not in trusted hosts must be rejected");
     } finally {
-        process.env.BILI_CONFIG_FILE = prevConfig;
+        process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         proxy.closeAllConnections?.();
         await close(proxy);
         try { rmrf(root); } catch { /* best-effort */ }
@@ -103,12 +103,12 @@ test("admin endpoints: DNS-rebinding Host is rejected with and without Origin (#
 test("admin endpoints accept an SSH-forwarded local port that differs from the listen port (#1537)", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-admin-forward-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-admin-forward-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const sophialinConfig = path.join(root, "sophialin-context.json");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
 
     // ssh -L <local>:127.0.0.1:<listen>: the browser sees <local>, the proxy
     // listens on <listen>. The connection still arrives from loopback, so the
@@ -159,7 +159,7 @@ test("admin endpoints accept an SSH-forwarded local port that differs from the l
         const crossSite = await request(listenPort, { host: `localhost:${localPort}`, origin: "http://evil.com:8080" });
         assert.equal(crossSite.status, 403, "cross-site Origin on a trusted host must be rejected");
     } finally {
-        process.env.BILI_CONFIG_FILE = prevConfig;
+        process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         proxy.closeAllConnections?.();
         await close(proxy);
         try { rmrf(root); } catch { /* best-effort */ }
@@ -169,12 +169,12 @@ test("admin endpoints accept an SSH-forwarded local port that differs from the l
 test("admin endpoints work with port: 0 (dynamic port assignment)", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-admin-port0-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-admin-port0-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const sophialinConfig = path.join(root, "sophialin-context.json");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
 
     // port: 0 → the OS assigns the real port; trusted-host pinning must use
     // the socket's localPort, not the configured 0 (regression: every admin
@@ -209,24 +209,24 @@ test("admin endpoints work with port: 0 (dynamic port assignment)", async () => 
         const spoofed = await request(actualPort, { host: `evil.com:${actualPort}` });
         assert.equal(spoofed.status, 403, "rebinding Host still rejected on dynamic port");
     } finally {
-        process.env.BILI_CONFIG_FILE = prevConfig;
+        process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         proxy.closeAllConnections?.();
         await close(proxy);
         try { rmrf(root); } catch { /* best-effort */ }
     }
 });
 
-test("unknown /__bili/ path → 404 locally, not forwarded to upstream (#346)", async () => {
+test("unknown /__sophialin/ path → 404 locally, not forwarded to upstream (#346)", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-admin-404-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-admin-404-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const sophialinConfig = path.join(root, "sophialin-context.json");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
 
-    // Dead upstream: if the unknown /__bili/ path were (wrongly) forwarded,
+    // Dead upstream: if the unknown /__sophialin/ path were (wrongly) forwarded,
     // this would 502/hang instead of answering 404 immediately.
     const opts: ProxyOptions = {
         port: 0,
@@ -253,7 +253,7 @@ test("unknown /__bili/ path → 404 locally, not forwarded to upstream (#346)", 
     try {
         const res = await new Promise<{ status: number; body: string }>((resolve, reject) => {
             const req = http.request(
-                { host: "127.0.0.1", port: actualPort, path: "/__bili/api/sessions", headers: { host: `127.0.0.1:${actualPort}` } },
+                { host: "127.0.0.1", port: actualPort, path: "/__sophialin/api/sessions", headers: { host: `127.0.0.1:${actualPort}` } },
                 (r) => {
                     let body = "";
                     r.on("data", (c: Buffer) => { body += c.toString("utf8"); });
@@ -263,9 +263,9 @@ test("unknown /__bili/ path → 404 locally, not forwarded to upstream (#346)", 
             req.once("error", reject);
             req.end();
         });
-        assert.equal(res.status, 404, "unknown /__bili/ path must 404 locally, not be forwarded to the upstream");
+        assert.equal(res.status, 404, "unknown /__sophialin/ path must 404 locally, not be forwarded to the upstream");
     } finally {
-        process.env.BILI_CONFIG_FILE = prevConfig;
+        process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         proxy.closeAllConnections?.();
         await close(proxy);
         try { rmrf(root); } catch { /* best-effort */ }

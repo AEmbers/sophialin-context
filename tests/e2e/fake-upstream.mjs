@@ -1,9 +1,9 @@
 // Deterministic fake Responses-API upstream for the real-codex E2E (#686): drives
-// REAL `codex` through bili so compression ACTUALLY happens in-process, no model/network.
+// REAL `codex` through sophialin so compression ACTUALLY happens in-process, no model/network.
 // Two contracts observed against codex-cli 0.147.0:
 //   stream:true -> Responses SSE assistant turn; stream:false -> plain JSON body, which
-//   bili's summarization call parses via extractSummaryText -> json.output[].content[].text.
-// A summarization request is recognised by bili's exact TASK text in `instructions`; its
+//   sophialin's summarization call parses via extractSummaryText -> json.output[].content[].text.
+// A summarization request is recognised by sophialin's exact TASK text in `instructions`; its
 // reply is a faithful summary preserving the sentinel numbers found in the segment.
 // Every /v1/responses request is appended to FAKE_REQLOG (JSONL) as the assertion oracle.
 
@@ -30,13 +30,13 @@ function flatContent(c) {
 function allInputText(input) {
 	return (input || []).map((it) => flatContent(it.content)).join("\n");
 }
-// A chain-checkpoint carrier (<bili-chain ... /> #1421 step 3) rides as a
+// A chain-checkpoint carrier (<sophialin-chain ... /> #1421 step 3) rides as a
 // standalone trailing user item on the responses wire, right before any
 // trailing compaction_trigger. It is transport metadata, not conversation:
 // "last user text" below must skip it so the scripted ack oracle keeps
 // reading the real prompt.
 const isChainCarrierItem = (it) =>
-    it?.role === "user" && /^\s*\x3cbili-chain\s[\s\S]*\/\x3e\s*$/.test(String(flatContent(it.content)));
+    it?.role === "user" && /^\s*\x3csophialin-chain\s[\s\S]*\/\x3e\s*$/.test(String(flatContent(it.content)));
 
 function lastUserText(input) {
 	return (input || [])
@@ -68,7 +68,7 @@ function buildFakeSummary(content) {
 	return text;
 }
 
-// Only bili's summarization calls carry this exact task text in instructions.
+// Only sophialin's summarization calls carry this exact task text in instructions.
 function isSummaryRequest(parsed) {
 	const ins = typeof parsed.instructions === "string" ? parsed.instructions : "";
 	return /must be compressed because the session context exceeds|Write a \*?\*?(tier-1|\d+-tier) compression summary/.test(ins);

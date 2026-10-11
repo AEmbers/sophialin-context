@@ -98,7 +98,7 @@ test("#1592 chat fold round-2 renders the next turn's shape (no run separators, 
     } as never as ProxyOptions);
     await once(server, "listening");
     const port = (server.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${port}/bili/http://127.0.0.1:${upPort}/v1/chat/completions`;
+    const url = `http://127.0.0.1:${port}/sophialin/http://127.0.0.1:${upPort}/v1/chat/completions`;
 
     // dsh-shaped session: reasoning_content + tool_calls + BIG tool outputs
     type TurnMsg = Record<string, unknown>;

@@ -1,6 +1,6 @@
 /**
  * Log-safety helpers (#255): keep credentials and non-public API endpoints
- * out of bili.log / launcher logs.
+ * out of sophialin.log / launcher logs.
  *
  * Rule: well-known PUBLIC LLM API hosts (openai, anthropic, ...) may appear
  * in logs verbatim; anything else is a non-public endpoint (private relay,
@@ -44,8 +44,8 @@ export const CREDENTIAL_HEADER_RE = /key|auth|token|cookie/i;
 
 // #897: host masking is ON by default (#255 — logs get pasted into public
 // issues). Operators who want the real target hosts in their local log can
-// opt out (env BILI_LOG_MASK_HOSTS=0 / config maskHosts:false); real hosts
-// stay visible on the loopback-only /__bili/stats endpoint regardless.
+// opt out (env SOPHIALIN_LOG_MASK_HOSTS=0 / config maskHosts:false); real hosts
+// stay visible on the loopback-only /__sophialin/stats endpoint regardless.
 // Credential masking is independent and always on.
 let maskHostsEnabled = true;
 
@@ -85,7 +85,7 @@ export function maskUrlForLog(url: string): string {
 }
 
 /** Mask every http(s) URL embedded anywhere in an arbitrary string (request
- *  paths like /bili/http://relay.internal/v1/..., error text). */
+ *  paths like /sophialin/http://relay.internal/v1/..., error text). */
 export function maskUrlsInText(text: string): string {
     return text.replace(/https?:\/\/[^\s"'<>]+/gi, (m) => maskUrlForLog(m));
 }
@@ -153,9 +153,9 @@ function isLoopbackIp(ip: string): boolean {
  * still leaks through the generic catch-all. Applied at the logger choke point
  * alongside redactSecretsInText(). Gated by the same maskHostsEnabled switch
  * as host masking (IPs are host identity, not credentials): operators who set
- * BILI_LOG_MASK_HOSTS=0 to see real endpoints keep seeing real IPs. Ports are
+ * SOPHIALIN_LOG_MASK_HOSTS=0 to see real endpoints keep seeing real IPs. Ports are
  * preserved (matches maskHostPortForLog). Loopback (127.*, ::1, 0.0.0.0) is
- * exempt — it identifies bili's own local proxy, not an external party.
+ * exempt — it identifies sophialin's own local proxy, not an external party.
  */
 export function maskIpsInText(text: string): string {
     if (!text || !maskHostsEnabled) return text;

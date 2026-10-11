@@ -20,34 +20,34 @@ const BASE_OPTS: ProxyOptions = {
     mitm: { enabled: false, domains: [] },
 };
 
-test("zero-config /bili/ route: strips prefix, uses embedded URL verbatim", () => {
-    const r = resolveUpstream(BASE_OPTS, "/bili/https://open.bigmodel.cn/api/anthropic/v1/messages");
+test("zero-config /sophialin/ route: strips prefix, uses embedded URL verbatim", () => {
+    const r = resolveUpstream(BASE_OPTS, "/sophialin/https://open.bigmodel.cn/api/anthropic/v1/messages");
     assert.ok(r, "should resolve");
     assert.equal(r!.rewrittenUrl, "https://open.bigmodel.cn/api/anthropic/v1/messages");
     assert.equal(r!.upstream, "https://open.bigmodel.cn");
 });
 
-test("zero-config /bili/ route: works with trailing path segments", () => {
-    const r = resolveUpstream(BASE_OPTS, "/bili/https://api.openai.com/v1/chat/completions");
+test("zero-config /sophialin/ route: works with trailing path segments", () => {
+    const r = resolveUpstream(BASE_OPTS, "/sophialin/https://api.openai.com/v1/chat/completions");
     assert.ok(r);
     assert.equal(r!.rewrittenUrl, "https://api.openai.com/v1/chat/completions");
     assert.equal(r!.upstream, "https://api.openai.com");
 });
 
-test("zero-config /bili/ ignores malformed embedded URL", () => {
-    assert.equal(resolveUpstream(BASE_OPTS, "/bili/not-a-url"), undefined);
+test("zero-config /sophialin/ ignores malformed embedded URL", () => {
+    assert.equal(resolveUpstream(BASE_OPTS, "/sophialin/not-a-url"), undefined);
 });
 
-test("non-/bili/ requests return undefined (no named routing anymore)", () => {
-    // The old /<name>/... named-routing is gone. Anything without /bili/ is
-    // either a control endpoint (__bili) handled elsewhere, or unrouteable.
+test("non-/sophialin/ requests return undefined (no named routing anymore)", () => {
+    // The old /<name>/... named-routing is gone. Anything without /sophialin/ is
+    // either a control endpoint (__sophialin) handled elsewhere, or unrouteable.
     assert.equal(resolveUpstream(BASE_OPTS, "/zhipu/api/coding/paas/v4/chat/completions"), undefined);
     assert.equal(resolveUpstream(BASE_OPTS, "/v1/chat/completions"), undefined);
     assert.equal(resolveUpstream(BASE_OPTS, "/anthropic/v1/messages"), undefined);
 });
 
 test("routes config is now only for context overrides (URL keys), not routing", () => {
-    // routes exist but routing only happens via /bili/. These keys are matched
+    // routes exist but routing only happens via /sophialin/. These keys are matched
     // against the embedded URL for context resolution, not for path rewriting.
     const opts: ProxyOptions = {
         ...BASE_OPTS,
@@ -55,10 +55,10 @@ test("routes config is now only for context overrides (URL keys), not routing", 
             "https://open.bigmodel.cn/api/anthropic": { models: { "glm-5.2": { context: 1000000 } } },
         },
     };
-    // A /bili/ request resolves to the embedded URL...
-    const r = resolveUpstream(opts, "/bili/https://open.bigmodel.cn/api/anthropic/v1/messages");
+    // A /sophialin/ request resolves to the embedded URL...
+    const r = resolveUpstream(opts, "/sophialin/https://open.bigmodel.cn/api/anthropic/v1/messages");
     assert.ok(r);
     assert.equal(r!.rewrittenUrl, "https://open.bigmodel.cn/api/anthropic/v1/messages");
-    // ...and a non-/bili/ request to the same host still doesn't route.
+    // ...and a non-/sophialin/ request to the same host still doesn't route.
     assert.equal(resolveUpstream(opts, "/open.bigmodel.cn/api/anthropic/v1/messages"), undefined);
 });

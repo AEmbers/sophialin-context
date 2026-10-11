@@ -36,7 +36,7 @@ import { parseCompressInput } from "../src/compress-tool.ts";
 import { maybeAdoptForkBlocks } from "../src/fork-adoption.ts";
 import { rmrf } from "./tmp-rm.ts";
 
-process.env.BILI_PERSIST = "0";
+process.env.SOPHIALIN_PERSIST = "0";
 
 const LIMIT = 200_000;
 const META = { protocol: "openai" as const, upstreamOrigin: "http://upstream.example/v1" };
@@ -281,7 +281,7 @@ test("refs cited by placeholder-shaped incoming messages are adopted too (#1341)
 });
 
 test("child persists its own companion and survives a proxy restart (#1341)", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "bili-fork-ccr-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "sophialin-fork-ccr-"));
     _setStoreForTest(new SessionStore({ dir, debounceMs: 0 }));
     try {
         const body: Body = {

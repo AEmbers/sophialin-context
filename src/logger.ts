@@ -1,6 +1,6 @@
 /**
  * Tee logger: writes every log line to BOTH a file (append, default
- * ~/.local/state/billion-context/bili.log) and stderr (so a foreground `bili`
+ * ~/.local/state/sophialin-context/sophialin.log) and stderr (so a foreground `sophialin`
  * still shows output in the terminal).
  *
  * A single WriteStream is held open for the life of the process (opening the
@@ -50,7 +50,7 @@ export type Logger = (level: string, msg: string) => void;
 // where identity resolves (server.ts main pipeline funnel). Because it rides
 // AsyncLocalStorage, EVERY log() call in that request's async chain — adapters,
 // kernel, persistence, plugin hooks — is tagged without touching a single
-// call site. The web log view (/__bili/logs) and plain grep rely on the stable
+// call site. The web log view (/__sophialin/logs) and plain grep rely on the stable
 // [sess=<id>] / [v=<ver>] tokens in the line head.
 const sessionCtx = new AsyncLocalStorage<string>();
 
@@ -102,7 +102,7 @@ const BENIGN_SOCKET_RACE_MESSAGE = "Cannot read properties of undefined (reading
 /** Socket-teardown race on an already-closed socket (#1574): a Node-internal
  *  callback (socketOnTimeout / socketOnEnd / closeIdleConnections) reaches a
  *  socket whose writable side was already torn down. #1574 triage proved this
- *  signature unreachable via bili's own call paths or stock Node v22.23.2
+ *  signature unreachable via sophialin's own call paths or stock Node v22.23.2
  *  dispatch (all cited frames pass bound receivers; states are never nulled;
  *  every graceful close funnels through destroy(), which clears the keep-alive
  *  timer), and empirically verified that end()/destroy() on a fully closed

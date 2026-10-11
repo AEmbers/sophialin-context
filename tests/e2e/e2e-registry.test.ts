@@ -105,7 +105,7 @@ function opencodeCfgPath(work: string): string {
 function seedOpencodeConfig(work: string): void {
     const file = opencodeCfgPath(work);
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, `${JSON.stringify({ plugins: ["billion-context"], compaction: { auto: false } }, null, 2)}\n`);
+    fs.writeFileSync(file, `${JSON.stringify({ plugins: ["sophialin-context"], compaction: { auto: false } }, null, 2)}\n`);
 }
 
 // Deterministic host-major probe target: prints a 2.x version so
@@ -152,13 +152,13 @@ test("hermetic registry e2e", { skip: skipReason }, async (t) => {
 
     await t.test("self-update: old install detects and installs the new version over the real chain", async () => {
         assert.equal(await readPkgVersion(installDir), OLD_VERSION);
-        const res = runBili(installDir, ["update"], { ...envBase, BILI_UPDATE_REGISTRY: reg.url });
-        assert.equal(res.code, 0, `bili update failed:\n${res.stderr}`);
+        const res = runBili(installDir, ["update"], { ...envBase, SOPHIALIN_UPDATE_REGISTRY: reg.url });
+        assert.equal(res.code, 0, `sophialin update failed:\n${res.stderr}`);
         assert.match(res.stderr, /\[update\] checking npm registry for /);
         assert.match(res.stderr, new RegExp(`new version found: ${escapeRe(OLD_VERSION)} → ${escapeRe(NEW_VERSION)}, downloading`));
         assert.match(res.stderr, new RegExp(`installed ${escapeRe(OLD_VERSION)} → ${escapeRe(NEW_VERSION)}\\. Restart to finish\\.`));
         assert.equal(await readPkgVersion(installDir), NEW_VERSION, "on-disk version must flip to the published one");
-        const cache = path.join(envBase.XDG_CACHE_HOME!, "billion-context");
+        const cache = path.join(envBase.XDG_CACHE_HOME!, "sophialin-context");
         for (const entry of fs.readdirSync(cache)) {
             assert.ok(!entry.startsWith(".update-staging"), `leftover staging dir: ${entry}`);
             assert.ok(!entry.startsWith(".update-backup"), `leftover backup dir: ${entry}`);
@@ -168,14 +168,14 @@ test("hermetic registry e2e", { skip: skipReason }, async (t) => {
     });
 
     await t.test("post-update `plugin install opencode` keeps a valid entry (master semantics)", async () => {
-        const res = runBili(installDir, ["plugin", "install", "opencode"], { ...envBase, BILI_UPDATE_REGISTRY: reg.url, BILI_CLIENT_BIN: ocBin });
+        const res = runBili(installDir, ["plugin", "install", "opencode"], { ...envBase, SOPHIALIN_UPDATE_REGISTRY: reg.url, SOPHIALIN_CLIENT_BIN: ocBin });
         assert.equal(res.code, 0, `plugin install failed:\n${res.stdout}\n${res.stderr}`);
         const cfg = JSON.parse(fs.readFileSync(opencodeCfgPath(work), "utf8")) as Record<string, unknown>;
         // Master semantics: npm-form install writes the bare package name and
         // an already-correct entry is left untouched (idempotent).
         // TODO(#1143): once the pinned-entry change lands, replace these with
-        // entry === `billion-context@${NEW_VERSION}` (the re-pin assertion).
-        assert.deepEqual(cfg.plugins, ["billion-context"]);
+        // entry === `sophialin-context@${NEW_VERSION}` (the re-pin assertion).
+        assert.deepEqual(cfg.plugins, ["sophialin-context"]);
         assert.deepEqual(cfg.compaction, { auto: false });
         assert.match(res.stdout, /plugins present/);
     });

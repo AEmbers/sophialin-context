@@ -35,7 +35,7 @@ const MIN = 60 * 1000;
 const GOOD_DIGEST = "sha256:" + "ab".repeat(32);
 const FIELDS: Pick<ChainCheckpoint, "v" | "processor" | "issuedAt" | "requestId"> = {
     v: 1,
-    processor: "bili-a",
+    processor: "sophialin-a",
     issuedAt: T0,
     requestId: "req-1",
 };
@@ -43,8 +43,8 @@ const tag = (over: Partial<ChainCheckpoint> = {}): string =>
     renderChainCheckpoint({ ...FIELDS, digest: GOOD_DIGEST, ...over });
 
 test("parser: accepts canonical + reordered attrs, rejects every malformed shape", () => {
-    assert.deepEqual(parseChainCheckpoint(tag()), { v: 1, processor: "bili-a", issuedAt: T0, requestId: "req-1", digest: GOOD_DIGEST });
-    assert.ok(parseChainCheckpoint(`${L}bili-chain digest="${GOOD_DIGEST}" request-id="r" issued-at="${T0}" processor="p" v="1"/${R}`), "attr order is irrelevant");
+    assert.deepEqual(parseChainCheckpoint(tag()), { v: 1, processor: "sophialin-a", issuedAt: T0, requestId: "req-1", digest: GOOD_DIGEST });
+    assert.ok(parseChainCheckpoint(`${L}sophialin-chain digest="${GOOD_DIGEST}" request-id="r" issued-at="${T0}" processor="p" v="1"/${R}`), "attr order is irrelevant");
     assert.equal(parseChainCheckpoint(tag({ digest: undefined }) ?? "", "x") ?? null, null);
     const noDigest = tag().replace(` digest="${GOOD_DIGEST}"`, "");
     assert.equal(parseChainCheckpoint(noDigest), null, "missing attr");
@@ -60,7 +60,7 @@ test("parser: accepts canonical + reordered attrs, rejects every malformed shape
     assert.equal(parseChainCheckpoint(tag() + "\nmore"), null, "trailing newline");
     assert.equal(parseChainCheckpoint(" " + tag()), null, "leading space");
     assert.equal(parseChainCheckpoint(tag().slice(0, -1)), null, "missing close");
-    assert.equal(parseChainCheckpoint(L + "bili-chain v=\"1\" " + "x".repeat(600) + R), null, "length cap");
+    assert.equal(parseChainCheckpoint(L + "sophialin-chain v=\"1\" " + "x".repeat(600) + R), null, "length cap");
     assert.equal(parseChainCheckpoint(42), null);
     assert.equal(parseChainCheckpoint(null), null);
     assert.equal(parseChainCheckpoint(undefined), null);
@@ -107,7 +107,7 @@ test("carrier contract: strict whole-content match in the trailing user run only
     assert.equal(extractChainCarriers(mkOpenai([{ type: "text", text: "hi" }, { type: "text", text: tag() }]), "openai").candidates.length, 0, "multi-block content is never a carrier");
     const singleBlock = extractChainCarriers(mkOpenai([{ type: "text", text: tag() }]), "openai");
     assert.equal(singleBlock.candidates.length, 1, "single text block IS the whole content");
-    const malformed = extractChainCarriers(mkOpenai(L + "bili-chain broken" + R), "openai");
+    const malformed = extractChainCarriers(mkOpenai(L + "sophialin-chain broken" + R), "openai");
     assert.equal(malformed.candidates.length, 0);
     assert.equal(malformed.malformed, 1, "tag-shaped garbage in a carrier slot is counted malformed");
 
@@ -149,7 +149,7 @@ test("digest: carrier-stripped body ≡ carrier-free body; key-order invariant; 
 });
 
 test("zero-normalize round-trip: stamped body verifies as valid on every wire", () => {
-    const fields = { v: 1, processor: "bili-rt", issuedAt: T0 + 1000, requestId: "req-rt" };
+    const fields = { v: 1, processor: "sophialin-rt", issuedAt: T0 + 1000, requestId: "req-rt" };
     for (const wire of ["openai", "anthropic"] as const) {
         const base = { model: "m", messages: [{ role: "user", content: "hello" }] };
         const digest = computeCheckpointDigest(base, wire, fields)!;
@@ -168,7 +168,7 @@ test("zero-normalize round-trip: stamped body verifies as valid on every wire", 
 });
 
 test("zero-normalize round-trip: responses bare-string input normalizes to message array and verifies", () => {
-    const fields = { v: 1, processor: "bili-rt-str", issuedAt: T0 + 1000, requestId: "req-rt-str" };
+    const fields = { v: 1, processor: "sophialin-rt-str", issuedAt: T0 + 1000, requestId: "req-rt-str" };
     const base = { model: "m", input: "hello" };
     const digest = computeCheckpointDigest(base, "responses", fields)!;
     const rendered = renderChainCheckpoint({ ...fields, digest });
@@ -229,32 +229,32 @@ test("verdict matrix: digest×timestamp quadrants, selection priority, version g
     assert.equal(evalAt(mixedBody, T0 + MIN).verdict, "valid", "known-version candidate decides; unknown version ignored");
 
     assert.equal(evalAt(base, T0).verdict, "none", "no signal at all");
-    const malBody = insertCheckpointCarrier(base, "openai", L + "bili-chain nope" + R)!;
+    const malBody = insertCheckpointCarrier(base, "openai", L + "sophialin-chain nope" + R)!;
     const malCtx = evalAt(malBody, T0);
     assert.equal(malCtx.verdict, "invalid");
     assert.equal(malCtx.malformed, 1);
 });
 
-test("env overrides: BILI_CHAIN_MAX_FUTURE_SKEW_MS / BILI_CHAIN_RECENT_WINDOW_MS", () => {
+test("env overrides: SOPHIALIN_CHAIN_MAX_FUTURE_SKEW_MS / SOPHIALIN_CHAIN_RECENT_WINDOW_MS", () => {
     const base = { model: "m", messages: [{ role: "user", content: "h" }] };
     const bogus = "sha256:" + "cd".repeat(32);
     const futFields = { ...FIELDS, issuedAt: T0 + 20_000, requestId: "env-1" };
     const futBody = insertCheckpointCarrier(base, "openai", renderChainCheckpoint({ ...futFields, digest: bogus }))!;
     try {
-        process.env.BILI_CHAIN_MAX_FUTURE_SKEW_MS = "15000";
+        process.env.SOPHIALIN_CHAIN_MAX_FUTURE_SKEW_MS = "15000";
         assert.equal(evaluateChain(futBody, "openai", { nowMs: T0 }).verdict, "invalid", "20s ahead exceeds tightened 15s skew — no usable candidate");
     } finally {
-        delete process.env.BILI_CHAIN_MAX_FUTURE_SKEW_MS;
+        delete process.env.SOPHIALIN_CHAIN_MAX_FUTURE_SKEW_MS;
     }
     assert.equal(evaluateChain(futBody, "openai", { nowMs: T0 }).verdict, "recent-mismatch", `default ${DEFAULT_MAX_FUTURE_SKEW_MS}ms skew keeps 20s ahead fresh`);
     // 590s old: inside the default 600s window, outside a tightened 580s one.
     const pastFields = { ...FIELDS, issuedAt: T0 - 9 * MIN - 50_000, requestId: "env-2" };
     const pastBody = insertCheckpointCarrier(base, "openai", renderChainCheckpoint({ ...pastFields, digest: computeCheckpointDigest(base, "openai", pastFields)! }))!;
     try {
-        process.env.BILI_CHAIN_RECENT_WINDOW_MS = String(DEFAULT_RECENT_CHECKPOINT_WINDOW_MS - 20_000);
+        process.env.SOPHIALIN_CHAIN_RECENT_WINDOW_MS = String(DEFAULT_RECENT_CHECKPOINT_WINDOW_MS - 20_000);
         assert.equal(evaluateChain(pastBody, "openai", { nowMs: T0 }).verdict, "stale", "tightened window (580s) ages a 590s-old match");
     } finally {
-        delete process.env.BILI_CHAIN_RECENT_WINDOW_MS;
+        delete process.env.SOPHIALIN_CHAIN_RECENT_WINDOW_MS;
     }
     assert.equal(evaluateChain(pastBody, "openai", { nowMs: T0 }).verdict, "valid", `default ${DEFAULT_RECENT_CHECKPOINT_WINDOW_MS}ms window keeps a 590s-old match fresh`);
 });
@@ -354,7 +354,7 @@ const BASE_BODY = {
 
 test("#1395 step 2 / #1421 step 3 T1: valid checkpoint → [chain] info log + byte-identical verbatim forward (pipeline skipped)", async () => {
     await withRig(async ({ port, logs, captured }) => {
-        const fields = { v: 1, processor: "bili-upstream-test", issuedAt: Date.now(), requestId: "req-step2-valid" };
+        const fields = { v: 1, processor: "sophialin-upstream-test", issuedAt: Date.now(), requestId: "req-step2-valid" };
         const sentJson = JSON.stringify(insertCheckpointCarrier(BASE_BODY, "openai", renderChainCheckpoint({ ...fields, digest: computeCheckpointDigest(BASE_BODY, "openai", fields)! }))!);
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
             method: "POST",
@@ -377,7 +377,7 @@ test("#1395 step 2 / #1421 step 3 T1: valid checkpoint → [chain] info log + by
 
 test("#1395 step 2 / #1421 step 3 T2: well-formed fresh checkpoint with wrong digest → recent-mismatch warn; forwarded byte-identical (interop default)", async () => {
     await withRig(async ({ port, logs, captured }) => {
-        const fields = { v: 1, processor: "bili-other", issuedAt: Date.now(), requestId: "req-step2-mismatch" };
+        const fields = { v: 1, processor: "sophialin-other", issuedAt: Date.now(), requestId: "req-step2-mismatch" };
         const sentJson = JSON.stringify(insertCheckpointCarrier(BASE_BODY, "openai", renderChainCheckpoint({ ...fields, digest: "sha256:" + "cd".repeat(32) }))!);
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
             method: "POST",
@@ -409,7 +409,7 @@ test("#1395 step 2 / #1421 step 3 T3: plain request → no [chain] log; processe
         assert.equal(logs.filter((l) => l.msg.includes("[chain]")).length, 0, "no inbound checkpoint signal, no [chain] log");
         assert.equal(captured.length, 1);
         assert.ok(captured[0]!.body.includes('"compress"'));
-        assert.ok(captured[0]!.body.includes(L + "bili-chain "), "#1421: a processed outbound carries a self-verifying stamp when egress stamping is enabled (#1683: off by default)");
+        assert.ok(captured[0]!.body.includes(L + "sophialin-chain "), "#1421: a processed outbound carries a self-verifying stamp when egress stamping is enabled (#1683: off by default)");
         assert.equal(evaluateChain(JSON.parse(captured[0]!.body), "openai").verdict, "valid");
     }, { chainEgressStamp: true });
 });

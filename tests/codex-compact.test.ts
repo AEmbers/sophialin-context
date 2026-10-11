@@ -21,23 +21,23 @@ import {
 } from "../src/codex-compact.ts";
 
 test("codexCompactMode: kill-switch two states + default + case/trim", () => {
-    const prev = process.env.BILI_CODEX_COMPACT;
+    const prev = process.env.SOPHIALIN_CODEX_COMPACT;
     try {
-        delete process.env.BILI_CODEX_COMPACT;
+        delete process.env.SOPHIALIN_CODEX_COMPACT;
         assert.equal(codexCompactMode(), "intercept", "default is intercept");
-        process.env.BILI_CODEX_COMPACT = "pass";
+        process.env.SOPHIALIN_CODEX_COMPACT = "pass";
         assert.equal(codexCompactMode(), "pass");
-        process.env.BILI_CODEX_COMPACT = "intercept";
+        process.env.SOPHIALIN_CODEX_COMPACT = "intercept";
         assert.equal(codexCompactMode(), "intercept");
-        process.env.BILI_CODEX_COMPACT = "INTERCEPT";
+        process.env.SOPHIALIN_CODEX_COMPACT = "INTERCEPT";
         assert.equal(codexCompactMode(), "intercept", "case-insensitive");
-        process.env.BILI_CODEX_COMPACT = "  pass  ";
+        process.env.SOPHIALIN_CODEX_COMPACT = "  pass  ";
         assert.equal(codexCompactMode(), "pass", "trimmed");
-        process.env.BILI_CODEX_COMPACT = "banana";
+        process.env.SOPHIALIN_CODEX_COMPACT = "banana";
         assert.equal(codexCompactMode(), "intercept", "unknown value stays on intercept");
     } finally {
-        if (prev === undefined) delete process.env.BILI_CODEX_COMPACT;
-        else process.env.BILI_CODEX_COMPACT = prev;
+        if (prev === undefined) delete process.env.SOPHIALIN_CODEX_COMPACT;
+        else process.env.SOPHIALIN_CODEX_COMPACT = prev;
     }
 });
 
@@ -165,7 +165,7 @@ test("buildTriggerForgeBody: minimal legal 2-frame stream", () => {
     const e1 = JSON.parse(frames[0]!.slice("data: ".length)) as { type: string; item: { type: string; id: string; encrypted_content: string } };
     assert.equal(e1.type, "response.output_item.done");
     assert.equal(e1.item.type, "compaction");
-    assert.ok(e1.item.id.startsWith(CODEX_COMPACT_ID_PREFIX), "compaction id has bili prefix");
+    assert.ok(e1.item.id.startsWith(CODEX_COMPACT_ID_PREFIX), "compaction id has sophialin prefix");
     assert.ok(e1.item.encrypted_content.startsWith(CODEX_COMPACT_SENTINEL), "blob carries the sentinel");
     assert.ok(e1.item.encrypted_content.includes("SUMMARY-TEXT"), "summary text in blob");
     const e2 = JSON.parse(frames[1]!.slice("data: ".length)) as { type: string; response: { id: string; usage: { input_tokens: number; output_tokens: number; total_tokens: number } } };

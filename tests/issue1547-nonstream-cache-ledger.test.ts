@@ -73,7 +73,7 @@ test("issue #1547: non-streaming rewriter turns settle into the cache ledger", a
     await listen(proxy);
     const proxyPort = (proxy.address() as { port: number }).port;
     const sessionId = "issue-1547-nonstream";
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/chat/completions`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/chat/completions`;
     const post = (): Promise<Response> =>
         fetch(url, {
             method: "POST",
@@ -109,7 +109,7 @@ test("issue #1547: non-streaming rewriter turns settle into the cache ledger", a
         assert.equal(led.lines[0]!.proto, "openai");
         assert.equal(led.lines[0]!.up, `http://127.0.0.1:${upstreamPort}`);
 
-        const rep = await fetch(`http://127.0.0.1:${proxyPort}/__bili/cache-report?session=${sessionId}`);
+        const rep = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/cache-report?session=${sessionId}`);
         assert.equal(rep.status, 200);
         const repBody = (await rep.json()) as { reports?: { id: string; report: string }[] };
         assert.equal(repBody.reports?.length, 1);

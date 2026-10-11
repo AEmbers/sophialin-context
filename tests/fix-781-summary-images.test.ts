@@ -191,7 +191,7 @@ async function startProxy(upstreamPort: number, model: string, path: string): Pr
     } as ProxyOptions);
     await once(proxy, "listening");
     const proxyPort = (proxy.address() as { port: number }).port;
-    return { proxy, url: `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}${path}` };
+    return { proxy, url: `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}${path}` };
 }
 
 async function closeAll(...servers: http.Server[]): Promise<void> {

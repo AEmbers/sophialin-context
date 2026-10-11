@@ -19,7 +19,7 @@ import { rmrf } from "./tmp-rm.ts";
 
 // Some tests inspect raw on-disk session files directly (bypassing the store
 // codec), so pin the plain-JSON format: #1080 made BILIZSTD1 the default.
-process.env.BILI_PERSIST_ZSTD = "0";
+process.env.SOPHIALIN_PERSIST_ZSTD = "0";
 
 function makeSession(id: string): Session {
     return {
@@ -85,7 +85,7 @@ function makeRes(chunks: Buffer[]) {
 }
 
 async function withTempStore(name: string, fn: (dir: string, store: SessionStore) => Promise<void>): Promise<void> {
-    const dir = mkdtempSync(join(tmpdir(), `bili-host-usage-${name}-`));
+    const dir = mkdtempSync(join(tmpdir(), `sophialin-host-usage-${name}-`));
     const store = new SessionStore({ dir, debounceMs: 5, enabled: true });
     try {
         await fn(dir, store);
@@ -404,7 +404,7 @@ test("#408/#660: prepareOpenai — post-fold provider usage reaches the host ver
     const proxy = await startServer(opts);
     await once(proxy, "listening");
     const proxyPort = (proxy.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${relayPort}/v1/chat/completions`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${relayPort}/v1/chat/completions`;
     const big = "the quick brown fox jumps over the lazy dog. ".repeat(120);
     const history: Array<{ role: string; content: string }> = [];
     const post = async (): Promise<string> => {
@@ -499,7 +499,7 @@ test("#590: pi plugin mode reports folded usage verbatim", async () => {
     const proxy = await startServer(opts);
     await once(proxy, "listening");
     const proxyPort = (proxy.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${relayPort}/v1/messages`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${relayPort}/v1/messages`;
     // Sizing copied from plugin-protocol.test.ts: the compressed head
     // (m00001..m00002) exceeds minCompressibleChars while the protected-zone
     // walk exhausts itself on the tail — so the fold is real and non-vacuous.
@@ -522,8 +522,8 @@ test("#590: pi plugin mode reports folded usage verbatim", async () => {
             headers: {
                 "content-type": "application/json",
                 "x-acp-session": conv,
-                "x-bili-plugin": "pi",
-                "x-bili-plugin-conversation": conv,
+                "x-sophialin-plugin": "pi",
+                "x-sophialin-plugin-conversation": conv,
             },
             body: JSON.stringify({ model: "claude-test", max_tokens: 1024, stream: true, system: "You are a test assistant.", messages }),
         });
@@ -544,7 +544,7 @@ test("#590: pi plugin mode reports folded usage verbatim", async () => {
         const r1 = await post(history);
         assert.equal(inputTokensOf(r1), 100, "pre-fold turn must pass the raw usage through");
 
-        const toolResp = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/tool`, {
+        const toolResp = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
@@ -619,7 +619,7 @@ test("#623: omp plugin mode reports folded usage verbatim", async () => {
     const proxy = await startServer(opts);
     await once(proxy, "listening");
     const proxyPort = (proxy.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${relayPort}/v1/messages`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${relayPort}/v1/messages`;
     const headFiller = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. ".repeat(28);
     const tailFiller = "enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit in voluptate. ".repeat(28);
     type AnthropicMessage = { role: string; content: string | Array<Record<string, unknown>> };
@@ -639,8 +639,8 @@ test("#623: omp plugin mode reports folded usage verbatim", async () => {
             headers: {
                 "content-type": "application/json",
                 "x-acp-session": conv,
-                "x-bili-plugin": "omp",
-                "x-bili-plugin-conversation": conv,
+                "x-sophialin-plugin": "omp",
+                "x-sophialin-plugin-conversation": conv,
             },
             body: JSON.stringify({ model: "claude-test", max_tokens: 1024, stream: true, system: "You are a test assistant.", messages }),
         });
@@ -661,7 +661,7 @@ test("#623: omp plugin mode reports folded usage verbatim", async () => {
         const r1 = await post(history);
         assert.equal(inputTokensOf(r1), 100, "pre-fold turn must pass the raw usage through");
 
-        const toolResp = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/tool`, {
+        const toolResp = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
@@ -689,7 +689,7 @@ test("#623: omp plugin mode reports folded usage verbatim", async () => {
 });
 
 // #648/#660: ZCode — a plain proxy client on the anthropic wire (no
-// x-bili-plugin header, no special UA). Every host sees the folded request's
+// x-sophialin-plugin header, no special UA). Every host sees the folded request's
 // own provider-measured usage (#660). The fold is real (the relay emits a
 // compress tool_use), not a vacuous pass.
 
@@ -782,7 +782,7 @@ async function withZCodeHarness(fn: (h: { proxy: http.Server; upstream: http.Ser
     } as ProxyOptions);
     await once(proxy, "listening");
     const proxyPort = (proxy.address() as { port: number }).port;
-    const h = { proxy, upstream, bodies, url: `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/messages` };
+    const h = { proxy, upstream, bodies, url: `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages` };
     try {
         await fn(h);
     } finally {
@@ -921,7 +921,7 @@ async function withCodexHarness(fn: (h: { proxy: http.Server; upstream: http.Ser
     } as ProxyOptions);
     await once(proxy, "listening");
     const proxyPort = (proxy.address() as { port: number }).port;
-    const h = { proxy, upstream, bodies, url: `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/responses` };
+    const h = { proxy, upstream, bodies, url: `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/responses` };
     try {
         await fn(h);
     } finally {

@@ -1,6 +1,6 @@
-# billion-context Cooperative Plugin Protocol
+# sophialin-context Cooperative Plugin Protocol
 
-> Status: protocol v1, experimental. Implemented by the proxy (`src/plugin.ts`), exercised by `tests/plugin-protocol.test.ts`. Issue: dog/billion-context#1 ("内外呼应" — inside/outside cooperation).
+> Status: protocol v1, experimental. Implemented by the proxy (`src/plugin.ts`), exercised by `tests/plugin-protocol.test.ts`. Issue: dog/sophialin-context#1 ("内外呼应" — inside/outside cooperation).
 
 ## Why
 
@@ -23,7 +23,7 @@ The plugin is deliberately a thin pipe: it registers whatever tools the manifest
 
 All endpoints live under the proxy's admin gate (loopback + trusted-origin only).
 
-### 1. `GET /__bili/plugin/manifest`
+### 1. `GET /__sophialin/plugin/manifest`
 
 Fetch once at plugin startup.
 
@@ -31,7 +31,7 @@ Fetch once at plugin startup.
 {
   "ok": true,
   "protocolVersion": 1,
-  "proxy": "billion-context",
+  "proxy": "sophialin-context",
   "version": "0.1.42",
   "toolNames": ["compress", "decompress", "search_context", "acp_status"],
   "tools": {
@@ -40,13 +40,13 @@ Fetch once at plugin startup.
     "responses": [ /* Responses API schemas */ ]
   },
   "headers": {
-    "agent": "x-bili-plugin",
-    "conversation": "x-bili-plugin-conversation",
-    "contextWindow": "x-bili-plugin-context-window",
-    "instructionsMutable": "x-bili-plugin-instructions-mutable"
+    "agent": "x-sophialin-plugin",
+    "conversation": "x-sophialin-plugin-conversation",
+    "contextWindow": "x-sophialin-plugin-context-window",
+    "instructionsMutable": "x-sophialin-plugin-instructions-mutable"
   },
-  "toolEndpoint": "/__bili/plugin/tool",
-  "statusEndpoint": "/__bili/plugin/status"
+  "toolEndpoint": "/__sophialin/plugin/tool",
+  "statusEndpoint": "/__sophialin/plugin/status"
 }
 ```
 
@@ -56,10 +56,10 @@ Register the tools natively with your agent, in whichever wire format your agent
 
 On **every model request** the plugin sends:
 
-- `x-bili-plugin: <agent-name>` — announces plugin mode for this session.
-- `x-bili-plugin-conversation: <conversation-id>` — the agent's real conversation/session id, stable for the whole conversation.
-- `x-bili-plugin-context-window: <tokens>` (optional but recommended) — the model's context window as configured inside the agent (e.g. a pinned/overridden `contextWindow`). This becomes the authoritative "native" window for nudge decisions — it outranks the proxy's built-in table and the models.dev registry (most valuable for private relays and MITM mode), while operator tuning (`compress.modelContextLimit`) still outranks it.
-- `x-bili-plugin-instructions-mutable: 1` (optional; send only if true) — declares that your conversation ids are **persona-scoped**: one id per persona, and the request's system/instructions text may change mid-conversation without changing the persona (e.g. opencode re-renders AGENTS.md into `instructions` on every edit). The proxy now keys plugin conversation ids verbatim by default (#1106), so this flag is vestigial for current proxies — keep stamping it for compatibility with older proxy versions, which use it to stop mixing the instructions text into the compression-namespace fingerprint.
+- `x-sophialin-plugin: <agent-name>` — announces plugin mode for this session.
+- `x-sophialin-plugin-conversation: <conversation-id>` — the agent's real conversation/session id, stable for the whole conversation.
+- `x-sophialin-plugin-context-window: <tokens>` (optional but recommended) — the model's context window as configured inside the agent (e.g. a pinned/overridden `contextWindow`). This becomes the authoritative "native" window for nudge decisions — it outranks the proxy's built-in table and the models.dev registry (most valuable for private relays and MITM mode), while operator tuning (`compress.modelContextLimit`) still outranks it.
+- `x-sophialin-plugin-instructions-mutable: 1` (optional; send only if true) — declares that your conversation ids are **persona-scoped**: one id per persona, and the request's system/instructions text may change mid-conversation without changing the persona (e.g. opencode re-renders AGENTS.md into `instructions` on every edit). The proxy now keys plugin conversation ids verbatim by default (#1106), so this flag is vestigial for current proxies — keep stamping it for compatibility with older proxy versions, which use it to stop mixing the instructions text into the compression-namespace fingerprint.
 
 Effects on the proxy for that session:
 
@@ -68,13 +68,13 @@ Effects on the proxy for that session:
 - Session identity is keyed by the conversation id (strongest signal, ahead of all legacy session headers). This also fixes multi-session safety for agents that send no session headers at all.
 - The compression philosophy system prompt, ref tags and nudges keep flowing from the proxy, exactly as in wire mode.
 
-### 3. `POST /__bili/plugin/tool`
+### 3. `POST /__sophialin/plugin/tool`
 
 Execute a tool against the conversation's compression state.
 
 ```json
 {
-  "conversationId": "the same value you send as x-bili-plugin-conversation",
+  "conversationId": "the same value you send as x-sophialin-plugin-conversation",
   "tool": "compress",
   "args": { "content": [{ "startId": "m00001", "endId": "m00042", "summary": "...", "topic": "..." }] }
 }
@@ -94,7 +94,7 @@ Notes:
 - `compress` mutates state; `decompress` / `search_context` / `acp_status` are read-only.
 - Errors: `400` invalid JSON / missing `conversationId` / unknown tool, `404` unknown conversation (no model request has arrived with that conversation id yet), `500` execution failure. A **known but disabled** opt-in tool (`absorb` / `acp_rule`) is not an error: it answers `200` with `ok: true` and a `result` explaining that the feature is off on this proxy (#1192).
 
-### 4. `GET /__bili/plugin/status?conversationId=<id>`
+### 4. `GET /__sophialin/plugin/status?conversationId=<id>`
 
 Context-level visibility for plugin UIs (status bars / slash commands):
 
@@ -117,25 +117,25 @@ Context-level visibility for plugin UIs (status bars / slash commands):
 
 `contextTokens` is the last reported context size (input + cache-read) — the same value the nudge decision reads. Errors: `400` missing `conversationId`, `404` unknown conversation.
 
-### 5. `POST /__bili/plugin/compact`
+### 5. `POST /__sophialin/plugin/compact`
 
 Notify the proxy that the agent performed an **in-session native compaction** (e.g. omp's `/compact` or its auto threshold): the next model request re-sends a shortened history (compaction summary + retained tail) under the SAME conversation id. Fire-and-forget is fine — a failed notification must never break the agent's compaction.
 
 ```json
-{ "conversationId": "the same value you send as x-bili-plugin-conversation" }
+{ "conversationId": "the same value you send as x-sophialin-plugin-conversation" }
 ```
 
 Effect: the proxy marks a one-shot compaction boundary on the session. On the next model request, blocks that were active before the compaction but no longer anchor into the shortened history are downgraded to a pre-compaction archive (listed by `acp_status` with a reason; `decompress` on one returns an explicit "unavailable" error instead of failing silently), and stale `byRaw`/`byRef` mappings are pruned to the live ids. Errors: `400` invalid JSON / missing `conversationId`, `404` unknown conversation.
 
 ### 6. MITM transparent-proxy mode
 
-The `/bili/` prefix is absent in MITM mode, so URL-based detection cannot work. Instead the proxy's own launcher (`bili pi` / `bili codex` / `bili claude`) exports `BILLION_CONTEXT_PROXY=http://127.0.0.1:<port>` in the child env, next to the `HTTPS_PROXY` + CA vars it already sets. A plugin detects cooperative mode by reading that env var (the proxy origin for all `/__bili/plugin/*` calls); everything else (headers, tool forwarding, status) is identical — the `x-bili-plugin*` headers pass through the MITM tunnel into the same pipeline. This is also where `x-bili-plugin-context-window` matters most: MITM upstreams are often private relays the models.dev registry doesn't know.
+The `/sophialin/` prefix is absent in MITM mode, so URL-based detection cannot work. Instead the proxy's own launcher (`sophialin pi` / `sophialin codex` / `sophialin claude`) exports `SOPHIALIN_CONTEXT_PROXY=http://127.0.0.1:<port>` in the child env, next to the `HTTPS_PROXY` + CA vars it already sets. A plugin detects cooperative mode by reading that env var (the proxy origin for all `/__sophialin/plugin/*` calls); everything else (headers, tool forwarding, status) is identical — the `x-sophialin-plugin*` headers pass through the MITM tunnel into the same pipeline. This is also where `x-sophialin-plugin-context-window` matters most: MITM upstreams are often private relays the models.dev registry doesn't know.
 
 ### 7. Lifecycle of one compression (what the plugin does)
 
 1. Model replies with a native `compress` tool call (args contain `startId`/`endId` refs it read from the tag-annotated context).
 2. The agent ends the assistant turn; the plugin's tool handler fires.
-3. Plugin POSTs `{conversationId, tool: "compress", args}` to `/__bili/plugin/tool`.
+3. Plugin POSTs `{conversationId, tool: "compress", args}` to `/__sophialin/plugin/tool`.
 4. Plugin returns `result` as the tool result; the agent appends it to history and re-requests.
 5. The next model request carries the tool call + result in history; the proxy's `processTurn` hides the consumed call and folds the compressed range out of the wire body. The summary lives in block state, retrievable via `search_context` / `decompress` — the same as wire mode.
 
@@ -143,7 +143,7 @@ No special handling is needed for decompression: `decompress` results come back 
 
 ## Security
 
-- The tool endpoints sit behind the `/__bili/` admin gate: loopback-only + trusted-origin. A plugin on the same machine as the proxy can call them; nothing else can.
+- The tool endpoints sit behind the `/__sophialin/` admin gate: loopback-only + trusted-origin. A plugin on the same machine as the proxy can call them; nothing else can.
 - Plugins only need to talk to the proxy on localhost; no extra credentials. Do NOT expose the proxy's plugin endpoints through reverse proxies.
 
 ## Obligations of a plugin
@@ -151,7 +151,7 @@ No special handling is needed for decompression: `decompress` results come back 
 1. Register the tools from the manifest (all of them as listed; the model relies on the full set).
 2. Send both headers on every model request through the proxy.
 3. Forward tool executions verbatim; return `result` as the tool result.
-4. Self-disable when not running behind bili (e.g. the agent's baseURL does not point at the proxy) — same convention as billion-context-pi / opencode-acp extensions.
+4. Self-disable when not running behind sophialin (e.g. the agent's baseURL does not point at the proxy) — same convention as billion-context-pi / opencode-acp extensions.
 
 ## Reference
 

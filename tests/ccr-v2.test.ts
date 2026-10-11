@@ -31,7 +31,7 @@ import { startServer } from "../src/server.ts";
 import type { ProxyOptions } from "../src/config.ts";
 import { _setForTest as setRegistryForTest } from "../src/registry.ts";
 
-process.env.BILI_PERSIST = "0";
+process.env.SOPHIALIN_PERSIST = "0";
 
 const pad = (n: number): string => String(n).padStart(5, "0");
 
@@ -338,7 +338,7 @@ test("e2e CCR v2 streaming: range restore rides the re-request with pair integri
     setRegistryForTest({});
     const captured: string[] = [];
     const { proxyPort, upstreamPort, closeAll } = await startV2Proxy(captured);
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
 
     try {
         const msgs = Array.from({ length: 20 }, (_, i) => ({ role: i % 2 === 0 ? "user" : "assistant", content: `Historical detail ${i}. ${"y".repeat(2000)}` }));
@@ -383,7 +383,7 @@ test("e2e CCR v2 opt-in: no ccr config at any level leaves the session unarmed â
     setRegistryForTest({});
     const captured: string[] = [];
     const { proxyPort, upstreamPort, closeAll } = await startV2Proxy(captured, true);
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
 
     try {
         const msgs = Array.from({ length: 20 }, (_, i) => ({ role: i % 2 === 0 ? "user" : "assistant", content: `Historical detail ${i}. ${"y".repeat(2000)}` }));
@@ -448,7 +448,7 @@ test("e2e CCR v2 non-stream: fold persists across turns; range restore delivered
     const proxy = await startServer(opts);
     await listen(proxy);
     const proxyPort = (proxy.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
     const headers = { "content-type": "application/json", "x-acp-session": "ccr-v2-e2e-json", "anthropic-version": "2023-06-01" };
 
     try {

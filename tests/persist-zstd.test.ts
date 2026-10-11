@@ -44,14 +44,14 @@ interface Harness {
 
 async function withTempDir(name: string, fn: (h: Harness) => Promise<void>): Promise<void> {
     await test(name, async () => {
-        const dir = mkdtempSync(join(tmpdir(), "bili-zstd-"));
+        const dir = mkdtempSync(join(tmpdir(), "sophialin-zstd-"));
         const logs: LogLine[] = [];
         const h = { dir, logs };
         try {
             await fn(h);
         } finally {
-            delete process.env.BILI_ENCRYPTION_KEY;
-            delete process.env.BILI_PERSIST_ZSTD;
+            delete process.env.SOPHIALIN_ENCRYPTION_KEY;
+            delete process.env.SOPHIALIN_PERSIST_ZSTD;
             _setZstdAvailableForTest(null);
             rmrf(dir);
         }
@@ -100,7 +100,7 @@ test("codec: legacy plaintext passthrough + magic dispatch across trees", () => 
     assert.equal(keyed.decode(zBuf), json, "keyed codec still reads unencrypted BILIZSTD1 files");
     const eBuf = Buffer.from(keyed.encode(json));
     assert.ok(eBuf.subarray(0, 8).equals(ENCRYPT_MAGIC));
-    assert.throws(() => plain.decode(eBuf), /BILI_ENCRYPTION_KEY/, "reading encrypted without a key says exactly that");
+    assert.throws(() => plain.decode(eBuf), /SOPHIALIN_ENCRYPTION_KEY/, "reading encrypted without a key says exactly that");
 });
 
 test("codec: key + explicit compression keeps BILIENC1 in zstd mode (#708 behavior)", () => {
@@ -131,8 +131,8 @@ test("fzstd fallback decodes node:zlib frames (static fixture)", () => {
     }
 });
 
-withTempDir("store: BILI_PERSIST_ZSTD=1 writes BILIZSTD1 and loads it back", async (h) => {
-    process.env.BILI_PERSIST_ZSTD = "1";
+withTempDir("store: SOPHIALIN_PERSIST_ZSTD=1 writes BILIZSTD1 and loads it back", async (h) => {
+    process.env.SOPHIALIN_PERSIST_ZSTD = "1";
     const store = newStore(h);
     await store.writeNow(makeSession("s-z"));
     store.cancelAll();
@@ -156,14 +156,14 @@ withTempDir("store: default (env unset) writes bare JSON and loads it back", asy
 
 withTempDir("store: large session shrinks vs the default plain-JSON baseline", async (h) => {
     if (!NATIVE_ZSTD) return;
-    process.env.BILI_PERSIST_ZSTD = "1";
+    process.env.SOPHIALIN_PERSIST_ZSTD = "1";
     const big = makeSession("s-big", 20_000);
     big.blockContents.set("b1", "acp-block-summary-content ".repeat(20_000));
     const first = newStore(h);
     await first.writeNow(big);
     first.cancelAll();
     const compressedSize = statSync(filePath(h.dir, "s-big")).size;
-    process.env.BILI_PERSIST_ZSTD = "0";
+    process.env.SOPHIALIN_PERSIST_ZSTD = "0";
     const second = newStore(h);
     await second.writeNow(big);
     second.cancelAll();
@@ -171,8 +171,8 @@ withTempDir("store: large session shrinks vs the default plain-JSON baseline", a
     assert.ok(compressedSize * 4 < plainSize, `zstd ${compressedSize}B must beat plain ${plainSize}B`);
 });
 
-withTempDir("store: BILI_PERSIST_ZSTD=0 keeps files as plain JSON", async (h) => {
-    process.env.BILI_PERSIST_ZSTD = "0";
+withTempDir("store: SOPHIALIN_PERSIST_ZSTD=0 keeps files as plain JSON", async (h) => {
+    process.env.SOPHIALIN_PERSIST_ZSTD = "0";
     const store = newStore(h);
     await store.writeNow(makeSession("s-plain"));
     store.cancelAll();
@@ -184,7 +184,7 @@ withTempDir("store: BILI_PERSIST_ZSTD=0 keeps files as plain JSON", async (h) =>
 });
 
 withTempDir("store: opted-in runtime without native zstd falls back to unframed plain JSON", async (h) => {
-    process.env.BILI_PERSIST_ZSTD = "1";
+    process.env.SOPHIALIN_PERSIST_ZSTD = "1";
     _setZstdAvailableForTest(false);
     const store = newStore(h);
     await store.writeNow(makeSession("s-oldrt"));
@@ -198,7 +198,7 @@ withTempDir("store: opted-in runtime without native zstd falls back to unframed 
 
 withTempDir("store: old runtime reads files written by a newer one (fzstd path)", async (h) => {
     if (!NATIVE_ZSTD) return;
-    process.env.BILI_PERSIST_ZSTD = "1";
+    process.env.SOPHIALIN_PERSIST_ZSTD = "1";
     const writer = newStore(h);
     await writer.writeNow(makeSession("s-new"));
     writer.cancelAll();
@@ -214,7 +214,7 @@ withTempDir("boot NEVER rewrites legacy plaintext files (downgrade safety, #1080
     await legacy.writeNow(makeSession("s-1"));
     await legacy.writeNow(makeSession("s-2"));
     legacy.cancelAll();
-    process.env.BILI_PERSIST_ZSTD = "1";
+    process.env.SOPHIALIN_PERSIST_ZSTD = "1";
     const before = h.logs.length;
     const store = newStore(h);
     const loaded = await store.boot();
@@ -237,7 +237,7 @@ withTempDir("mixed tree: legacy plaintext and BILIZSTD1 coexist until boot", asy
     const legacy = newStore(h);
     await legacy.writeNow(makeSession("s-old"));
     legacy.cancelAll();
-    process.env.BILI_PERSIST_ZSTD = "1";
+    process.env.SOPHIALIN_PERSIST_ZSTD = "1";
     const store = newStore(h);
     await store.writeNow(makeSession("s-new", 4_000));
     store.cancelAll();
@@ -248,37 +248,37 @@ withTempDir("mixed tree: legacy plaintext and BILIZSTD1 coexist until boot", asy
 });
 
 withTempDir("keyed boot leaves BILIZSTD1 files untouched and readable", async (h) => {
-    process.env.BILI_PERSIST_ZSTD = "1";
+    process.env.SOPHIALIN_PERSIST_ZSTD = "1";
     const store = newStore(h);
     await store.writeNow(makeSession("s-z"));
     store.cancelAll();
     const before = readFileSync(filePath(h.dir, "s-z"));
-    process.env.BILI_ENCRYPTION_KEY = KEY;
+    process.env.SOPHIALIN_ENCRYPTION_KEY = KEY;
     const loaded = await newStore(h).boot();
     assert.ok(loaded.has("s-z"), "unencrypted file loads fine under an encryption-enabled boot");
     assert.deepEqual(readFileSync(filePath(h.dir, "s-z")), before, "migration never rewrites what it can already read");
 });
 
 withTempDir("no-key boot reports BILIENC1 files as unreadable instead of corrupt garbage", async (h) => {
-    process.env.BILI_PERSIST_ZSTD = "1";
-    process.env.BILI_ENCRYPTION_KEY = KEY;
+    process.env.SOPHIALIN_PERSIST_ZSTD = "1";
+    process.env.SOPHIALIN_ENCRYPTION_KEY = KEY;
     const writer = newStore(h);
     await writer.writeNow(makeSession("s-secret"));
     writer.cancelAll();
-    delete process.env.BILI_ENCRYPTION_KEY;
+    delete process.env.SOPHIALIN_ENCRYPTION_KEY;
     const reader = newStore(h);
     const loaded = await reader.boot();
     assert.equal(loaded.has("s-secret"), false, "undecodable file is skipped");
     assert.ok(
-        h.logs.some((l) => l.level === "warn" && l.msg.includes("BILI_ENCRYPTION_KEY")),
+        h.logs.some((l) => l.level === "warn" && l.msg.includes("SOPHIALIN_ENCRYPTION_KEY")),
         h.logs.map((l) => l.level + " " + l.msg).join("\n"),
     );
     assert.ok(readFileSync(filePath(h.dir, "s-secret")).subarray(0, 8).equals(ENCRYPT_MAGIC), "file left untouched");
 });
 
-withTempDir("decoupling: key + BILI_PERSIST_ZSTD=0 keeps BILIENC1 with a raw body", async (h) => {
-    process.env.BILI_ENCRYPTION_KEY = KEY;
-    process.env.BILI_PERSIST_ZSTD = "0";
+withTempDir("decoupling: key + SOPHIALIN_PERSIST_ZSTD=0 keeps BILIENC1 with a raw body", async (h) => {
+    process.env.SOPHIALIN_ENCRYPTION_KEY = KEY;
+    process.env.SOPHIALIN_PERSIST_ZSTD = "0";
     const store = newStore(h);
     await store.writeNow(makeSession("s-rawenc"));
     store.cancelAll();

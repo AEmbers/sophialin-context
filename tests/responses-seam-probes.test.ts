@@ -152,7 +152,7 @@ async function drive(sessionId: string): Promise<string[]> {
         proxy = await startServer(options);
         await listen(proxy);
         const proxyPort = (proxy.address() as { port: number }).port;
-        const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/responses`;
+        const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/responses`;
         const input: Item[] = [];
         for (let t = 0; t < TURNS; t++) {
             // omp's faithful quad, part 1: user message WITHOUT the spec-required

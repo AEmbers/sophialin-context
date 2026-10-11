@@ -7,7 +7,7 @@ import { log } from "../logger.js";
 
 /** #1420: read-only session browsing for the web UI. Merges the LIVE in-memory
  *  pool (bounded — evicted sessions are gone) with the full on-disk store;
- *  live always wins per id. Disk files decode via the same store as bili
+ *  live always wins per id. Disk files decode via the same store as sophialin
  *  export (encryption/zstd); unreadable files skip silently, as in export. */
 
 export interface WebSessionSummary {
@@ -115,8 +115,8 @@ export interface WebSessionDetail extends WebSessionSummary {
     activePack?: string;
     /** Which client produced this session (plugin agent name or header/UA hint). */
     clientHint?: string;
-    /** bili build that last persisted this session file (absent on pre-stamp files). */
-    biliVersion?: string;
+    /** sophialin build that last persisted this session file (absent on pre-stamp files). */
+    sophialinVersion?: string;
     /** Measured system-prompt size in tokens — the not-compressible baseline drawn
      *  under the trajectory chart. */
     systemPromptTokens?: number;
@@ -174,7 +174,7 @@ function loadDiskSessions(): Promise<Map<string, Session>> {
 }
 
 /** Test hook: drop the memoized scan AND the store singleton (its dir was
- *  resolved at construction, so a changed BILI_SESSIONS_DIR needs a fresh one). */
+ *  resolved at construction, so a changed SOPHIALIN_SESSIONS_DIR needs a fresh one). */
 export function _resetDiskCacheForTest(): void {
     diskMemo = null;
     diskScan = null;
@@ -406,7 +406,7 @@ export async function buildSessionDetail(id: string): Promise<WebSessionDetail |
     }
     let handoffTruncated = false;
     if (handoffMd.length > 1_500_000) {
-        handoffMd = handoffMd.slice(0, 1_500_000) + "\n\n…（内容过长已截断，使用 `bili export` 查看完整会话）\n";
+        handoffMd = handoffMd.slice(0, 1_500_000) + "\n\n…（内容过长已截断，使用 `sophialin export` 查看完整会话）\n";
         handoffTruncated = true;
     }
 
@@ -428,7 +428,7 @@ export async function buildSessionDetail(id: string): Promise<WebSessionDetail |
         storeBytesSaved: session.stats.storeBytesSaved,
         ...(session.meta.activePack ? { activePack: session.meta.activePack } : {}),
         ...(clientHint ? { clientHint } : {}),
-        ...(typeof session.metadata["biliVersion"] === "string" ? { biliVersion: session.metadata["biliVersion"] as string } : {}),
+        ...(typeof session.metadata["sophialinVersion"] === "string" ? { sophialinVersion: session.metadata["sophialinVersion"] as string } : {}),
         ...(sysPrompt > 0 ? { systemPromptTokens: sysPrompt } : {}),
         ledger: buildSessionCacheReport(session),
         handoffMd,

@@ -24,7 +24,7 @@ function makeSession(id: string): Session {
 }
 
 test("meta.activePack survives a persist/reload round-trip (#1724)", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "bili-activepack-"));
+    const dir = mkdtempSync(join(tmpdir(), "sophialin-activepack-"));
     try {
         const store = new SessionStore({ dir, debounceMs: 5, enabled: true });
         const s = makeSession("sess-pack");

@@ -5,7 +5,7 @@ export const WEB_CLIENT = `(function () {
     const MESSAGES=${JSON.stringify(MESSAGES)};
     let locale = "zh-CN";
     try {
-        const saved = localStorage.getItem("bili-language");
+        const saved = localStorage.getItem("sophialin-language");
         if (saved === "en" || saved === "zh-CN") locale = saved;
         else if (/^en([-_]|$)/i.test(navigator.language || "")) locale = "en";
     } catch (e) {}
@@ -43,7 +43,7 @@ export const WEB_CLIENT = `(function () {
     async function putCfg(btn, payload) {
         busy(btn, true);
         try {
-            await json("/__bili/config", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+            await json("/__sophialin/config", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
             toast(t("cfg.saved"), "ok");
             loadConfig();
         } catch (e) {
@@ -179,7 +179,7 @@ export const WEB_CLIENT = `(function () {
 
     async function loadOverview(silent) {
         try {
-            const d = await json("/__bili/overview");
+            const d = await json("/__sophialin/overview");
             const o = d.overview || {};
             // #1426: total splits live vs historical (disk-restored pool entries are history);
             // counters without usage samples render "—" instead of a misleading 0; the saved
@@ -269,7 +269,7 @@ export const WEB_CLIENT = `(function () {
             if (a && a.id) {
                 ab.hidden = false;
                 ab.classList.add("show");
-                ab.innerHTML = '<strong>' + t("advisory.on") + '</strong> <span class="mono">[' + a.id + "]</span> " + t("advisory.desc") + "<span>" + (a.reason || "") + "</span>" + t("advisory.hint") + '<span class="mono">npm install -g billion-context@' + (a.targetFailed ? "latest" : a.target || "latest") + "</span>";
+                ab.innerHTML = '<strong>' + t("advisory.on") + '</strong> <span class="mono">[' + a.id + "]</span> " + t("advisory.desc") + "<span>" + (a.reason || "") + "</span>" + t("advisory.hint") + '<span class="mono">npm install -g sophialin-context@' + (a.targetFailed ? "latest" : a.target || "latest") + "</span>";
             } else {
                 ab.hidden = true;
                 ab.classList.remove("show");
@@ -283,7 +283,7 @@ export const WEB_CLIENT = `(function () {
     }
     function readDismissedAlerts() {
         try {
-            const v = JSON.parse(localStorage.getItem("bili-alert-dismissed") || "[]");
+            const v = JSON.parse(localStorage.getItem("sophialin-alert-dismissed") || "[]");
             return new Set(Array.isArray(v) ? v : []);
         } catch (e) { return new Set(); }
     }
@@ -306,7 +306,7 @@ export const WEB_CLIENT = `(function () {
         s.add(key);
         const arr = [...s];
         while (arr.length > 64) arr.shift();
-        try { localStorage.setItem("bili-alert-dismissed", JSON.stringify(arr)); } catch (e) {}
+        try { localStorage.setItem("sophialin-alert-dismissed", JSON.stringify(arr)); } catch (e) {}
     }
     function renderAlertBanner() {
         const el = $("alerts-banner");
@@ -360,7 +360,7 @@ export const WEB_CLIENT = `(function () {
     let hiddenEmptyN = 0;
     async function refreshSessions(showToast) {
         try {
-            const d = await json("/__bili/sessions");
+            const d = await json("/__sophialin/sessions");
             sessionsCache = d.sessions || [];
             hiddenEmptyN = d.hiddenEmpty || 0;
             renderSessionTable();
@@ -684,7 +684,7 @@ export const WEB_CLIENT = `(function () {
         kv(parts, t("common.protocol"), d.protocol || null, true);
         kv(parts, t("det.client_hint"), d.clientHint || null, true);
         kv(parts, t("common.upstream"), hostOf(d.upstreamOrigin) || null, true);
-        kv(parts, t("det.version"), d.biliVersion || null, true);
+        kv(parts, t("det.version"), d.sophialinVersion || null, true);
         kv(parts, t("det.active_pack"), d.activePack || null, true);
         parts.push('<div class="k">' + t("det.log") + '</div><div class="v"><a href="#/logs?q=' + encodeURIComponent(d.id) + '">' + t("det.log_view") + "</a></div>");
         parts.push("</dl></div></div>");
@@ -843,7 +843,7 @@ export const WEB_CLIENT = `(function () {
         host.innerHTML = '<div class="empty"><span class="spin"></span> ' + t("common.loading") + "</div>";
         let d = null;
         try {
-            d = await json("/__bili/sessions/" + encodeURIComponent(id) + "/detail");
+            d = await json("/__sophialin/sessions/" + encodeURIComponent(id) + "/detail");
         } catch (e) {}
         if (!d) {
             host.innerHTML = '<a class="btn sm" href="#/sessions">' + t("common.back") + "</a>"
@@ -909,7 +909,7 @@ export const WEB_CLIENT = `(function () {
     }
     function buildBlocksMd(d) {
         const L = [];
-        L.push("# billion-context compression blocks");
+        L.push("# sophialin-context compression blocks");
         L.push("");
         if (d.title) L.push("- title: " + d.title);
         L.push("- session id: " + d.id);
@@ -926,7 +926,7 @@ export const WEB_CLIENT = `(function () {
             const url = URL.createObjectURL(new Blob([buildBlocksMd(d)], { type: "text/markdown;charset=utf-8" }));
             const a = document.createElement("a");
             a.href = url;
-            a.download = "billion-context-blocks-" + String(d.id).replace(/[^A-Za-z0-9._-]/g, "_") + ".md";
+            a.download = "sophialin-context-blocks-" + String(d.id).replace(/[^A-Za-z0-9._-]/g, "_") + ".md";
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -945,7 +945,7 @@ export const WEB_CLIENT = `(function () {
         const dlB = $("cacherpt-dl");
         if (!copyB || !dlB) return;
         const grab = async () => {
-            const r = await json("/__bili/cache-report?session=" + encodeURIComponent(d.id));
+            const r = await json("/__sophialin/cache-report?session=" + encodeURIComponent(d.id));
             const rep = r && Array.isArray(r.reports) && r.reports[0] ? r.reports[0].report : null;
             if (!rep) throw new Error("no cache report for this session yet");
             return rep;
@@ -966,7 +966,7 @@ export const WEB_CLIENT = `(function () {
                 const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
-                a.download = "billion-context-cacherpt-" + String(d.id).replace(/[^A-Za-z0-9._-]/g, "_") + ".md";
+                a.download = "sophialin-context-cacherpt-" + String(d.id).replace(/[^A-Za-z0-9._-]/g, "_") + ".md";
                 document.body.appendChild(a); a.click(); a.remove();
                 setTimeout(() => URL.revokeObjectURL(a.href), 4000);
             } catch (e) { toast(t("toast.failed", { msg: e.message }), "err"); } finally { busy(dlB, false); }
@@ -1038,7 +1038,7 @@ export const WEB_CLIENT = `(function () {
             const url = URL.createObjectURL(new Blob([md], { type: "text/markdown;charset=utf-8" }));
             const a = document.createElement("a");
             a.href = url;
-            a.download = "billion-context-handoff-" + String(d.id).replace(/[^A-Za-z0-9._-]/g, "_") + ".md";
+            a.download = "sophialin-context-handoff-" + String(d.id).replace(/[^A-Za-z0-9._-]/g, "_") + ".md";
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -1048,7 +1048,7 @@ export const WEB_CLIENT = `(function () {
 
     async function loadConfig() {
         try {
-            const cfg = await json("/__bili/config");
+            const cfg = await json("/__sophialin/config");
             const cfgPathEl = $("cfg-path");
             if (cfgPathEl) cfgPathEl.textContent = cfg.path || t("common.empty");
             const fileBtn = $("copy-cfg-file");
@@ -1101,7 +1101,7 @@ export const WEB_CLIENT = `(function () {
     }
     async function loadUpstream(cfg) {
         let up = null;
-        try { up = await json("/__bili/upstream"); } catch (e) {}
+        try { up = await json("/__sophialin/upstream"); } catch (e) {}
         // #1426: mode/proxy are editable form fields again, not read-only labels
         const mode = (up && up.mode) || cfg.upstreamProxyMode || "auto";
         document.querySelectorAll('input[name="proxy-mode"]').forEach((el) => { el.checked = el.value === mode; });
@@ -1133,7 +1133,7 @@ export const WEB_CLIENT = `(function () {
         const q = (qEl.value || "").trim();
         try {
             const linesSel = $("log-lines");
-            const d = await json("/__bili/logs?q=" + encodeURIComponent(q) + "&lines=" + (linesSel ? linesSel.value : "500") + logViewExtras());
+            const d = await json("/__sophialin/logs?q=" + encodeURIComponent(q) + "&lines=" + (linesSel ? linesSel.value : "500") + logViewExtras());
             $("log-path").textContent = d.path || t("logs.empty");
             $("copy-log-path").dataset.copy = d.path || "";
             $("log-count").textContent = d.total > 0
@@ -1194,7 +1194,7 @@ export const WEB_CLIENT = `(function () {
         const tog = $("language-toggle");
         if (tog) tog.addEventListener("click", () => {
             locale = locale === "zh-CN" ? "en" : "zh-CN";
-            try { localStorage.setItem("bili-language", locale); } catch (e) {}
+            try { localStorage.setItem("sophialin-language", locale); } catch (e) {}
             location.reload();
         });
         const search = $("ses-search");
@@ -1209,11 +1209,11 @@ export const WEB_CLIENT = `(function () {
             busy(ldl, true);
             try {
                 const q = ($("log-search").value || "").trim();
-                const r = await fetch("/__bili/logs?raw=1&q=" + encodeURIComponent(q) + "&lines=2000" + logViewExtras());
+                const r = await fetch("/__sophialin/logs?raw=1&q=" + encodeURIComponent(q) + "&lines=2000" + logViewExtras());
                 const blob = await r.blob();
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
-                a.download = "billion-context-log.txt";
+                a.download = "sophialin-context-log.txt";
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
@@ -1230,11 +1230,11 @@ export const WEB_CLIENT = `(function () {
             try {
                 // Full unfiltered log (rotated .old + current) regardless of the
                 // search box — the honest "download everything" path.
-                const r = await fetch("/__bili/logs?raw=1&all=1");
+                const r = await fetch("/__sophialin/logs?raw=1&all=1");
                 const blob = await r.blob();
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
-                a.download = "billion-context-full-log.txt";
+                a.download = "sophialin-context-full-log.txt";
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
@@ -1249,7 +1249,7 @@ export const WEB_CLIENT = `(function () {
         if (testBtn) testBtn.addEventListener("click", async () => {
             busy(testBtn, true);
             try {
-                const r = await json("/__bili/upstream/test", { method: "POST" });
+                const r = await json("/__sophialin/upstream/test", { method: "POST" });
                 // #1426: an HTTP >= 400 answer still proves the network path works — auth is the
                 // client's job, so report reachability instead of a flat failure
                 const st = $("up-state");
@@ -1288,7 +1288,7 @@ export const WEB_CLIENT = `(function () {
         if (cp) cp.addEventListener("click", async () => {
             busy(cp, true);
             try {
-                await json("/__bili/config", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ passthrough: null }) });
+                await json("/__sophialin/config", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ passthrough: null }) });
                 toast(t("toast.passthrough_cleared"), "ok");
                 loadConfig();
             } catch (e) {

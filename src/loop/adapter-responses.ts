@@ -28,8 +28,8 @@ interface FunctionCallBuffer {
 const RESPONSES_ITEM_ID_MAX = 64;
 
 /**
- * Heal client rollouts already poisoned with over-long Bili-generated ids
- * (they 400 every request otherwise). Only the msg-proxy-* namespace bili
+ * Heal client rollouts already poisoned with over-long Sophialin-generated ids
+ * (they 400 every request otherwise). Only the msg-proxy-* namespace sophialin
  * owns is rewritten — in place and deterministically, so repeated requests
  * keep referencing the same replacement id (#242). Provider-issued opaque
  * ids (reasoning rs_*, function_call fc_*, ...) validate against their
@@ -343,7 +343,7 @@ export function createResponsesAdapter(textProtocol?: boolean, projection?: Resp
                     }),
                 ),
                 createBiliArtifactFilter((snippet) => {
-                    loggerLog("warn", `[bili-artifact] stripped model-emitted internal artifact: ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
+                    loggerLog("warn", `[sophialin-artifact] stripped model-emitted internal artifact: ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
                 }),
             );
             let lastTextRef: { itemId: string; outputIndex: number } | null = null;

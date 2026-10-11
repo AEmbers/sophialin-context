@@ -9,7 +9,7 @@ process.env.NODE_ENV = "test";
 // #971: launcher env channel for max output — set before the dynamic imports
 // below (the server module freezes it at load, mirroring
 // LAUNCHER_MODEL_WINDOWS).
-process.env.BILI_LAUNCHER_MODEL_MAX_OUTPUTS = JSON.stringify({
+process.env.SOPHIALIN_LAUNCHER_MODEL_MAX_OUTPUTS = JSON.stringify({
     "headroom-launch-model": 80_000,
     "headroom-rank-model": 10_000,
 });
@@ -107,7 +107,7 @@ async function turn2MessageCount(s: Scenario): Promise<number> {
     const proxyPort = proxy.address().port;
 
     try {
-        const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/chat/completions`;
+        const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/chat/completions`;
         const headers = { "content-type": "application/json", "x-acp-session": s.session, ...(s.headers ?? {}) };
         const budget = s.maxTokens !== undefined ? { max_tokens: s.maxTokens } : {};
         const r1 = await fetch(url, {
@@ -177,7 +177,7 @@ test("e2e #924: an explicit request budget outranks the configured output", asyn
 });
 
 test("e2e #971: launcher-env max output stands in with nothing configured", async () => {
-    // BILI_LAUNCHER_MODEL_MAX_OUTPUTS carries 80k for this model (set before
+    // SOPHIALIN_LAUNCHER_MODEL_MAX_OUTPUTS carries 80k for this model (set before
     // the server import above): reserved min(80k, 50k)=50k → effective 150k →
     // 80% → nudge. Without the channel it stays 60% of the full window → 30.
     assert.equal(await turn2MessageCount({
@@ -196,9 +196,9 @@ test("e2e #971: runtime-info headers outrank the launcher env", async () => {
         session: "hf-rank",
         model: "headroom-rank-model",
         headers: {
-            "x-bili-plugin": "pi",
-            "x-bili-plugin-model": "headroom-rank-model",
-            "x-bili-plugin-max-output": "180000",
+            "x-sophialin-plugin": "pi",
+            "x-sophialin-plugin-model": "headroom-rank-model",
+            "x-sophialin-plugin-max-output": "180000",
         },
     }), 31);
 });

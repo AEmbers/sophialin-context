@@ -3,7 +3,7 @@
 // completions — into role:"developer" items appended mid-history and
 // re-sends them every turn). The kernel's responsesToCore hoists
 // system/developer content from ANY position into projection.systemParts,
-// and bili re-injects the merged block at input[0] — so every notification
+// and sophialin re-injects the merged block at input[0] — so every notification
 // append rewrote the outbound FIRST item and the upstream prefix cache
 // missed the whole input (production sawtooth: cached pinned to the
 // instructions-only residual).
@@ -22,7 +22,7 @@
 //       notifications present exactly once, in position, easy-form intact;
 //       append-only bodies (previous input is a byte-prefix of the next);
 //       no sentinel type ever leaks to the wire;
-//   T2 fold interaction: after a /__bili/plugin/tool fold the notification
+//   T2 fold interaction: after a /__sophialin/plugin/tool fold the notification
 //       still rides in place exactly once; carrier strip + pair quotes keep
 //       the #1567 counts (0 marker, 2 summary quotes); front still stable;
 //   T3 head-neutral: a leading additional_tools item does not break the
@@ -128,14 +128,14 @@ async function driveResponses(steps: Step[], mode: "plugin" | "proxy"): Promise<
     } as ProxyOptions);
     await once(proxy, "listening");
     const proxyPort = (proxy.address() as { port: number }).port;
-    const base = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/responses`;
+    const base = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/responses`;
 
     const hist: CItem[] = [];
     try {
         for (const step of steps) {
             for (const it of step.send) hist.push(it);
             if (step.fold) {
-                const r = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/tool`, {
+                const r = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/tool`, {
                     method: "POST", headers: { "content-type": "application/json" },
                     body: JSON.stringify({ conversationId: conv, tool: "compress", args: { content: [step.fold] } }),
                 });
@@ -146,8 +146,8 @@ async function driveResponses(steps: Step[], mode: "plugin" | "proxy"): Promise<
             }
             const headers: Record<string, string> = { "content-type": "application/json" };
             if (mode === "plugin") {
-                headers["x-bili-plugin"] = "omp-plugin/0.0.1";
-                headers["x-bili-plugin-conversation"] = conv;
+                headers["x-sophialin-plugin"] = "omp-plugin/0.0.1";
+                headers["x-sophialin-plugin-conversation"] = conv;
             } else {
                 headers["x-acp-session"] = conv;
             }
@@ -177,7 +177,7 @@ async function driveResponses(steps: Step[], mode: "plugin" | "proxy"): Promise<
 // Volatile tail items (chain checkpoints carry a per-request digest, nudge
 // notes) must not break the append-only prefix comparison — strip a
 // contiguous trailing run of them first.
-const CHAIN_PREFIX = "<" + "bili-chain v=";
+const CHAIN_PREFIX = "<" + "sophialin-chain v=";
 function stripVolatileTail(items: Record<string, unknown>[]): Record<string, unknown>[] {
     const out = [...items];
     while (out.length > 0) {

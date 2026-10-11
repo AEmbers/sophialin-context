@@ -1,7 +1,7 @@
 // zcode SessionStart hook (#1145): best-effort attach-only bootstrap. The MCP
 // child is authoritative; this hook only routes the provider store to an
 // ALREADY RUNNING proxy (never spawns one — a short-lived parent would kill
-// it) so sessions started while `bili start` is running get compression
+// it) so sessions started while `sophialin start` is running get compression
 // without waiting for the per-session spawn path. Fails open: always exits 0.
 
 import { resolveProxyOrigin } from "../mcp.js";
@@ -38,7 +38,7 @@ export async function main(): Promise<void> {
         const payload = await readStdinPayload();
         const plan = planNativeZcode(process.env);
         if (plan.mode === "off") return;
-        // #1622: pass the resolved policy — routeZcodeConfig's default ignores BILI_ZCODE_ROUTE / providers direct.
+        // #1622: pass the resolved policy — routeZcodeConfig's default ignores SOPHIALIN_ZCODE_ROUTE / providers direct.
         const policy = zcodePolicyFromEnv(process.env);
         if (policy.route === "none") return;
         const origin = plan.mode === "attach" ? plan.attachOrigin : resolveProxyOrigin();

@@ -274,7 +274,7 @@ function parseSentTotal(panel: string): number {
 }
 
 async function fetchPanel(h: Harness, conversationId: string): Promise<string> {
-    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/plugin/status?conversationId=${conversationId}`);
+    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/plugin/status?conversationId=${conversationId}`);
     assert.equal(resp.status, 200);
     const status = (await resp.json()) as { ok: boolean; panel?: string };
     assert.equal(status.ok, true);
@@ -289,12 +289,12 @@ test("#1320 pipeline: provider-measured thinking mass reaches the context gauge"
         const system = "S".repeat(20_000);
         const tools = [{ name: "bash", description: "D".repeat(4000), input_schema: { type: "object" } }];
         const post = async (body: Record<string, unknown>): Promise<void> => {
-            const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/bili/http://127.0.0.1:${h.upstreamPort}/v1/messages`, {
+            const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/sophialin/http://127.0.0.1:${h.upstreamPort}/v1/messages`, {
                 method: "POST",
                 headers: {
                     "content-type": "application/json",
-                    "x-bili-plugin": "pi-plugin/0.0.1",
-                    "x-bili-plugin-conversation": conv,
+                    "x-sophialin-plugin": "pi-plugin/0.0.1",
+                    "x-sophialin-plugin-conversation": conv,
                 },
                 body: JSON.stringify(body),
             });

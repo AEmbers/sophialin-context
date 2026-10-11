@@ -10,7 +10,7 @@ import { rewriteJsonResponse } from "../src/stream.ts";
 import { rewriteOpenaiJsonResponse } from "../src/stream-openai.ts";
 import { rewriteResponsesJsonResponse } from "../src/stream-responses.ts";
 import { COMPRESS_TOOL } from "acp-kernel";
-import { BILI_ACP_TOOLS_ANTHROPIC, BILI_COMPRESS_TOOL, COMPRESS_TOOL_NAME, buildCompressSystemPrompt, withContinuationAnchor, withMarkerIntegrityNote, withSummaryBudgetNote } from "../src/compress-tool.ts";
+import { SOPHIALIN_ACP_TOOLS_ANTHROPIC, SOPHIALIN_COMPRESS_TOOL, COMPRESS_TOOL_NAME, buildCompressSystemPrompt, withContinuationAnchor, withMarkerIntegrityNote, withSummaryBudgetNote } from "../src/compress-tool.ts";
 import { setLogCapture } from "../src/logger.ts";
 
 const LT = "\x3c";
@@ -310,14 +310,14 @@ test("#888: withSummaryBudgetNote is a byte-stable constant (prefix-cache safe)"
 });
 
 test("AutoCompact: the served compress tool carries the trigger rubric", () => {
-    assert.ok(BILI_COMPRESS_TOOL.description.startsWith(COMPRESS_TOOL.description), "kernel description preserved verbatim");
-    assert.ok(BILI_COMPRESS_TOOL.description.includes("the trigger rubric"));
-    assert.ok(BILI_COMPRESS_TOOL.description.includes("Fold when a STAGE RESOLVES, not when the window fills"));
-    assert.ok(BILI_COMPRESS_TOOL.description.includes("a subtask is finished and its result is in hand"));
-    assert.ok(BILI_COMPRESS_TOOL.description.includes("Occupancy is not a reason to fold"));
+    assert.ok(SOPHIALIN_COMPRESS_TOOL.description.startsWith(COMPRESS_TOOL.description), "kernel description preserved verbatim");
+    assert.ok(SOPHIALIN_COMPRESS_TOOL.description.includes("the trigger rubric"));
+    assert.ok(SOPHIALIN_COMPRESS_TOOL.description.includes("Fold when a STAGE RESOLVES, not when the window fills"));
+    assert.ok(SOPHIALIN_COMPRESS_TOOL.description.includes("a subtask is finished and its result is in hand"));
+    assert.ok(SOPHIALIN_COMPRESS_TOOL.description.includes("Occupancy is not a reason to fold"));
     // Only the description is ours — the schema stays the kernel's.
-    assert.deepEqual(BILI_COMPRESS_TOOL.input_schema, COMPRESS_TOOL.input_schema);
-    const served = BILI_ACP_TOOLS_ANTHROPIC.find((t) => t.name === COMPRESS_TOOL_NAME) as { description?: string } | undefined;
+    assert.deepEqual(SOPHIALIN_COMPRESS_TOOL.input_schema, COMPRESS_TOOL.input_schema);
+    const served = SOPHIALIN_ACP_TOOLS_ANTHROPIC.find((t) => t.name === COMPRESS_TOOL_NAME) as { description?: string } | undefined;
     assert.ok(served?.description?.includes("the trigger rubric"), "the advertised surface carries it too");
 });
 

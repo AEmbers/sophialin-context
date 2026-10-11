@@ -7,8 +7,8 @@ import { configureLogger, closeLogger, log, enterSessionContext, currentSessionC
 import { VERSION } from "../src/version.ts";
 
 function tmpLog(): string {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-sesstag-"));
-    return path.join(dir, "bili.log");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-sesstag-"));
+    return path.join(dir, "sophialin.log");
 }
 function fileLines(p: string): string[] {
     return fs.readFileSync(p, "utf8").split("\n").filter((l) => l.length > 0);

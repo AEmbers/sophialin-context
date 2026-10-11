@@ -101,7 +101,7 @@ async function startRig(mode: UpstreamMode = "drip"): Promise<Rig> {
     return {
         proxyPort,
         proxyUrl: (path) => `http://127.0.0.1:${proxyPort}${path}`,
-        modelUrl: () => `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`,
+        modelUrl: () => `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`,
         closeAll: async () => {
             await close(proxy);
             await close(upstream);
@@ -110,7 +110,7 @@ async function startRig(mode: UpstreamMode = "drip"): Promise<Rig> {
 }
 
 async function register(rig: Rig, conversationId: string): Promise<void> {
-    const res = await fetch(rig.proxyUrl("/__bili/plugin/register"), {
+    const res = await fetch(rig.proxyUrl("/__sophialin/plugin/register"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ conversationId, agent: "mcp" }),

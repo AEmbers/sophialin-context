@@ -12,7 +12,7 @@ process.env.NODE_ENV = "test";
 
 import { proxyBaseFromUrl, proxyBaseFromEnv, detectProxyBase, fetchManifest, forwardTool, fetchStatus, destinationRoutedThroughProxy } from "../src/agent/shared.ts";
 import { wrapCacheReport, wrapRuleReport } from "../src/acp-panel.ts";
-import biliPlugin, { createBiliPlugin } from "../src/agent/pi.ts";
+import sophialinPlugin, { createBiliPlugin } from "../src/agent/pi.ts";
 import ompPlugin from "../src/agent/omp.ts";
 import { pluginInstall, pluginRemove, pluginStatusAll, PLUGIN_AGENTS, selfPackageRoot, pickPluginKey, detectOpencodeMajor, piEntryFor, PI_NPM_ENTRY, isPiEntry, claudeNativeInstalled } from "../src/plugin-install.ts";
 import { resolveProxyOrigin, forwardTool as mcpForwardTool } from "../src/mcp.ts";
@@ -32,26 +32,26 @@ function withEnv(vars: Record<string, string | undefined>, fn: () => void | Prom
     });
 }
 
-test("proxyBaseFromUrl detects /bili/ prefix and returns origin", () => {
-    assert.equal(proxyBaseFromUrl("http://127.0.0.1:8787/bili/https://api.example.com/v1"), "http://127.0.0.1:8787");
-    assert.equal(proxyBaseFromUrl("https://proxy.example.com/bili/https://upstream"), "https://proxy.example.com");
+test("proxyBaseFromUrl detects /sophialin/ prefix and returns origin", () => {
+    assert.equal(proxyBaseFromUrl("http://127.0.0.1:8787/sophialin/https://api.example.com/v1"), "http://127.0.0.1:8787");
+    assert.equal(proxyBaseFromUrl("https://proxy.example.com/sophialin/https://upstream"), "https://proxy.example.com");
     assert.equal(proxyBaseFromUrl("https://api.example.com/v1"), undefined);
     assert.equal(proxyBaseFromUrl(undefined), undefined);
     assert.equal(proxyBaseFromUrl("not a url"), undefined);
-    assert.equal(proxyBaseFromUrl("http://x/api/bili/v1"), undefined);
-    assert.equal(proxyBaseFromUrl("http://x/bili/ftp://y"), undefined);
+    assert.equal(proxyBaseFromUrl("http://x/api/sophialin/v1"), undefined);
+    assert.equal(proxyBaseFromUrl("http://x/sophialin/ftp://y"), undefined);
 });
 
-test("proxyBaseFromEnv accepts BILLION_CONTEXT_PROXY, detectProxyBase honors kill switch", async () => {
-    await withEnv({ BILLION_CONTEXT_PROXY: "http://127.0.0.1:8790/", BILLION_CONTEXT_PLUGIN: undefined }, () => {
+test("proxyBaseFromEnv accepts SOPHIALIN_CONTEXT_PROXY, detectProxyBase honors kill switch", async () => {
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8790/", SOPHIALIN_CONTEXT_PLUGIN: undefined }, () => {
         assert.equal(proxyBaseFromEnv(), "http://127.0.0.1:8790");
         assert.equal(detectProxyBase("https://api.example.com/v1"), "http://127.0.0.1:8790");
-        assert.equal(detectProxyBase("http://x/bili/https://y"), "http://x");
+        assert.equal(detectProxyBase("http://x/sophialin/https://y"), "http://x");
     });
-    await withEnv({ BILLION_CONTEXT_PROXY: "http://127.0.0.1:8790/", BILLION_CONTEXT_PLUGIN: "0" }, () => {
-        assert.equal(detectProxyBase("http://x/bili/https://y"), undefined);
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: "http://127.0.0.1:8790/", SOPHIALIN_CONTEXT_PLUGIN: "0" }, () => {
+        assert.equal(detectProxyBase("http://x/sophialin/https://y"), undefined);
     });
-    await withEnv({ BILLION_CONTEXT_PROXY: "ftp://bad" }, () => {
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: "ftp://bad" }, () => {
         assert.equal(proxyBaseFromEnv(), undefined);
     });
 });
@@ -70,7 +70,7 @@ async function startFakeProxy(opts: { failRegister?: number; statusOk?: boolean 
     const runtimeInfos: FakeProxy["runtimeInfos"] = [];
     const server = http.createServer((req, res) => {
         const url = req.url ?? "";
-        if (url === "/__bili/plugin/manifest") {
+        if (url === "/__sophialin/plugin/manifest") {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ tools: { anthropic: [
                 { name: "compress", description: "Compress context ranges", input_schema: { type: "object", properties: { content: { type: "array" } }, required: ["content"] } },
@@ -78,7 +78,7 @@ async function startFakeProxy(opts: { failRegister?: number; statusOk?: boolean 
             ] } }));
             return;
         }
-        if (url === "/__bili/plugin/tool" && req.method === "POST") {
+        if (url === "/__sophialin/plugin/tool" && req.method === "POST") {
             let body = "";
             req.on("data", (c) => (body += c));
             req.on("end", () => {
@@ -93,7 +93,7 @@ async function startFakeProxy(opts: { failRegister?: number; statusOk?: boolean 
             });
             return;
         }
-        if (url === "/__bili/plugin/register" && req.method === "POST") {
+        if (url === "/__sophialin/plugin/register" && req.method === "POST") {
             let body = "";
             req.on("data", (c) => (body += c));
             req.on("end", () => {
@@ -109,7 +109,7 @@ async function startFakeProxy(opts: { failRegister?: number; statusOk?: boolean 
             });
             return;
         }
-        if (url === "/__bili/plugin/runtime-info" && req.method === "POST") {
+        if (url === "/__sophialin/plugin/runtime-info" && req.method === "POST") {
             let body = "";
             req.on("data", (c) => (body += c));
             req.on("end", () => {
@@ -119,7 +119,7 @@ async function startFakeProxy(opts: { failRegister?: number; statusOk?: boolean 
             });
             return;
         }
-        if (url.startsWith("/__bili/plugin/status")) {
+        if (url.startsWith("/__sophialin/plugin/status")) {
             if (opts.statusOk === false) {
                 res.writeHead(404, { "content-type": "application/json" });
                 res.end(JSON.stringify({ ok: false, error: "unknown plugin conversation" }));
@@ -213,7 +213,7 @@ function makeFakePi(): FakePi {
 function fakeCtx(proxy: FakeProxy | undefined, sessionId = "sess-42"): Record<string, unknown> {
     return {
         sessionManager: { getSessionId: () => sessionId },
-        model: { contextWindow: 1000000, baseUrl: proxy ? `${proxy.origin}/bili/https://api.example.com/v1` : "https://api.example.com/v1" },
+        model: { contextWindow: 1000000, baseUrl: proxy ? `${proxy.origin}/sophialin/https://api.example.com/v1` : "https://api.example.com/v1" },
         cwd: "/tmp",
     };
 }
@@ -235,58 +235,58 @@ async function waitForTools(pi: FakePi, count: number, timeoutMs = 15000): Promi
 }
 
 test("#535: provider URL rewrites from env manifest applied at load", () => {
-    const prevRewrites = process.env.BILI_PROVIDER_REWRITES;
-    process.env.BILI_PROVIDER_REWRITES = JSON.stringify({
-        glm: "http://127.0.0.1:8787/bili/http://127.0.0.1:8199/v1",
-        other: "http://127.0.0.1:8787/bili/http://example.com",
+    const prevRewrites = process.env.SOPHIALIN_PROVIDER_REWRITES;
+    process.env.SOPHIALIN_PROVIDER_REWRITES = JSON.stringify({
+        glm: "http://127.0.0.1:8787/sophialin/http://127.0.0.1:8199/v1",
+        other: "http://127.0.0.1:8787/sophialin/http://example.com",
     });
     try {
         const pi = makeFakePi();
         createBiliPlugin()(pi as never);
         assert.deepEqual(Object.fromEntries(pi.providers), {
-            glm: "http://127.0.0.1:8787/bili/http://127.0.0.1:8199/v1",
-            other: "http://127.0.0.1:8787/bili/http://example.com",
+            glm: "http://127.0.0.1:8787/sophialin/http://127.0.0.1:8199/v1",
+            other: "http://127.0.0.1:8787/sophialin/http://example.com",
         });
     } finally {
-        if (prevRewrites === undefined) delete process.env.BILI_PROVIDER_REWRITES;
-        else process.env.BILI_PROVIDER_REWRITES = prevRewrites;
+        if (prevRewrites === undefined) delete process.env.SOPHIALIN_PROVIDER_REWRITES;
+        else process.env.SOPHIALIN_PROVIDER_REWRITES = prevRewrites;
     }
 });
 
-test("#535: invalid BILI_PROVIDER_REWRITES JSON → no rewrites applied", () => {
-    const prevRewrites = process.env.BILI_PROVIDER_REWRITES;
-    process.env.BILI_PROVIDER_REWRITES = "{not json";
+test("#535: invalid SOPHIALIN_PROVIDER_REWRITES JSON → no rewrites applied", () => {
+    const prevRewrites = process.env.SOPHIALIN_PROVIDER_REWRITES;
+    process.env.SOPHIALIN_PROVIDER_REWRITES = "{not json";
     try {
         const pi = makeFakePi();
         createBiliPlugin()(pi as never);
         assert.equal(pi.providers.size, 0);
     } finally {
-        if (prevRewrites === undefined) delete process.env.BILI_PROVIDER_REWRITES;
-        else process.env.BILI_PROVIDER_REWRITES = prevRewrites;
+        if (prevRewrites === undefined) delete process.env.SOPHIALIN_PROVIDER_REWRITES;
+        else process.env.SOPHIALIN_PROVIDER_REWRITES = prevRewrites;
     }
 });
 
 test("#535: non-http(s) manifest entries are dropped", () => {
-    const prevRewrites = process.env.BILI_PROVIDER_REWRITES;
-    process.env.BILI_PROVIDER_REWRITES = JSON.stringify({ good: "http://x.example/v1", bad: "ftp://x.example", bad2: "not-a-url" });
+    const prevRewrites = process.env.SOPHIALIN_PROVIDER_REWRITES;
+    process.env.SOPHIALIN_PROVIDER_REWRITES = JSON.stringify({ good: "http://x.example/v1", bad: "ftp://x.example", bad2: "not-a-url" });
     try {
         const pi = makeFakePi();
         createBiliPlugin()(pi as never);
         assert.deepEqual(Object.fromEntries(pi.providers), { good: "http://x.example/v1" });
     } finally {
-        if (prevRewrites === undefined) delete process.env.BILI_PROVIDER_REWRITES;
-        else process.env.BILI_PROVIDER_REWRITES = prevRewrites;
+        if (prevRewrites === undefined) delete process.env.SOPHIALIN_PROVIDER_REWRITES;
+        else process.env.SOPHIALIN_PROVIDER_REWRITES = prevRewrites;
     }
 });
 
-test("#535/#851: session_before_compact cancels only auto compaction under bili launch", async () => {
-    const prevProxy = process.env.BILLION_CONTEXT_PROXY;
-    process.env.BILLION_CONTEXT_PROXY = "http://127.0.0.1:8787";
+test("#535/#851: session_before_compact cancels only auto compaction under sophialin launch", async () => {
+    const prevProxy = process.env.SOPHIALIN_CONTEXT_PROXY;
+    process.env.SOPHIALIN_CONTEXT_PROXY = "http://127.0.0.1:8787";
     try {
         const pi = makeFakePi();
         createBiliPlugin("pi")(pi as never);
         const handler = pi.events.get("session_before_compact");
-        assert.ok(handler, "pi under bili launch: handler registered");
+        assert.ok(handler, "pi under sophialin launch: handler registered");
         assert.deepEqual(await handler({ reason: "threshold" }, undefined), { cancel: true });
         assert.deepEqual(await handler({ reason: "overflow" }, undefined), { cancel: true });
         assert.equal(await handler({ reason: "manual" }, undefined), undefined, "manual /compact stays user-owned");
@@ -298,7 +298,7 @@ test("#535/#851: session_before_compact cancels only auto compaction under bili 
         const omp = makeFakePi();
         createBiliPlugin("omp")(omp as never);
         const ompHandler = omp.events.get("session_before_compact");
-        assert.ok(ompHandler, "omp under bili launch: handler registered");
+        assert.ok(ompHandler, "omp under sophialin launch: handler registered");
         assert.equal(await ompHandler({}, undefined), undefined, "unannounced (manual) compaction stays user-owned");
         const ompStart = omp.events.get("auto_compaction_start");
         const ompEnd = omp.events.get("auto_compaction_end");
@@ -311,37 +311,37 @@ test("#535/#851: session_before_compact cancels only auto compaction under bili 
         ompEnd({}, undefined);
         assert.equal(await ompHandler({}, undefined), undefined, "aborted auto pass (end before hook) leaves manual unblocked");
     } finally {
-        if (prevProxy === undefined) delete process.env.BILLION_CONTEXT_PROXY;
-        else process.env.BILLION_CONTEXT_PROXY = prevProxy;
+        if (prevProxy === undefined) delete process.env.SOPHIALIN_CONTEXT_PROXY;
+        else process.env.SOPHIALIN_CONTEXT_PROXY = prevProxy;
     }
 });
 
 test("#535/#519: no proxy at factory time → cancel inert until a proxy appears", async () => {
-    const prevProxy = process.env.BILLION_CONTEXT_PROXY;
-    delete process.env.BILLION_CONTEXT_PROXY;
+    const prevProxy = process.env.SOPHIALIN_CONTEXT_PROXY;
+    delete process.env.SOPHIALIN_CONTEXT_PROXY;
     try {
         const pi = makeFakePi();
         createBiliPlugin("pi")(pi as never);
         const handler = pi.events.get("session_before_compact");
         assert.ok(handler, "handler registered; arming decided at event time");
         assert.equal(await handler({ reason: "threshold" }, undefined), undefined, "no proxy → native compaction untouched");
-        // native mode (#519): BILLION_CONTEXT_PROXY lands only AFTER the factory ran
-        process.env.BILLION_CONTEXT_PROXY = "http://127.0.0.1:8787";
+        // native mode (#519): SOPHIALIN_CONTEXT_PROXY lands only AFTER the factory ran
+        process.env.SOPHIALIN_CONTEXT_PROXY = "http://127.0.0.1:8787";
         assert.deepEqual(await handler({ reason: "threshold" }, undefined), { cancel: true });
         assert.deepEqual(await handler({ reason: "overflow" }, undefined), { cancel: true });
         assert.equal(await handler({ reason: "manual" }, undefined), undefined, "manual /compact stays user-owned");
-        // /bili/ baseUrl routing (no env at all) arms the cancel too
-        delete process.env.BILLION_CONTEXT_PROXY;
-        const biliCtx = { model: { baseUrl: "http://127.0.0.1:8787/bili/https://api.example.com/v1" } };
-        assert.deepEqual(await handler({ reason: "threshold" }, biliCtx), { cancel: true });
+        // /sophialin/ baseUrl routing (no env at all) arms the cancel too
+        delete process.env.SOPHIALIN_CONTEXT_PROXY;
+        const sophialinCtx = { model: { baseUrl: "http://127.0.0.1:8787/sophialin/https://api.example.com/v1" } };
+        assert.deepEqual(await handler({ reason: "threshold" }, sophialinCtx), { cancel: true });
     } finally {
-        if (prevProxy === undefined) delete process.env.BILLION_CONTEXT_PROXY;
-        else process.env.BILLION_CONTEXT_PROXY = prevProxy;
+        if (prevProxy === undefined) delete process.env.SOPHIALIN_CONTEXT_PROXY;
+        else process.env.SOPHIALIN_CONTEXT_PROXY = prevProxy;
     }
 });
 
 test("#1382: compaction cancel requires evidence the proxy carries this conversation", async () => {
-    // Native mode sets BILLION_CONTEXT_PROXY for the whole process, but a
+    // Native mode sets SOPHIALIN_CONTEXT_PROXY for the whole process, but a
     // provider like pi-claude-bridge runs its own child process against
     // upstream directly (model.baseUrl = literal "claude-bridge") — the proxy
     // never saw this conversation. Cancelling there killed ALL compaction:
@@ -364,7 +364,7 @@ test("#1382: compaction cancel requires evidence the proxy carries this conversa
     try {
         // (A) The reported repro: non-http(s) provider AND the proxy has no
         // such conversation → threshold/overflow must NOT be cancelled.
-        await withEnv({ BILLION_CONTEXT_PROXY: unknownProxy.origin }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: unknownProxy.origin }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             const handler = pi.events.get("session_before_compact")!;
@@ -376,7 +376,7 @@ test("#1382: compaction cancel requires evidence the proxy carries this conversa
         // (B) The veto alone: even if the proxy CONFIRMS the conversation id
         // (stale state from an earlier proxied phase of the same session), a
         // non-http(s) baseUrl means this turn's traffic cannot reach it.
-        await withEnv({ BILLION_CONTEXT_PROXY: knownProxy.origin }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: knownProxy.origin }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             const handler = pi.events.get("session_before_compact")!;
@@ -385,7 +385,7 @@ test("#1382: compaction cancel requires evidence the proxy carries this conversa
 
         // (C) Positive evidence via the proxy: http provider, fresh instance
         // (no local stamp), proxy confirms it carries the conversation → cancel.
-        await withEnv({ BILLION_CONTEXT_PROXY: knownProxy.origin }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: knownProxy.origin }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             const handler = pi.events.get("session_before_compact")!;
@@ -395,7 +395,7 @@ test("#1382: compaction cancel requires evidence the proxy carries this conversa
         // (D) http provider whose traffic bypasses the proxy (e.g. a custom
         // provider added after launch, never routed through it): no local
         // stamp, proxy has no such conversation → native compaction proceeds.
-        await withEnv({ BILLION_CONTEXT_PROXY: unknownProxy.origin }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: unknownProxy.origin }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             const handler = pi.events.get("session_before_compact")!;
@@ -406,13 +406,13 @@ test("#1382: compaction cancel requires evidence the proxy carries this conversa
         await knownProxy.close();
     }
 
-    // (E) Local stamp fast path: x-bili-plugin-conversation stamped for this
+    // (E) Local stamp fast path: x-sophialin-plugin-conversation stamped for this
     // sid (tools registered + request routed through the proxy) is evidence
     // on its own — no status round-trip needed, so it holds even when the
     // proxy reports the conversation unknown.
     const stampedProxy = await startFakeProxy({ statusOk: false });
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: stampedProxy.origin }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: stampedProxy.origin }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             const ctx = fakeCtx(stampedProxy, "sess-stamped");
@@ -420,7 +420,7 @@ test("#1382: compaction cancel requires evidence the proxy carries this conversa
             await waitForTools(pi, 2);
             const headers: Record<string, string> = {};
             await pi.events.get("before_provider_headers")!({ headers }, ctx);
-            assert.equal(headers["x-bili-plugin-conversation"], "sess-stamped");
+            assert.equal(headers["x-sophialin-plugin-conversation"], "sess-stamped");
             const handler = pi.events.get("session_before_compact")!;
             assert.deepEqual(await handler({ reason: "threshold" }, ctx), { cancel: true }, "locally stamped session is carried by construction");
         });
@@ -438,7 +438,7 @@ test("#1382: compaction cancel requires evidence the proxy carries this conversa
             s.close(() => resolve(port));
         });
     });
-    await withEnv({ BILLION_CONTEXT_PROXY: `http://127.0.0.1:${probePort}` }, async () => {
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: `http://127.0.0.1:${probePort}` }, async () => {
         const pi = makeFakePi();
         createBiliPlugin("pi")(pi as never);
         const handler = pi.events.get("session_before_compact")!;
@@ -450,7 +450,7 @@ test("#1382: compaction cancel requires evidence the proxy carries this conversa
     const runOmpCase = async (statusOk: boolean, expectCancel: boolean, label: string): Promise<void> => {
         const proxy = await startFakeProxy({ statusOk });
         try {
-            await withEnv({ BILLION_CONTEXT_PROXY: proxy.origin }, async () => {
+            await withEnv({ SOPHIALIN_CONTEXT_PROXY: proxy.origin }, async () => {
                 const omp = makeFakePi();
                 createBiliPlugin("omp")(omp as never);
                 const handler = omp.events.get("session_before_compact")!;
@@ -469,12 +469,12 @@ test("#1382: compaction cancel requires evidence the proxy carries this conversa
     // evidence — the cancel holds even though the proxy reports unknown.
     const identityProxy = await startFakeProxy({ statusOk: false });
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: identityProxy.origin }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: identityProxy.origin }, async () => {
             const omp = makeFakePi();
             createBiliPlugin("omp")(omp as never);
             // #1403: pck stamping (the identity signal) only fires for
-            // destinations bili actually processes — route through /bili/.
-            const ctx = { ...httpCtx("sess-omp-id"), model: { contextWindow: 1000000, baseUrl: `${identityProxy.origin}/bili/https://api.example.com/v1` } };
+            // destinations sophialin actually processes — route through /sophialin/.
+            const ctx = { ...httpCtx("sess-omp-id"), model: { contextWindow: 1000000, baseUrl: `${identityProxy.origin}/sophialin/https://api.example.com/v1` } };
             const payload = await omp.events.get("before_provider_request")!({ payload: { messages: [{ role: "user", content: "hi" }] } }, ctx);
             assert.equal((payload as { prompt_cache_key?: string })?.prompt_cache_key, "sess-omp-id", "identity registration completed with the request");
             omp.events.get("auto_compaction_start")!({}, undefined);
@@ -485,11 +485,11 @@ test("#1382: compaction cancel requires evidence the proxy carries this conversa
     }
 });
 
-test("#1392: non-http(s) provider rides bili only when opted in AND carried", async () => {
+test("#1392: non-http(s) provider rides sophialin only when opted in AND carried", async () => {
     // #1383's stopgap vetoed ALL non-http(s) baseUrls (e.g. pi-claude-bridge's literal
     // "claude-bridge"), so a proxy's mere existence could never claim compaction for
     // traffic that bypasses it. #1392 narrows that veto: an explicitly opted-in provider
-    // (BILI_NON_HTTP_PROVIDERS) falls through to the SAME carriage-evidence gate. Opt-in
+    // (SOPHIALIN_NON_HTTP_PROVIDERS) falls through to the SAME carriage-evidence gate. Opt-in
     // widens the candidate set only — unrouted traffic still never cancels (#1382 invariant).
     const bridgeCtx = {
         sessionManager: { getSessionId: () => "sess-optin" },
@@ -501,7 +501,7 @@ test("#1392: non-http(s) provider rides bili only when opted in AND carried", as
     try {
         // (A) Unopted-in: byte-for-byte the #1382/stopgap behavior — even though the proxy
         // confirms carriage here, no opt-in means the non-http(s) veto still holds.
-        await withEnv({ BILLION_CONTEXT_PROXY: knownProxy.origin, BILI_NON_HTTP_PROVIDERS: undefined }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: knownProxy.origin, SOPHIALIN_NON_HTTP_PROVIDERS: undefined }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             const handler = pi.events.get("session_before_compact")!;
@@ -510,7 +510,7 @@ test("#1392: non-http(s) provider rides bili only when opted in AND carried", as
 
         // (B) Opted-in but UNROUTED: the veto lifts, yet there is no carriage evidence (no
         // local stamp + proxy reports unknown) → still no cancel. This IS the safety property.
-        await withEnv({ BILLION_CONTEXT_PROXY: unknownProxy.origin, BILI_NON_HTTP_PROVIDERS: "claude-bridge" }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: unknownProxy.origin, SOPHIALIN_NON_HTTP_PROVIDERS: "claude-bridge" }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             const handler = pi.events.get("session_before_compact")!;
@@ -519,7 +519,7 @@ test("#1392: non-http(s) provider rides bili only when opted in AND carried", as
 
         // (C) Opted-in AND routed: the proxy confirms it carries this conversation → the
         // cancel now correctly fires (the whole point of the opt-in).
-        await withEnv({ BILLION_CONTEXT_PROXY: knownProxy.origin, BILI_NON_HTTP_PROVIDERS: "claude-bridge" }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: knownProxy.origin, SOPHIALIN_NON_HTTP_PROVIDERS: "claude-bridge" }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             const handler = pi.events.get("session_before_compact")!;
@@ -528,7 +528,7 @@ test("#1392: non-http(s) provider rides bili only when opted in AND carried", as
 
         // (D) Mismatched allowlist id: opting in a DIFFERENT provider does not lift the veto
         // for this one — ids match exactly, so a typo cannot accidentally opt a provider in.
-        await withEnv({ BILLION_CONTEXT_PROXY: knownProxy.origin, BILI_NON_HTTP_PROVIDERS: "some-other-provider" }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: knownProxy.origin, SOPHIALIN_NON_HTTP_PROVIDERS: "some-other-provider" }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             const handler = pi.events.get("session_before_compact")!;
@@ -537,10 +537,10 @@ test("#1392: non-http(s) provider rides bili only when opted in AND carried", as
 
         // (E) [#1392 Phase A guard] Opt-in widens ONLY the compaction-ownership candidate
         // set — it must never widen wire-side routing: a non-http baseUrl stays outside
-        // destinationRoutedThroughProxy (no /bili/ rewrites, no stamped cache keys, no MITM
-        // candidacy), whatever BILI_NON_HTTP_PROVIDERS says. Guards Phase B against
+        // destinationRoutedThroughProxy (no /sophialin/ rewrites, no stamped cache keys, no MITM
+        // candidacy), whatever SOPHIALIN_NON_HTTP_PROVIDERS says. Guards Phase B against
         // accidentally wiring the flag into stamp eligibility.
-        await withEnv({ BILLION_CONTEXT_PROXY: knownProxy.origin, BILI_NON_HTTP_PROVIDERS: "claude-bridge" }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: knownProxy.origin, SOPHIALIN_NON_HTTP_PROVIDERS: "claude-bridge" }, async () => {
             assert.equal(destinationRoutedThroughProxy("claude-bridge"), false, "opt-in must not route a non-http baseUrl through the proxy wire surface");
             assert.equal(destinationRoutedThroughProxy("claude-bridge://x"), false, "opaque scheme never parses as routable");
         });
@@ -554,7 +554,7 @@ test("pi extension registers manifest tools and stamps headers when proxied", as
     const proxy = await startFakeProxy();
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         // The header is only stamped once tools are registered, so register
         // first (a real session does this via session_start before the first
         // provider request; launcher-mode -p wins that race via the load-time
@@ -563,9 +563,9 @@ test("pi extension registers manifest tools and stamps headers when proxied", as
         await waitForTools(pi, 2);
         const headers: Record<string, string> = {};
         await pi.events.get("before_provider_headers")!({ headers }, fakeCtx(proxy));
-        assert.equal(headers["x-bili-plugin"], "pi");
-        assert.equal(headers["x-bili-plugin-conversation"], "sess-42");
-        assert.equal(headers["x-bili-plugin-context-window"], "1000000");
+        assert.equal(headers["x-sophialin-plugin"], "pi");
+        assert.equal(headers["x-sophialin-plugin-conversation"], "sess-42");
+        assert.equal(headers["x-sophialin-plugin-context-window"], "1000000");
         assert.equal(pi.tools.length, 2);
         assert.equal(pi.tools[0]!.name, "compress");
         assert.deepEqual(pi.tools[0]!.parameters, { type: "object", properties: { content: { type: "array" } }, required: ["content"] });
@@ -574,7 +574,7 @@ test("pi extension registers manifest tools and stamps headers when proxied", as
         assert.equal(out.isError, undefined);
         assert.deepEqual(proxy.toolCalls, [{ conversationId: "sess-42", tool: "compress", args: { content: [] } }]);
         const errOut = await pi.tools[1]!.execute("call-2", {}, undefined, undefined, fakeCtx(proxy));
-        assert.match(errOut.content[0]!.text, /bili tool error:.*boom/);
+        assert.match(errOut.content[0]!.text, /sophialin tool error:.*boom/);
         assert.equal(errOut.isError, true);
     } finally {
         await proxy.close();
@@ -585,21 +585,21 @@ test("#1214: before_provider_headers awaits tool registration — one-shot (-p) 
     const proxy = await startFakeProxy();
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         // The -p shape: NO session_start prewarm — the one and only request
         // dispatches at boot. pi's runner awaits async handlers, so awaiting
         // the handler mirrors the real host; the stamp must already carry
         // the full plugin-ownership header set on the FIRST fire.
         const headers: Record<string, string> = {};
         await pi.events.get("before_provider_headers")!({ headers }, fakeCtx(proxy));
-        assert.equal(headers["x-bili-plugin"], "pi");
-        assert.equal(headers["x-bili-plugin-conversation"], "sess-42");
-        assert.equal(headers["x-bili-plugin-context-window"], "1000000");
+        assert.equal(headers["x-sophialin-plugin"], "pi");
+        assert.equal(headers["x-sophialin-plugin-conversation"], "sess-42");
+        assert.equal(headers["x-sophialin-plugin-context-window"], "1000000");
         assert.equal(pi.tools.length, 2, "tools registered before the request could leave");
         // Subsequent fires stay stamped (cached registration, no re-fetch).
         const again: Record<string, string> = {};
         await pi.events.get("before_provider_headers")!({ headers: again }, fakeCtx(proxy));
-        assert.equal(again["x-bili-plugin"], "pi");
+        assert.equal(again["x-sophialin-plugin"], "pi");
     } finally {
         await proxy.close();
     }
@@ -609,13 +609,13 @@ test("before_provider_headers stamps after a session_start prewarm too", async (
     const proxy = await startFakeProxy();
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         await pi.events.get("session_start")!({}, fakeCtx(proxy));
         await waitForTools(pi, 2);
         const late: Record<string, string> = {};
         await pi.events.get("before_provider_headers")!({ headers: late }, fakeCtx(proxy));
-        assert.equal(late["x-bili-plugin"], "pi");
-        assert.equal(late["x-bili-plugin-conversation"], "sess-42");
+        assert.equal(late["x-sophialin-plugin"], "pi");
+        assert.equal(late["x-sophialin-plugin-conversation"], "sess-42");
     } finally {
         await proxy.close();
     }
@@ -635,7 +635,7 @@ test("#1217: launcher-mode manifest fetch is primed at extension load time", asy
     ] } });
     let manifestHits = 0;
     const server = http.createServer((req, res) => {
-        if (req.url === "/__bili/plugin/manifest") {
+        if (req.url === "/__sophialin/plugin/manifest") {
             manifestHits++;
             res.writeHead(200, { "content-type": "application/json" });
             res.end(manifest);
@@ -649,7 +649,7 @@ test("#1217: launcher-mode manifest fetch is primed at extension load time", asy
     const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     try {
         const ctx = { sessionManager: { getSessionId: () => "sess-42" }, model: { contextWindow: 1000000, baseUrl: "https://api.example.com/v1" } };
-        await withEnv({ BILLION_CONTEXT_PROXY: origin }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: origin }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             const deadline = Date.now() + 5000;
@@ -659,8 +659,8 @@ test("#1217: launcher-mode manifest fetch is primed at extension load time", asy
             await waitForTools(pi, 2);
             const headers: Record<string, string> = {};
             await pi.events.get("before_provider_headers")!({ headers }, ctx);
-            assert.equal(headers["x-bili-plugin"], "pi");
-            assert.equal(headers["x-bili-plugin-conversation"], "sess-42");
+            assert.equal(headers["x-sophialin-plugin"], "pi");
+            assert.equal(headers["x-sophialin-plugin-conversation"], "sess-42");
             assert.equal(pi.tools.length, 2);
         });
     } finally {
@@ -677,7 +677,7 @@ test("#1217: a failed manifest prime falls back to the event-time fetch and retr
     // observed request arrival — never by wall-clock margins.
     let manifestRequests = 0;
     const server = http.createServer((req, res) => {
-        if (req.url === "/__bili/plugin/manifest") {
+        if (req.url === "/__sophialin/plugin/manifest") {
             manifestRequests++;
             if (manifestRequests > 2) {
                 res.writeHead(200, { "content-type": "application/json" });
@@ -699,7 +699,7 @@ test("#1217: a failed manifest prime falls back to the event-time fetch and retr
     const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     try {
         const ctx = { sessionManager: { getSessionId: () => "sess-42" }, model: { contextWindow: 1000000, baseUrl: "https://api.example.com/v1" } };
-        await withEnv({ BILLION_CONTEXT_PROXY: origin }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: origin }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi", { retryIntervalMs: 500 })(pi as never);
             // Request #1 = the failed load-time prime; request #2 = the
@@ -724,11 +724,11 @@ test("#1217: a failed manifest prime falls back to the event-time fetch and retr
             while (!stamped && Date.now() < recoverDeadline) {
                 const h: Record<string, string> = {};
                 await pi.events.get("before_provider_headers")!({ headers: h }, ctx);
-                if (h["x-bili-plugin"] === "pi") stamped = h;
+                if (h["x-sophialin-plugin"] === "pi") stamped = h;
                 else await sleep(10);
             }
             assert.ok(stamped !== undefined, "recovery fetch succeeds once the throttle expires");
-            assert.equal(stamped["x-bili-plugin-conversation"], "sess-42");
+            assert.equal(stamped["x-sophialin-plugin-conversation"], "sess-42");
             assert.equal(pi.tools.length, 2);
             assert.equal(manifestRequests, 3, "recovery is a single fetch, not a storm");
         });
@@ -740,7 +740,7 @@ test("#1217: a failed manifest prime falls back to the event-time fetch and retr
 test("#1217: kill switch suppresses the load-time manifest prime", async () => {
     let manifestHits = 0;
     const server = http.createServer((req, res) => {
-        if (req.url === "/__bili/plugin/manifest") {
+        if (req.url === "/__sophialin/plugin/manifest") {
             manifestHits++;
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ tools: { anthropic: [] } }));
@@ -753,11 +753,11 @@ test("#1217: kill switch suppresses the load-time manifest prime", async () => {
     await once(server, "listening");
     const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     try {
-        await withEnv({ BILLION_CONTEXT_PROXY: origin, BILLION_CONTEXT_PLUGIN: "0" }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PROXY: origin, SOPHIALIN_CONTEXT_PLUGIN: "0" }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("pi")(pi as never);
             await sleep(50);
-            assert.equal(manifestHits, 0, "BILLION_CONTEXT_PLUGIN=0 must keep the plugin fully inert at load time");
+            assert.equal(manifestHits, 0, "SOPHIALIN_CONTEXT_PLUGIN=0 must keep the plugin fully inert at load time");
         });
     } finally {
         server.close();
@@ -777,7 +777,7 @@ test("before_provider_headers stays silent when the manifest fetch keeps failing
     const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         await pi.events.get("session_start")!({}, fakeCtx(origin));
         await flush();
         await flush();
@@ -794,10 +794,10 @@ test("pi extension survives hostile host shapes without throwing", async () => {
     const proxy = await startFakeProxy();
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         pi.events.get("before_provider_headers")!({}, {});
         pi.events.get("before_provider_headers")!({ headers: null }, fakeCtx(proxy));
-        pi.events.get("before_provider_headers")!({ headers: [] }, { sessionManager: {}, model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` } });
+        pi.events.get("before_provider_headers")!({ headers: [] }, { sessionManager: {}, model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` } });
         await pi.events.get("session_start")!({}, {});
         await waitForTools(pi, 2);
         // proxied baseUrl above intentionally triggers header-fallback registration
@@ -811,7 +811,7 @@ test("registration retries are throttled and deduped", async () => {
     const proxy = await startFakeProxy();
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         await pi.events.get("session_start")!({}, fakeCtx(proxy));
         await waitForTools(pi, 2);
         assert.equal(pi.tools.length, 2);
@@ -827,7 +827,7 @@ test("registration retries are throttled and deduped", async () => {
 
 test("pi extension is inert without a proxy", async () => {
     const pi = makeFakePi();
-    biliPlugin(pi as never);
+    sophialinPlugin(pi as never);
     const headers: Record<string, string> = {};
     pi.events.get("before_provider_headers")!({ headers }, fakeCtx(undefined));
     assert.deepEqual(headers, {});
@@ -838,7 +838,7 @@ test("pi extension is inert without a proxy", async () => {
 
 test("/acp command is registered and renders proxy status", async () => {
     const server = http.createServer((req, res) => {
-        if (req.url?.startsWith("/__bili/plugin/status")) {
+        if (req.url?.startsWith("/__sophialin/plugin/status")) {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({
                 ok: true,
@@ -860,14 +860,14 @@ test("/acp command is registered and renders proxy status", async () => {
     const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         const cmd = pi.commands.get("acp");
         assert.ok(cmd, "acp command should be registered");
         assert.match(cmd!.description ?? "", /ACP/);
         const notes: Array<{ msg: string; type?: string }> = [];
         const ctx = {
             sessionManager: { getSessionId: () => "sess-acp" },
-            model: { baseUrl: `${origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string, type?: string) => notes.push({ msg, type }) },
         };
         await cmd!.handler("", ctx);
@@ -884,9 +884,9 @@ test("/acp command is registered and renders proxy status", async () => {
 });
 
 test("/acp command warns when no proxy is detected", async () => {
-    await withEnv({ BILLION_CONTEXT_PROXY: undefined }, async () => {
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: undefined }, async () => {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         const cmd = pi.commands.get("acp")!;
         const notes: Array<{ msg: string; type?: string }> = [];
         const ctx = {
@@ -900,14 +900,14 @@ test("/acp command warns when no proxy is detected", async () => {
         // #788: neutral wording — offers BOTH exits (proxy mode or remove the
         // plugin) instead of assuming proxy intent.
         assert.match(notes[0]!.msg, /no proxy detected/);
-        assert.match(notes[0]!.msg, /run via `bili pi` \(or set a \/bili\/ baseURL\) to use proxy mode/);
-        assert.match(notes[0]!.msg, /`bili plugin remove pi`/);
+        assert.match(notes[0]!.msg, /run via `sophialin pi` \(or set a \/sophialin\/ baseURL\) to use proxy mode/);
+        assert.match(notes[0]!.msg, /`sophialin plugin remove pi`/);
         assert.match(notes[0]!.msg, /billion-context-pi/);
     });
 });
 
 test("/acp no-proxy warning offers the remove exit for omp without billion-context-pi mention", async () => {
-    await withEnv({ BILLION_CONTEXT_PROXY: undefined }, async () => {
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: undefined }, async () => {
         const pi = makeFakePi();
         ompPlugin(pi as never);
         const cmd = pi.commands.get("acp")!;
@@ -921,15 +921,15 @@ test("/acp no-proxy warning offers the remove exit for omp without billion-conte
         assert.equal(notes.length, 1);
         assert.equal(notes[0]!.type, "warning");
         assert.match(notes[0]!.msg, /no proxy detected/);
-        assert.match(notes[0]!.msg, /run via `bili omp`/);
-        assert.match(notes[0]!.msg, /`bili plugin remove omp`/);
+        assert.match(notes[0]!.msg, /run via `sophialin omp`/);
+        assert.match(notes[0]!.msg, /`sophialin plugin remove omp`/);
         assert.doesNotMatch(notes[0]!.msg, /billion-context-pi/);
     });
 });
 
 test("/acp command warns when the session is unknown", async () => {
     const server = http.createServer((req, res) => {
-        if (req.url?.startsWith("/__bili/plugin/status")) {
+        if (req.url?.startsWith("/__sophialin/plugin/status")) {
             res.writeHead(404, { "content-type": "application/json" });
             res.end(JSON.stringify({ ok: false, error: "unknown plugin conversation" }));
             return;
@@ -942,12 +942,12 @@ test("/acp command warns when the session is unknown", async () => {
     const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         const cmd = pi.commands.get("acp")!;
         const notes: Array<{ msg: string; type?: string }> = [];
         const ctx = {
             sessionManager: { getSessionId: () => "sess-unknown" },
-            model: { baseUrl: `${origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string, type?: string) => notes.push({ msg, type }) },
         };
         await cmd.handler("", ctx);
@@ -961,12 +961,12 @@ test("/acp command warns when the session is unknown", async () => {
 
 test("/acp shows armed info when the proxy is live but the session is unknown", async () => {
     const server = http.createServer((req, res) => {
-        if (req.url?.startsWith("/__bili/plugin/status")) {
+        if (req.url?.startsWith("/__sophialin/plugin/status")) {
             res.writeHead(404, { "content-type": "application/json" });
             res.end(JSON.stringify({ ok: false, error: "unknown plugin conversation" }));
             return;
         }
-        if (req.url?.startsWith("/__bili/plugin/manifest")) {
+        if (req.url?.startsWith("/__sophialin/plugin/manifest")) {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ ok: true, version: "9.9.9", toolNames: [] }));
             return;
@@ -979,18 +979,18 @@ test("/acp shows armed info when the proxy is live but the session is unknown", 
     const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         const cmd = pi.commands.get("acp")!;
         const notes: Array<{ msg: string; type?: string }> = [];
         const ctx = {
             sessionManager: { getSessionId: () => "sess-fresh" },
-            model: { baseUrl: `${origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string, type?: string) => notes.push({ msg, type }) },
         };
         await cmd.handler("", ctx);
         assert.equal(notes.length, 1);
         assert.equal(notes[0]!.type, "info");
-        assert.match(notes[0]!.msg, /billion-context@9\.9\.9/);
+        assert.match(notes[0]!.msg, /sophialin-context@9\.9\.9/);
         assert.match(notes[0]!.msg, /compression armed/);
     } finally {
         await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -999,7 +999,7 @@ test("/acp shows armed info when the proxy is live but the session is unknown", 
 
 test("/acp emits a persistent custom message via pi.sendMessage when available (issue #359)", async () => {
     const server = http.createServer((req, res) => {
-        if (req.url?.startsWith("/__bili/plugin/status")) {
+        if (req.url?.startsWith("/__sophialin/plugin/status")) {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ ok: true, panel: "PANEL-BODY", contextTokens: 12345 }));
             return;
@@ -1014,17 +1014,17 @@ test("/acp emits a persistent custom message via pi.sendMessage when available (
         const sent: Array<{ customType: string; content: string; display: boolean }> = [];
         const notes: string[] = [];
         const pi = { ...makeFakePi(), sendMessage: (m: { customType: string; content: string; display: boolean }) => sent.push(m) };
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         const cmd = pi.commands.get("acp")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-send" },
-            model: { baseUrl: `${origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string) => notes.push(msg) },
         };
         await cmd.handler("", ctx);
         assert.equal(sent.length, 1, "one custom message sent");
         assert.equal(notes.length, 0, "notify must not fire when sendMessage is available");
-        assert.equal(sent[0]!.customType, "bili-acp-status");
+        assert.equal(sent[0]!.customType, "sophialin-acp-status");
         assert.equal(sent[0]!.display, true);
         assert.equal(sent[0]!.content, "PANEL-BODY");
     } finally {
@@ -1034,7 +1034,7 @@ test("/acp emits a persistent custom message via pi.sendMessage when available (
 
 test("/acp sends renderAcpStatus fallback content via sendMessage when no panel string", async () => {
     const server = http.createServer((req, res) => {
-        if (req.url?.startsWith("/__bili/plugin/status")) {
+        if (req.url?.startsWith("/__sophialin/plugin/status")) {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ ok: true, contextLimit: 200000, contextTokens: 12345, inputTokens: 10000, outputTokens: 1234, cachedTokens: 8000, requests: 7, blocks: [{ id: "b1", tier: 1, active: true }] }));
             return;
@@ -1048,16 +1048,16 @@ test("/acp sends renderAcpStatus fallback content via sendMessage when no panel 
     try {
         const sent: Array<{ customType: string; content: string; display: boolean }> = [];
         const pi = { ...makeFakePi(), sendMessage: (m: { customType: string; content: string; display: boolean }) => sent.push(m) };
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         const cmd = pi.commands.get("acp")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-send2" },
-            model: { baseUrl: `${origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: () => { throw new Error("notify must not fire"); } },
         };
         await cmd.handler("", ctx);
         assert.equal(sent.length, 1);
-        assert.equal(sent[0]!.customType, "bili-acp-status");
+        assert.equal(sent[0]!.customType, "sophialin-acp-status");
         assert.match(sent[0]!.content, /📊 ACP status/);
     } finally {
         await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -1066,7 +1066,7 @@ test("/acp sends renderAcpStatus fallback content via sendMessage when no panel 
 
 test("/acp falls back to notify when pi.sendMessage throws", async () => {
     const server = http.createServer((req, res) => {
-        if (req.url?.startsWith("/__bili/plugin/status")) {
+        if (req.url?.startsWith("/__sophialin/plugin/status")) {
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify({ ok: true, panel: "PANEL-BODY", contextTokens: 1 }));
             return;
@@ -1080,11 +1080,11 @@ test("/acp falls back to notify when pi.sendMessage throws", async () => {
     try {
         const notes: string[] = [];
         const pi = { ...makeFakePi(), sendMessage: () => { throw new Error("host sendMessage failed"); } };
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         const cmd = pi.commands.get("acp")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-send3" },
-            model: { baseUrl: `${origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string) => notes.push(msg) },
         };
         await cmd.handler("", ctx);
@@ -1098,7 +1098,7 @@ test("/acp falls back to notify when pi.sendMessage throws", async () => {
 function startCacheReportProxy(result: string | undefined, error?: string): Promise<{ origin: string; calls: Array<{ conversationId: string; tool: string }>; close(): Promise<void> }> {
     const calls: Array<{ conversationId: string; tool: string }> = [];
     const server = http.createServer((req, res) => {
-        if (req.url === "/__bili/plugin/tool" && req.method === "POST") {
+        if (req.url === "/__sophialin/plugin/tool" && req.method === "POST") {
             let body = "";
             req.on("data", (c) => (body += c));
             req.on("end", () => {
@@ -1135,7 +1135,7 @@ test("/acp-cache forwards acp_cache and persists the wrapped report via sendMess
         assert.ok(cmd, "acp-cache command should be registered");
         const ctx = {
             sessionManager: { getSessionId: () => "sess-cache" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string) => notes.push(msg) },
         };
         await cmd!.handler("", ctx);
@@ -1143,7 +1143,7 @@ test("/acp-cache forwards acp_cache and persists the wrapped report via sendMess
         assert.deepEqual(proxy.calls, [{ conversationId: "sess-cache", tool: "acp_cache" }]);
         assert.equal(sent.length, 1, "one custom message sent");
         assert.equal(notes.length, 0, "notify must not fire when sendMessage is available");
-        assert.equal(sent[0]!.customType, "bili-acp-cache");
+        assert.equal(sent[0]!.customType, "sophialin-acp-cache");
         assert.equal(sent[0]!.display, true);
         assert.equal(sent[0]!.content, wrapCacheReport("CACHE-REPORT-BODY"));
     } finally {
@@ -1160,7 +1160,7 @@ test("/acp-cache falls back to raw-text notify when the host has no sendMessage 
         const cmd = pi.commands.get("acp-cache")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-cache" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string, type?: string) => notes.push({ msg, type }) },
         };
         await cmd.handler("", ctx);
@@ -1175,7 +1175,7 @@ test("/acp-cache falls back to raw-text notify when the host has no sendMessage 
 });
 
 test("/acp-cache warns when no proxy is detected (#800)", async () => {
-    await withEnv({ BILLION_CONTEXT_PROXY: undefined }, async () => {
+    await withEnv({ SOPHIALIN_CONTEXT_PROXY: undefined }, async () => {
         const pi = makeFakePi();
         createBiliPlugin()(pi as never);
         const cmd = pi.commands.get("acp-cache")!;
@@ -1201,7 +1201,7 @@ test("/acp-cache reports a proxy-side failure via notify error (#800)", async ()
         const cmd = pi.commands.get("acp-cache")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-cache" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string, type?: string) => notes.push({ msg, type }) },
         };
         await cmd.handler("", ctx);
@@ -1217,7 +1217,7 @@ test("/acp-cache reports a proxy-side failure via notify error (#800)", async ()
 function startRuleProxy(result: string | undefined, error?: string): Promise<{ origin: string; calls: Array<{ conversationId: string; tool: string; args: Record<string, unknown> }>; close(): Promise<void> }> {
     const calls: Array<{ conversationId: string; tool: string; args: Record<string, unknown> }> = [];
     const server = http.createServer((req, res) => {
-        if (req.url === "/__bili/plugin/tool" && req.method === "POST") {
+        if (req.url === "/__sophialin/plugin/tool" && req.method === "POST") {
             let body = "";
             req.on("data", (c) => (body += c));
             req.on("end", () => {
@@ -1254,14 +1254,14 @@ test("/acp-rule forwards acp_rule with empty args and persists the wrapped list 
         assert.ok(cmd, "acp-rule command should be registered");
         const ctx = {
             sessionManager: { getSessionId: () => "sess-rules" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string) => notes.push(msg) },
         };
         await cmd!.handler("", ctx);
         assert.deepEqual(proxy.calls, [{ conversationId: "sess-rules", tool: "acp_rule", args: {} }], "no-arg list forwards empty args");
         assert.equal(sent.length, 1, "one custom message sent");
         assert.equal(notes.length, 0, "notify must not fire when sendMessage is available");
-        assert.equal(sent[0]!.customType, "bili-acp-rule");
+        assert.equal(sent[0]!.customType, "sophialin-acp-rule");
         assert.equal(sent[0]!.display, true);
         assert.equal(sent[0]!.content, wrapRuleReport("rule1: always run typecheck"));
     } finally {
@@ -1278,12 +1278,12 @@ test("/acp-rule forwards the text as { rule } to record a rule (#1251)", async (
         const cmd = pi.commands.get("acp-rule")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-rules-add" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (_msg: string) => {} },
         };
         await cmd.handler("  prefer pnpm  ", ctx);
         assert.deepEqual(proxy.calls, [{ conversationId: "sess-rules-add", tool: "acp_rule", args: { rule: "prefer pnpm" } }], "trimmed text forwarded as { rule }");
-        assert.equal(sent[0]!.customType, "bili-acp-rule");
+        assert.equal(sent[0]!.customType, "sophialin-acp-rule");
         assert.equal(sent[0]!.content, wrapRuleReport("Recorded rule2: prefer pnpm"));
     } finally {
         await proxy.close();
@@ -1299,7 +1299,7 @@ test("/acp-rule falls back to raw-text notify when the host has no sendMessage (
         const cmd = pi.commands.get("acp-rule")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-rules-notify" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string) => notes.push(msg) },
         };
         await cmd.handler("", ctx);
@@ -1311,7 +1311,7 @@ test("/acp-rule falls back to raw-text notify when the host has no sendMessage (
 });
 
 test("/acp-rule warns with an enablement hint when the proxy reports the feature disabled (#1251)", async () => {
-    const proxy = await startRuleProxy("acp_rule is not enabled on this bili proxy (compress.rules.enabled is not true) — nothing was recorded.");
+    const proxy = await startRuleProxy("acp_rule is not enabled on this sophialin proxy (compress.rules.enabled is not true) — nothing was recorded.");
     try {
         const sent: Array<{ customType: string }> = [];
         const notes: Array<{ msg: string; type?: string }> = [];
@@ -1320,7 +1320,7 @@ test("/acp-rule warns with an enablement hint when the proxy reports the feature
         const cmd = pi.commands.get("acp-rule")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-rules-off" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string, type?: string) => notes.push({ msg, type }) },
         };
         await cmd.handler("", ctx);
@@ -1342,12 +1342,12 @@ test("/acp-rule forwards `remove <id>` as { delete } to acp_rule (#1399)", async
         const cmd = pi.commands.get("acp-rule")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-rules-remove" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (_msg: string) => {} },
         };
         await cmd.handler("remove rule1", ctx);
         assert.deepEqual(proxy.calls, [{ conversationId: "sess-rules-remove", tool: "acp_rule", args: { delete: "rule1" } }], "`remove <id>` forwarded as { delete }");
-        assert.equal(sent[0]!.customType, "bili-acp-rule");
+        assert.equal(sent[0]!.customType, "sophialin-acp-rule");
         assert.equal(sent[0]!.content, wrapRuleReport("Removed rule1: always run tests first"));
     } finally {
         await proxy.close();
@@ -1363,7 +1363,7 @@ test("/acp-rule forwards bare `clear` as { clear: true } to acp_rule (#1399)", a
         const cmd = pi.commands.get("acp-rule")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-rules-clear" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (_msg: string) => {} },
         };
         await cmd.handler("clear", ctx);
@@ -1383,7 +1383,7 @@ test("/acp-rule bare `remove` warns with usage instead of forwarding (#1399)", a
         const cmd = pi.commands.get("acp-rule")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-rules-remove-usage" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (msg: string, type?: string) => notes.push({ msg, type }) },
         };
         await cmd.handler("remove", ctx);
@@ -1405,7 +1405,7 @@ test("/acp-rule `clear <text>` records the text instead of wiping (#1399)", asyn
         const cmd = pi.commands.get("acp-rule")!;
         const ctx = {
             sessionManager: { getSessionId: () => "sess-rules-clear-words" },
-            model: { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` },
+            model: { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` },
             ui: { notify: (_msg: string) => {} },
         };
         await cmd.handler("clear all caches before deploys", ctx);
@@ -1416,36 +1416,36 @@ test("/acp-rule `clear <text>` records the text instead of wiping (#1399)", asyn
     }
 });
 
-test("omp entry reports x-bili-plugin: omp without env vars", async () => {
+test("omp entry reports x-sophialin-plugin: omp without env vars", async () => {
     const proxy = await startFakeProxy();
     try {
-        await withEnv({ BILLION_CONTEXT_PLUGIN_AGENT: undefined, BILLION_CONTEXT_PROXY: proxy.origin }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PLUGIN_AGENT: undefined, SOPHIALIN_CONTEXT_PROXY: proxy.origin }, async () => {
             const pi = makeFakePi();
             ompPlugin(pi as never);
             await pi.events.get("session_start")!({}, fakeCtx(undefined));
             await waitForTools(pi, 2);
             const headers: Record<string, string> = {};
             await pi.events.get("before_provider_headers")!({ headers }, fakeCtx(undefined));
-            assert.equal(headers["x-bili-plugin"], "omp");
+            assert.equal(headers["x-sophialin-plugin"], "omp");
         });
-        await withEnv({ BILLION_CONTEXT_PLUGIN_AGENT: "omp", BILLION_CONTEXT_PROXY: proxy.origin }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PLUGIN_AGENT: "omp", SOPHIALIN_CONTEXT_PROXY: proxy.origin }, async () => {
             const pi = makeFakePi();
-            biliPlugin(pi as never);
+            sophialinPlugin(pi as never);
             await pi.events.get("session_start")!({}, fakeCtx(undefined));
             await waitForTools(pi, 2);
             const headers: Record<string, string> = {};
             await pi.events.get("before_provider_headers")!({ headers }, fakeCtx(undefined));
-            assert.equal(headers["x-bili-plugin"], "omp");
+            assert.equal(headers["x-sophialin-plugin"], "omp");
         });
-        await withEnv({ BILLION_CONTEXT_PLUGIN_AGENT: undefined }, async () => {
+        await withEnv({ SOPHIALIN_CONTEXT_PLUGIN_AGENT: undefined }, async () => {
             const pi = makeFakePi();
             createBiliPlugin("dsh")(pi as never);
-            const ctx = { sessionManager: { getSessionId: () => "s" }, model: { baseUrl: `${proxy.origin}/bili/https://x` } };
+            const ctx = { sessionManager: { getSessionId: () => "s" }, model: { baseUrl: `${proxy.origin}/sophialin/https://x` } };
             await pi.events.get("session_start")!({}, ctx);
             await waitForTools(pi, 2);
             const headers: Record<string, string> = {};
             await pi.events.get("before_provider_headers")!({ headers }, ctx);
-            assert.equal(headers["x-bili-plugin"], "dsh");
+            assert.equal(headers["x-sophialin-plugin"], "dsh");
         });
     } finally {
         await proxy.close();
@@ -1458,26 +1458,26 @@ function hintEnv(home: string, piAgentDir: string): Record<string, string> {
         CODEX_HOME: home,
         OPENCODE_CONFIG: path.join(home, ".config/opencode/opencode.json"),
         CLAUDE_CONFIG_DIR: home,
-        CLAUDE: "/nonexistent/bili-claude-stub",
-        BILI_MCP_PROXY: "http://127.0.0.1:8787",
+        CLAUDE: "/nonexistent/sophialin-claude-stub",
+        SOPHIALIN_MCP_PROXY: "http://127.0.0.1:8787",
     };
 }
 
 test("plugin install/remove roundtrips for pi/omp/codex/opencode under a fake HOME", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-plugin-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-plugin-home-"));
     const piAgentDir = path.join(home, ".pi/agent");
     // #925 pi entry form: npm installs write the pi-managed npm spec
     // (auto-installed at pi startup, upgraded by `pi update`, survives node
     // prefix moves); dev/checkout installs keep the abs root.
     {
-        const devRoot = "/home/x/projects/billion-context";
+        const devRoot = "/home/x/projects/sophialin-context";
         assert.equal(piEntryFor(devRoot), devRoot);
-        const npmRoot = "/home/x/.local/lib/node_modules/billion-context";
+        const npmRoot = "/home/x/.local/lib/node_modules/sophialin-context";
         assert.equal(piEntryFor(npmRoot), PI_NPM_ENTRY);
-        assert.equal(PI_NPM_ENTRY, "npm:billion-context");
+        assert.equal(PI_NPM_ENTRY, "npm:sophialin-context");
         assert.equal(isPiEntry(PI_NPM_ENTRY, devRoot), true);
         assert.equal(isPiEntry(PI_NPM_ENTRY, npmRoot), true);
-        assert.equal(isPiEntry("npm:billion-context@0.1.40", devRoot), true);
+        assert.equal(isPiEntry("npm:sophialin-context@0.1.40", devRoot), true);
     }
     await withEnv(hintEnv(home, piAgentDir), async () => {
         const root = selfPackageRoot();
@@ -1496,13 +1496,13 @@ test("plugin install/remove roundtrips for pi/omp/codex/opencode under a fake HO
 
         // Legacy entries (old billion-context-pi npm package, a dev checkout
         // path, backslash Windows paths) must be REPLACED by install so only
-        // one bili plugin stays live.
+        // one sophialin plugin stays live.
         fs.writeFileSync(path.join(piAgentDir, "settings.json"), JSON.stringify({
             packages: [
                 "npm:billion-context-pi",
                 "npm:billion-context-pi@0.1.48",
-                "npm:billion-context@0.1.40",
-                "/home/x/projects/billion-context",
+                "npm:sophialin-context@0.1.40",
+                "/home/x/projects/sophialin-context",
                 "C:\\Users\\x\\AppData\\Roaming\\npm\\node_modules\\billion-context-pi",
                 "/home/x/other-package",
             ],
@@ -1518,8 +1518,8 @@ test("plugin install/remove roundtrips for pi/omp/codex/opencode under a fake HO
         for (const gone of [
             "npm:billion-context-pi",
             "npm:billion-context-pi@0.1.48",
-            "npm:billion-context@0.1.40",
-            "/home/x/projects/billion-context",
+            "npm:sophialin-context@0.1.40",
+            "/home/x/projects/sophialin-context",
             "C:\\Users\\x\\AppData\\Roaming\\npm\\node_modules\\billion-context-pi",
         ]) {
             assert.ok(replaceMsg.includes(gone), `install output names removed entry ${gone}`);
@@ -1584,10 +1584,10 @@ test("plugin install/remove roundtrips for pi/omp/codex/opencode under a fake HO
 
         assert.match(pluginInstall("codex"), /installed/);
         const toml = fs.readFileSync(path.join(home, "config.toml"), "utf8");
-        assert.match(toml, /\[mcp_servers\.bili\]\ncommand = /);
+        assert.match(toml, /\[mcp_servers\.sophialin\]\ncommand = /);
         // #1660: no baked origin — the MCP shell discovers the live proxy at
         // startup (env > instance file > 8787), so the block cannot go stale.
-        assert.doesNotMatch(toml, /BILI_MCP_PROXY/);
+        assert.doesNotMatch(toml, /SOPHIALIN_MCP_PROXY/);
         fs.writeFileSync(path.join(home, "config.toml"), toml + "\n[mcp_servers.other]\ncommand = \"x\"\n");
         assert.match(pluginInstall("codex"), /already installed/);
         // a user-tampered command (their own node path) is not canonical →
@@ -1597,31 +1597,31 @@ test("plugin install/remove roundtrips for pi/omp/codex/opencode under a fake HO
         assert.doesNotMatch(fs.readFileSync(path.join(home, "config.toml"), "utf8"), /tampered/);
         assert.match(pluginRemove("codex"), /removed/);
         const tomlAfter = fs.readFileSync(path.join(home, "config.toml"), "utf8");
-        assert.doesNotMatch(tomlAfter, /mcp_servers\.bili/);
+        assert.doesNotMatch(tomlAfter, /mcp_servers\.sophialin/);
         assert.match(tomlAfter, /\[mcp_servers\.other\]\ncommand = "x"\n/);
 
-        // Regression: a header-only [mcp_servers.bili] block as the final
+        // Regression: a header-only [mcp_servers.sophialin] block as the final
         // line with no trailing newline must be fully removed (previously
         // the header line survived because the next-table search matched
         // the header itself when after.indexOf("\n") was -1).
-        fs.writeFileSync(path.join(home, "config.toml"), "[mcp_servers.other]\ncommand = \"x\"\n[mcp_servers.bili]");
+        fs.writeFileSync(path.join(home, "config.toml"), "[mcp_servers.other]\ncommand = \"x\"\n[mcp_servers.sophialin]");
         assert.match(pluginRemove("codex"), /removed/);
         const tomlEdge = fs.readFileSync(path.join(home, "config.toml"), "utf8");
-        assert.doesNotMatch(tomlEdge, /mcp_servers\.bili/);
+        assert.doesNotMatch(tomlEdge, /mcp_servers\.sophialin/);
         assert.match(tomlEdge, /\[mcp_servers\.other\]\ncommand = "x"\n/);
 
         // #638: a malformed block (args as string - legal TOML, invalid codex
         // schema). Legacy blocks carried a baked env origin — the heal must
         // drop it, not preserve it (#1660).
         const selfRoot = path.dirname(path.dirname(path.resolve("src/plugin-install.ts")));
-        const malformed = `[mcp_servers.other]\ncommand = "x"\n[mcp_servers.bili]\ncommand = "node"\nargs = '[\"${path.join(selfRoot, "dist", "mcp.js")}\"]'\nenv = { BILI_MCP_PROXY = "http://127.0.0.1:8787" }\n`;
+        const malformed = `[mcp_servers.other]\ncommand = "x"\n[mcp_servers.sophialin]\ncommand = "node"\nargs = '[\"${path.join(selfRoot, "dist", "mcp.js")}\"]'\nenv = { SOPHIALIN_MCP_PROXY = "http://127.0.0.1:8787" }\n`;
         fs.writeFileSync(path.join(home, "config.toml"), malformed);
         const healedMsg = pluginInstall("codex");
         assert.match(healedMsg, /repaired args: was not an array/);
         const tomlHealed = fs.readFileSync(path.join(home, "config.toml"), "utf8");
         assert.match(tomlHealed, /args = \[/);
         assert.doesNotMatch(tomlHealed, /args = '\[/);
-        assert.doesNotMatch(tomlHealed, /BILI_MCP_PROXY/, "legacy baked origin dropped on heal (#1660)");
+        assert.doesNotMatch(tomlHealed, /SOPHIALIN_MCP_PROXY/, "legacy baked origin dropped on heal (#1660)");
         assert.match(tomlHealed, /\[mcp_servers\.other\]\ncommand = "x"\n/);
         // A now-canonical block stays "already installed" on rerun.
         assert.match(pluginInstall("codex"), /already installed/);
@@ -1634,27 +1634,27 @@ test("plugin install/remove roundtrips for pi/omp/codex/opencode under a fake HO
         const ocFile = path.join(home, ".config/opencode/opencode.json");
         fs.mkdirSync(path.dirname(ocFile), { recursive: true });
         fs.writeFileSync(ocFile, JSON.stringify({ $schema: "https://opencode.ai/config.json", compaction: { auto: true, buffer: 100 }, [ocKey]: ["some-other-plugin"] }));
-        const ocPluginDir = path.join(home, ".config/opencode/plugins/billion-context");
+        const ocPluginDir = path.join(home, ".config/opencode/plugins/sophialin-context");
         const ocInstallMsg = pluginInstall("opencode");
         assert.match(ocInstallMsg, /installed/);
-        // #926: default install adds NO mcp.bili (native plugin provides the
-        // tools); --with-mcp opts in and pins only via explicit BILI_MCP_PROXY.
-        assert.match(ocInstallMsg, /mcp\.bili not written/);
+        // #926: default install adds NO mcp.sophialin (native plugin provides the
+        // tools); --with-mcp opts in and pins only via explicit SOPHIALIN_MCP_PROXY.
+        assert.match(ocInstallMsg, /mcp\.sophialin not written/);
         const ocWithMcp = pluginInstall("opencode", { withMcp: true });
-        assert.match(ocWithMcp, /mcp\.bili written \(BILI_MCP_PROXY=http:\/\/127\.0\.0\.1:8787\)/);
+        assert.match(ocWithMcp, /mcp\.sophialin written \(SOPHIALIN_MCP_PROXY=http:\/\/127\.0\.0\.1:8787\)/);
         let oc = JSON.parse(fs.readFileSync(ocFile, "utf8")) as { mcp?: Record<string, { command: string[]; environment?: Record<string, string> }>; compaction?: Record<string, unknown>; $schema?: string } & Record<string, unknown>;
-        assert.equal(oc.mcp?.bili.command[1]!.endsWith(path.join("dist", "mcp.js")), true);
-        assert.equal(oc.mcp?.bili.environment?.BILI_MCP_PROXY, "http://127.0.0.1:8787");
+        assert.equal(oc.mcp?.sophialin.command[1]!.endsWith(path.join("dist", "mcp.js")), true);
+        assert.equal(oc.mcp?.sophialin.environment?.SOPHIALIN_MCP_PROXY, "http://127.0.0.1:8787");
         assert.deepEqual(oc[ocKey], ["some-other-plugin", ocPluginDir]);
         assert.match(fs.readFileSync(path.join(ocPluginDir, "index.js"), "utf8").replace(/\\+/g, "/"), /agent\/opencode-native\.js/);
         assert.deepEqual(oc.compaction, { auto: false, buffer: 100 });
         const ocAgain = pluginInstall("opencode", { withMcp: true });
-        assert.match(ocAgain, /mcp\.bili present/);
+        assert.match(ocAgain, /mcp\.sophialin present/);
         assert.match(ocAgain, new RegExp(`${ocKey} present`));
         assert.match(pluginRemove("opencode"), /removed/);
         oc = JSON.parse(fs.readFileSync(ocFile, "utf8")) as Record<string, unknown>;
         assert.equal(oc.mcp, undefined);
-        // only the bili entry is dropped — the user's other plugin survives
+        // only the sophialin entry is dropped — the user's other plugin survives
         assert.deepEqual(oc[ocKey], ["some-other-plugin"]);
         assert.deepEqual(oc.compaction, { auto: true, buffer: 100 });
         assert.equal(oc.$schema, "https://opencode.ai/config.json");
@@ -1678,21 +1678,21 @@ test("plugin install/remove roundtrips for pi/omp/codex/opencode under a fake HO
 });
 
 test("plugin install opencode without a live proxy: MCP shell skipped, native plugin still installed (#820)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-oc-noproxy-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-oc-noproxy-"));
     const ocFile = path.join(home, ".config/opencode/opencode.json");
     try {
-        await withEnv({ OPENCODE_CONFIG: ocFile, BILI_MCP_PROXY: undefined, XDG_STATE_HOME: path.join(home, "state") }, async () => {
+        await withEnv({ OPENCODE_CONFIG: ocFile, SOPHIALIN_MCP_PROXY: undefined, XDG_STATE_HOME: path.join(home, "state") }, async () => {
             const ocKey = pickPluginKey(detectOpencodeMajor());
             const msg = pluginInstall("opencode");
             assert.match(msg, /installed/);
-            // #926: no mcp.bili by default — with or without a live proxy
-            assert.match(msg, /mcp\.bili not written/);
-            assert.doesNotMatch(msg, /no bili proxy origin found/);
+            // #926: no mcp.sophialin by default — with or without a live proxy
+            assert.match(msg, /mcp\.sophialin not written/);
+            assert.doesNotMatch(msg, /no sophialin proxy origin found/);
             const data = JSON.parse(fs.readFileSync(ocFile, "utf8")) as { mcp?: unknown; compaction?: Record<string, unknown> } & Record<string, unknown>;
             assert.equal(data.mcp, undefined);
-            assert.deepEqual(data[ocKey], [path.join(home, ".config/opencode/plugins/billion-context")]);
+            assert.deepEqual(data[ocKey], [path.join(home, ".config/opencode/plugins/sophialin-context")]);
             assert.deepEqual(data.compaction, { auto: false });
-            assert.ok(fs.existsSync(path.join(home, ".config/opencode/plugins/billion-context/index.js")));
+            assert.ok(fs.existsSync(path.join(home, ".config/opencode/plugins/sophialin-context/index.js")));
             assert.match(pluginRemove("opencode"), /removed/);
             const after = JSON.parse(fs.readFileSync(ocFile, "utf8")) as Record<string, unknown>;
             assert.equal(after.mcp, undefined);
@@ -1705,14 +1705,14 @@ test("plugin install opencode without a live proxy: MCP shell skipped, native pl
 });
 
 test("plugin install opencode replaces legacy opencode-acp entries — array and object shapes (#918)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-oc-acp-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-oc-acp-"));
     const ocFile = path.join(home, ".config/opencode/opencode.json");
     fs.mkdirSync(path.dirname(ocFile), { recursive: true });
     try {
-        await withEnv({ OPENCODE_CONFIG: ocFile, BILI_MCP_PROXY: undefined, XDG_STATE_HOME: path.join(home, "state") }, async () => {
+        await withEnv({ OPENCODE_CONFIG: ocFile, SOPHIALIN_MCP_PROXY: undefined, XDG_STATE_HOME: path.join(home, "state") }, async () => {
             const ocKey = pickPluginKey(detectOpencodeMajor());
             const otherKey = ocKey === "plugin" ? "plugins" : "plugin";
-            const dir = path.join(home, ".config/opencode/plugins/billion-context");
+            const dir = path.join(home, ".config/opencode/plugins/sophialin-context");
             // array shape: bare name, npm: alias, path (incl. deep entry path), versioned
             fs.writeFileSync(ocFile, JSON.stringify({
                 [ocKey]: ["opencode-acp", "npm:opencode-acp", "/opt/other-plugin", path.join(home, "ext/opencode-acp/index.js"), path.join(home, "ext2/opencode-acp/dist/index.js"), "opencode-acp@stable"],
@@ -1721,7 +1721,7 @@ test("plugin install opencode replaces legacy opencode-acp entries — array and
             assert.match(msg, /replaced opencode-acp plugin entries/);
             let data = JSON.parse(fs.readFileSync(ocFile, "utf8")) as Record<string, unknown>;
             assert.deepEqual(data[ocKey], ["/opt/other-plugin", dir]);
-            assert.ok(fs.existsSync(`${ocFile}.bili-bak`));
+            assert.ok(fs.existsSync(`${ocFile}.sophialin-bak`));
             pluginRemove("opencode");
 
             // object shape: version-map form (#1002: preserved as a map now —
@@ -1755,24 +1755,24 @@ test("plugin install opencode replaces legacy opencode-acp entries — array and
 });
 
 test("plugin install/remove/status survive a non-object mcp in opencode.json (#809/N4)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-oc-badmcp-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-oc-badmcp-"));
     const ocFile = path.join(home, ".config/opencode/opencode.json");
     fs.mkdirSync(path.dirname(ocFile), { recursive: true });
     try {
-        await withEnv({ OPENCODE_CONFIG: ocFile, BILI_MCP_PROXY: undefined, XDG_STATE_HOME: path.join(home, "state") }, async () => {
+        await withEnv({ OPENCODE_CONFIG: ocFile, SOPHIALIN_MCP_PROXY: undefined, XDG_STATE_HOME: path.join(home, "state") }, async () => {
             const ocKey = pickPluginKey(detectOpencodeMajor());
             fs.writeFileSync(ocFile, JSON.stringify({ mcp: "totally-broken-string" }));
             const msg = pluginInstall("opencode");
             assert.match(msg, /installed/);
             let data = JSON.parse(fs.readFileSync(ocFile, "utf8")) as Record<string, unknown>;
-            assert.deepEqual(data[ocKey], [path.join(home, ".config/opencode/plugins/billion-context")]);
+            assert.deepEqual(data[ocKey], [path.join(home, ".config/opencode/plugins/sophialin-context")]);
             assert.deepEqual(data.compaction, { auto: false });
             assert.equal(pluginStatusAll().find((r) => r.agent === "opencode")?.status, "installed");
             assert.doesNotThrow(() => pluginRemove("opencode"));
             data = JSON.parse(fs.readFileSync(ocFile, "utf8")) as Record<string, unknown>;
             assert.equal(data[ocKey], undefined);
             assert.equal(data.compaction, undefined);
-            assert.ok(!fs.existsSync(path.join(home, ".config/opencode/plugins/billion-context/index.js")));
+            assert.ok(!fs.existsSync(path.join(home, ".config/opencode/plugins/sophialin-context/index.js")));
             assert.equal(pluginStatusAll().find((r) => r.agent === "opencode")?.status, "not installed");
         });
     } finally {
@@ -1781,7 +1781,7 @@ test("plugin install/remove/status survive a non-object mcp in opencode.json (#8
 });
 
 test("omp plugin: scoped matching, existence check, overlay redirect (issue #392)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-plugin-omp-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-plugin-omp-"));
     const root = selfPackageRoot();
     const ompDistFile = path.join(root, "dist", "agent", "omp-native.js");
     const createdOmpDist = !fs.existsSync(ompDistFile);
@@ -1820,10 +1820,10 @@ test("omp plugin: scoped matching, existence check, overlay redirect (issue #392
                 `extensions:\nother:\n  - ${stale}\nfirstRunComplete: true\n`);
         }
 
-        // (c) PI_CODING_AGENT_DIR pointing at a bili overlay redirects to the real home
+        // (c) PI_CODING_AGENT_DIR pointing at a sophialin overlay redirects to the real home
         {
             const realHome = path.join(home, "c", ".omp", "agent");
-            const overlay = realHome + "-bili";
+            const overlay = realHome + "-sophialin";
             fs.mkdirSync(realHome, { recursive: true });
             fs.mkdirSync(overlay, { recursive: true });
             fs.writeFileSync(path.join(realHome, "config.yml"), "firstRunComplete: true\n");
@@ -1853,32 +1853,32 @@ test("omp plugin: scoped matching, existence check, overlay redirect (issue #392
 });
 
 test("resolveProxyOrigin discovers the running proxy via the state file", async () => {
-    const state = fs.mkdtempSync(path.join(os.tmpdir(), "bili-state-"));
-    await withEnv({ XDG_STATE_HOME: state, BILI_MCP_PROXY: undefined }, () => {
+    const state = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-state-"));
+    await withEnv({ XDG_STATE_HOME: state, SOPHIALIN_MCP_PROXY: undefined }, () => {
         assert.equal(resolveProxyOrigin(), "http://127.0.0.1:8787");
-        fs.mkdirSync(path.join(state, "billion-context"), { recursive: true });
-        fs.writeFileSync(path.join(state, "billion-context", "proxy-origin"), "http://127.0.0.1:8792\n");
+        fs.mkdirSync(path.join(state, "sophialin-context"), { recursive: true });
+        fs.writeFileSync(path.join(state, "sophialin-context", "proxy-origin"), "http://127.0.0.1:8792\n");
         assert.equal(resolveProxyOrigin(), "http://127.0.0.1:8792");
-        fs.writeFileSync(path.join(state, "billion-context", "proxy-origin"), "ftp://bad\ngarbage");
+        fs.writeFileSync(path.join(state, "sophialin-context", "proxy-origin"), "ftp://bad\ngarbage");
         assert.equal(resolveProxyOrigin(), "http://127.0.0.1:8787");
     });
-    await withEnv({ XDG_STATE_HOME: state, BILI_MCP_PROXY: "http://10.0.0.5:9000" }, () => {
+    await withEnv({ XDG_STATE_HOME: state, SOPHIALIN_MCP_PROXY: "http://10.0.0.5:9000" }, () => {
         assert.equal(resolveProxyOrigin(), "http://10.0.0.5:9000");
     });
     rmrf(state);
 });
 
 test("plugin install refuses to touch broken or non-object configs", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-plugin-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-plugin-home-"));
     const piAgentDir = path.join(home, ".pi/agent");
     await withEnv(hintEnv(home, piAgentDir), async () => {
         fs.mkdirSync(piAgentDir, { recursive: true });
         fs.writeFileSync(path.join(piAgentDir, "settings.json"), "{ not json");
         assert.throws(() => pluginInstall("pi"), /not valid JSON/);
-        assert.equal(fs.existsSync(path.join(piAgentDir, "settings.json.bili-bak")), false);
+        assert.equal(fs.existsSync(path.join(piAgentDir, "settings.json.sophialin-bak")), false);
         fs.writeFileSync(path.join(piAgentDir, "settings.json"), "[1,2]");
         assert.throws(() => pluginInstall("pi"), /expected a JSON object/);
-        fs.writeFileSync(path.join(piAgentDir, "settings.json"), JSON.stringify({ packages: [`/opt/old/node_modules/billion-context`] }));
+        fs.writeFileSync(path.join(piAgentDir, "settings.json"), JSON.stringify({ packages: [`/opt/old/node_modules/sophialin-context`] }));
         assert.match(pluginInstall("pi"), /installed/);
         const after = JSON.parse(fs.readFileSync(path.join(piAgentDir, "settings.json"), "utf8")) as { packages: string[] };
         assert.equal(after.packages.length, 1);
@@ -1892,11 +1892,11 @@ test("plugin install refuses to touch broken or non-object configs", async () =>
 });
 
 // #836 (found in #809 N4): a non-object `mcp` (e.g. bare string) made
-// `"bili" in mcp` throw — crashing remove (stranding a half-install) and
+// `"sophialin" in mcp` throw — crashing remove (stranding a half-install) and
 // surfacing "error:" from status. All three opencode sites must degrade
 // gracefully instead of throwing.
 test("plugin opencode survives a non-object mcp (issue #836 / #809 N4)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-plugin-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-plugin-home-"));
     const piAgentDir = path.join(home, ".pi/agent");
     await withEnv(hintEnv(home, piAgentDir), async () => {
         const ocDir = path.join(home, ".config/opencode");
@@ -1915,23 +1915,23 @@ test("plugin opencode survives a non-object mcp (issue #836 / #809 N4)", async (
         // + compaction.auto still land, and sibling keys survive untouched.
         assert.doesNotThrow(() => pluginInstall("opencode"));
         assert.match(pluginInstall("opencode", { withMcp: true }), /skipped/i);
-        assert.match(pluginInstall("opencode"), /mcp\.bili not written/);
+        assert.match(pluginInstall("opencode"), /mcp\.sophialin not written/);
         const data = JSON.parse(fs.readFileSync(ocFile, "utf8")) as Record<string, unknown>;
         assert.equal(data.mcp, "bogus-string");
         assert.equal(data.other, 1);
         const ocKey = pickPluginKey(detectOpencodeMajor());
-        assert.deepEqual(data[ocKey], [path.join(ocDir, "plugins", "billion-context")]);
+        assert.deepEqual(data[ocKey], [path.join(ocDir, "plugins", "sophialin-context")]);
         assert.deepEqual(data.compaction, { auto: false });
     });
     rmrf(home);
 });
 
 // #839 (found while reviewing #837): same bug class as #836 on the claude side
-// — a non-object `mcpServers` in .claude.json made `"bili" in mcpServers` throw
+// — a non-object `mcpServers` in .claude.json made `"sophialin" in mcpServers` throw
 // in claudeStatus(), crashing remove (which calls status first) and surfacing
 // "error:" from status.
 test("plugin claude survives a non-object mcpServers (issue #839)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-plugin-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-plugin-home-"));
     const piAgentDir = path.join(home, ".pi/agent");
     await withEnv(hintEnv(home, piAgentDir), async () => {
         const cFile = path.join(home, ".claude.json");
@@ -1947,7 +1947,7 @@ test("plugin claude survives a non-object mcpServers (issue #839)", async () => 
 });
 
 test("plugin list survives a broken host config (per-row error, no crash)", async () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-plugin-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-plugin-home-"));
     const piAgentDir = path.join(home, ".pi/agent");
     await withEnv(hintEnv(home, piAgentDir), async () => {
         fs.writeFileSync(path.join(home, ".claude.json"), "{ broken json");
@@ -1969,7 +1969,7 @@ test("mcp forwardTool times out against a hanging proxy", async () => {
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
     const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-    await withEnv({ BILI_MCP_PROXY: origin }, async () => {
+    await withEnv({ SOPHIALIN_MCP_PROXY: origin }, async () => {
         await assert.rejects(() => mcpForwardTool("compress", {}, 200), /timed out after 200ms/);
     });
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -1979,7 +1979,7 @@ test("registered tools declare loadMode essential so omp 17.x keeps them top-lev
     const proxy = await startFakeProxy();
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         await pi.events.get("session_start")!({}, fakeCtx(proxy));
         await waitForTools(pi, 2);
         // omp mounts extension tools that omit loadMode under xd:// devices —
@@ -2049,7 +2049,7 @@ test("pi plugin does not identity-register (it stamps headers instead)", async (
     const proxy = await startFakeProxy();
     try {
         const pi = makeFakePi();
-        biliPlugin(pi as never);
+        sophialinPlugin(pi as never);
         await pi.events.get("session_start")!({}, fakeCtx(proxy));
         await waitForTools(pi, 2);
         await pi.events.get("before_provider_request")!({}, fakeCtx(proxy));
@@ -2127,9 +2127,9 @@ test("#1362: omp child sessions report parentConversationId in the identity regi
 
 // #266: omp's chat-completions payloads carry NO conversation signal, so the
 // plugin stamps prompt_cache_key with the omp session id. #1403: pck is a
-// bili-internal identity signal, so it is ONLY stamped when the destination
-// will actually reach the proxy (/bili/-rewritten URL, BILLION_CONTEXT_PROXY
-// origin, or BILI_MITM_HOSTS whitelist) — a strict-schema upstream behind a
+// sophialin-internal identity signal, so it is ONLY stamped when the destination
+// will actually reach the proxy (/sophialin/-rewritten URL, SOPHIALIN_CONTEXT_PROXY
+// origin, or SOPHIALIN_MITM_HOSTS whitelist) — a strict-schema upstream behind a
 // blind tunnel would reject the foreign field. The
 // before_provider_request return value REPLACES the whole outgoing payload
 // (omp onPayload chain), so the matrix below drives the real handler and
@@ -2144,11 +2144,11 @@ test("omp before_provider_request stamps prompt_cache_key only for chat-completi
     };
     // #1230: the handler is async (it awaits tool registration); fakeCtx
     // (undefined) keeps registerTools a no-op, so awaiting stays pure. The
-    // ctx carries a /bili/-rewritten baseUrl so the destination counts as
+    // ctx carries a /sophialin/-rewritten baseUrl so the destination counts as
     // proxy-routed (#1403).
     const routedCtx = (): Record<string, unknown> => ({
         ...fakeCtx(undefined, sid),
-        model: { contextWindow: 1000000, baseUrl: "http://127.0.0.1:8787/bili/https://api.example.com/v1" },
+        model: { contextWindow: 1000000, baseUrl: "http://127.0.0.1:8787/sophialin/https://api.example.com/v1" },
     });
     const handler = async (pi: FakePi, payload: unknown) =>
         pi.events.get("before_provider_request")!({ type: "before_provider_request", payload }, routedCtx());
@@ -2220,28 +2220,28 @@ test("omp before_provider_request stamps prompt_cache_key only for chat-completi
         assert.equal(out, undefined, "external host not routed through the proxy → not stamped (#1403)");
     }
     {
-        const prev = process.env.BILI_MITM_HOSTS;
-        process.env.BILI_MITM_HOSTS = "api.example.com";
+        const prev = process.env.SOPHIALIN_MITM_HOSTS;
+        process.env.SOPHIALIN_MITM_HOSTS = "api.example.com";
         try {
             const pi = mk();
             const out = await pi.events.get("before_provider_request")!({ type: "before_provider_request", payload: { messages: [{ role: "user", content: "hi" }] } }, fakeCtx(undefined, sid)) as Record<string, unknown>;
             assert.equal(out.prompt_cache_key, sid, "MITM-whitelisted external host → stamped (#1403)");
         } finally {
-            if (prev === undefined) delete process.env.BILI_MITM_HOSTS;
-            else process.env.BILI_MITM_HOSTS = prev;
+            if (prev === undefined) delete process.env.SOPHIALIN_MITM_HOSTS;
+            else process.env.SOPHIALIN_MITM_HOSTS = prev;
         }
     }
     {
-        const prev = process.env.BILLION_CONTEXT_PROXY;
-        process.env.BILLION_CONTEXT_PROXY = "http://127.0.0.1:8787";
+        const prev = process.env.SOPHIALIN_CONTEXT_PROXY;
+        process.env.SOPHIALIN_CONTEXT_PROXY = "http://127.0.0.1:8787";
         try {
             const pi = mk();
             const ctx = { ...fakeCtx(undefined, sid), model: { contextWindow: 1000000, baseUrl: "http://127.0.0.1:8787/v1/messages" } };
             const out = await pi.events.get("before_provider_request")!({ type: "before_provider_request", payload: { messages: [{ role: "user", content: "hi" }] } }, ctx) as Record<string, unknown>;
-            assert.equal(out.prompt_cache_key, sid, "BILLION_CONTEXT_PROXY-matched origin → stamped (#1403)");
+            assert.equal(out.prompt_cache_key, sid, "SOPHIALIN_CONTEXT_PROXY-matched origin → stamped (#1403)");
         } finally {
-            if (prev === undefined) delete process.env.BILLION_CONTEXT_PROXY;
-            else process.env.BILLION_CONTEXT_PROXY = prev;
+            if (prev === undefined) delete process.env.SOPHIALIN_CONTEXT_PROXY;
+            else process.env.SOPHIALIN_CONTEXT_PROXY = prev;
         }
     }
 });
@@ -2266,7 +2266,7 @@ test("#957: omp reports runtime-info via before_provider_request (omp has no hea
     try {
         const pi = makeFakePi();
         ompPlugin(pi as never);
-        const baseModel = { baseUrl: `${proxy.origin}/bili/https://api.example.com/v1` };
+        const baseModel = { baseUrl: `${proxy.origin}/sophialin/https://api.example.com/v1` };
         const ctxA = { ...fakeCtx(proxy, "omp-rt-1"), model: { id: "omp-rt-model-a", contextWindow: 200000, maxTokens: 32768, ...baseModel } };
         const ctxB = { ...fakeCtx(proxy, "omp-rt-1"), model: { id: "omp-rt-model-b", contextWindow: 128000, maxTokens: 16384, ...baseModel } };
         await pi.events.get("session_start")!({}, ctxA);
@@ -2284,7 +2284,7 @@ test("#957: omp reports runtime-info via before_provider_request (omp has no hea
             model: "omp-rt-model-a",
             contextWindow: 200000,
             maxOutput: 32768,
-            baseURL: `${proxy.origin}/bili/https://api.example.com/v1`,
+            baseURL: `${proxy.origin}/sophialin/https://api.example.com/v1`,
             conversationId: "omp-rt-1",
             source: "client-config",
         });
@@ -2300,7 +2300,7 @@ test("#957: omp reports runtime-info via before_provider_request (omp has no hea
             model: "omp-rt-model-b",
             contextWindow: 128000,
             maxOutput: 16384,
-            baseURL: `${proxy.origin}/bili/https://api.example.com/v1`,
+            baseURL: `${proxy.origin}/sophialin/https://api.example.com/v1`,
             conversationId: "omp-rt-1",
             source: "client-config",
         });

@@ -21,9 +21,9 @@ export type ProxyFallbackOptions = {
     httpsProxy?: string;
     allProxy?: string;
     noProxy?: string;
-    biliPort?: number;
+    sophialinPort?: number;
     systemProxy?: WindowsSystemProxy;
-    globalSource?: "bili-env" | "web-manual" | "config" | "auto" | "direct";
+    globalSource?: "sophialin-env" | "web-manual" | "config" | "auto" | "direct";
     /** True only when the user EXPLICITLY set proxy mode "direct". The default
      *  unset mode also parses as "direct" but means "no preference" — in that
      *  case an empty globalProxy must fall through to env proxy discovery. */
@@ -93,7 +93,7 @@ export function redactProxyUrl(value: string | undefined): string | undefined {
     }
 }
 
-export function parseHttpProxy(proxy?: string, biliPort?: number): ParsedHttpProxy | undefined {
+export function parseHttpProxy(proxy?: string, sophialinPort?: number): ParsedHttpProxy | undefined {
     if (!proxy || typeof proxy !== "string" || !proxy.trim()) return undefined;
     const candidate = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(proxy.trim()) ? proxy.trim() : `http://${proxy.trim()}`;
     let url: URL;
@@ -106,8 +106,8 @@ export function parseHttpProxy(proxy?: string, biliPort?: number): ParsedHttpPro
     if ((url.pathname && url.pathname !== "/") || url.search || url.hash) return undefined;
     const port = url.port ? Number.parseInt(url.port, 10) : defaultPort(url.protocol);
     if (!Number.isInteger(port) || port < 1 || port > 65535) return undefined;
-    if (biliPort && hostIsLoopback(url.hostname) && port === biliPort) {
-        throw new Error(`upstream proxy would loop back into bili: ${redactProxyUrl(url.href)}`);
+    if (sophialinPort && hostIsLoopback(url.hostname) && port === sophialinPort) {
+        throw new Error(`upstream proxy would loop back into sophialin: ${redactProxyUrl(url.href)}`);
     }
     return {
         url: url.href,
@@ -140,16 +140,16 @@ function warnUnsupportedScheme(source: string, value: string, scheme: string): v
     const key = `${source}\u0000${scheme}`;
     if (warnedUnsupportedSchemes.has(key)) return;
     warnedUnsupportedSchemes.add(key);
-    loggerLog("warn", `[upstream-proxy] ignoring ${source}=${redactProxyUrl(value)}: scheme "${scheme}" is not supported — only http:// and https:// proxy origins work. For Clash/mihomo, point bili at the same mixed port over http:// (e.g. http://127.0.0.1:7890).`);
+    loggerLog("warn", `[upstream-proxy] ignoring ${source}=${redactProxyUrl(value)}: scheme "${scheme}" is not supported — only http:// and https:// proxy origins work. For Clash/mihomo, point sophialin at the same mixed port over http:// (e.g. http://127.0.0.1:7890).`);
 }
 
-export function validateHttpProxy(proxy: string | undefined, biliPort?: number): void {
+export function validateHttpProxy(proxy: string | undefined, sophialinPort?: number): void {
     if (!proxy?.trim()) return;
     const scheme = unsupportedProxyScheme(proxy);
     if (scheme) {
         throw new Error(`upstream proxy uses unsupported scheme "${scheme}" (${redactProxyUrl(proxy)}) — only http:// and https:// proxies are supported; for Clash/mihomo use the same mixed port over http:// (e.g. http://127.0.0.1:7890)`);
     }
-    if (!parseHttpProxy(proxy, biliPort)) {
+    if (!parseHttpProxy(proxy, sophialinPort)) {
         throw new Error(`upstream proxy must be an HTTP/HTTPS proxy origin: ${redactProxyUrl(proxy)}`);
     }
 }
@@ -163,9 +163,9 @@ function targetUrl(upstreamUrl: string | undefined): URL | undefined {
     }
 }
 
-function parseFallbackProxy(proxy: string | undefined, biliPort?: number): ParsedHttpProxy | undefined {
+function parseFallbackProxy(proxy: string | undefined, sophialinPort?: number): ParsedHttpProxy | undefined {
     try {
-        return parseHttpProxy(proxy, biliPort);
+        return parseHttpProxy(proxy, sophialinPort);
     } catch {
         return undefined;
     }
@@ -269,20 +269,20 @@ export function resolveProxyDecision(
         const routeProxy = routes[bestKey].proxy;
         if (routeProxy !== undefined) {
             if (!routeProxy.trim()) return { source: "provider-direct" };
-            const parsed = parseHttpProxy(routeProxy, fallback.biliPort);
+            const parsed = parseHttpProxy(routeProxy, fallback.sophialinPort);
             if (!parsed) throw new Error(`invalid per-URL upstream proxy for ${bestKey}: ${redactProxyUrl(routeProxy)}`);
             return { proxy: parsed.url, source: "provider" };
         }
     }
     if (globalProxy === "" && fallback.explicitDirect) return { source: "direct" };
-    const explicit = parseHttpProxy(globalProxy, fallback.biliPort)?.url;
+    const explicit = parseHttpProxy(globalProxy, fallback.sophialinPort)?.url;
     if (explicit) return { proxy: explicit, source: fallback.globalSource ?? "global" };
     if (target && matchesNoProxy(target, fallback.noProxy)) return { source: "no-proxy" };
     const environmentCandidates: Array<[string, string | undefined]> = target?.protocol === "http:"
         ? [["HTTP_PROXY", fallback.httpProxy], ["ALL_PROXY", fallback.allProxy]]
         : [["HTTPS_PROXY", fallback.httpsProxy], ["HTTP_PROXY", fallback.httpProxy], ["ALL_PROXY", fallback.allProxy]];
     for (const [source, value] of environmentCandidates) {
-        const parsed = parseFallbackProxy(value, fallback.biliPort);
+        const parsed = parseFallbackProxy(value, fallback.sophialinPort);
         if (parsed) return { proxy: parsed.url, source };
         if (!value) continue;
         const scheme = unsupportedProxyScheme(value);
@@ -295,7 +295,7 @@ export function resolveProxyDecision(
     const systemValue = target?.protocol === "http:" ? system.http : system.https ?? system.http;
     const systemScheme = unsupportedProxyScheme(systemValue);
     if (systemValue && systemScheme) warnUnsupportedScheme("windows-system", systemValue, systemScheme);
-    const systemProxy = parseFallbackProxy(systemValue, fallback.biliPort)?.url;
+    const systemProxy = parseFallbackProxy(systemValue, fallback.sophialinPort)?.url;
     if (systemProxy) {
         return {
             proxy: systemProxy,
@@ -325,7 +325,7 @@ export function resolveProxy(
 export const PROXY_KEEPALIVE_MAX_MS = 55_000;
 
 export function proxyKeepAliveMaxMs(): number {
-    const raw = Number(process.env.BILI_PROXY_KEEPALIVE_MAX_MS);
+    const raw = Number(process.env.SOPHIALIN_PROXY_KEEPALIVE_MAX_MS);
     return Number.isFinite(raw) && raw < 0 ? PROXY_KEEPALIVE_MAX_MS : raw === 0 ? 0 : Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : PROXY_KEEPALIVE_MAX_MS;
 }
 

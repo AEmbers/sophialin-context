@@ -114,10 +114,10 @@ export async function startRegistry(root: string): Promise<RegistryFixture> {
         }
         if (!ready) throw new Error(`verdaccio did not become ready within ${PING_TIMEOUT_MS}ms\n${output}`);
 
-        const regRes = await fetch(`${url}/-/user/org.couchdb.user:bili-test`, {
+        const regRes = await fetch(`${url}/-/user/org.couchdb.user:sophialin-test`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: "bili-test", password: "bili-test-local-only" }),
+            body: JSON.stringify({ name: "sophialin-test", password: "sophialin-test-local-only" }),
         });
         if (regRes.status !== 201) throw new Error(`local user registration failed (${regRes.status})\n${output}`);
         const body = (await regRes.json()) as { token?: string };

@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { acquireInFlight, diagnoseSuccessWithoutUsage, effectiveConfig, findSessionByCanonicalId, listSessions, markCompactionBoundary, markDirty, peekSession, releaseInFlight, withSessionLock, type Session } from "./session.js";
 import { clientConversationHeader } from "./session-id.js";
-import { ABSORB_TOOL_NAME, BILI_ACP_TOOLS_ANTHROPIC, BILI_ACP_TOOLS_ANTHROPIC_NO_RANGE, BILI_ACP_TOOLS_OPENAI, BILI_ACP_TOOLS_OPENAI_NO_RANGE, BILI_ACP_TOOLS_RESPONSES_NO_RANGE, PROXY_TOOL_NAMES, RETRIEVE_TOOL_NAME, RULE_TOOL, RULE_TOOL_NAME, RULE_TOOL_OPENAI, RULE_TOOL_RESPONSES, SEARCH_CONTEXT_TOOL_NAME, absorbToolsFor, retrieveToolsFor } from "./compress-tool.js";
+import { ABSORB_TOOL_NAME, SOPHIALIN_ACP_TOOLS_ANTHROPIC, SOPHIALIN_ACP_TOOLS_ANTHROPIC_NO_RANGE, SOPHIALIN_ACP_TOOLS_OPENAI, SOPHIALIN_ACP_TOOLS_OPENAI_NO_RANGE, SOPHIALIN_ACP_TOOLS_RESPONSES_NO_RANGE, PROXY_TOOL_NAMES, RETRIEVE_TOOL_NAME, RULE_TOOL, RULE_TOOL_NAME, RULE_TOOL_OPENAI, RULE_TOOL_RESPONSES, SEARCH_CONTEXT_TOOL_NAME, absorbToolsFor, retrieveToolsFor } from "./compress-tool.js";
 import { absorbEnabled, effectiveAbsorbConfig, isProxyToolFor } from "./absorb.js";
 import { effectiveRulesEnabled, rulesEnabled } from "./rules-feature.js";
 import { executeProxyTool } from "./loop/core.js";
@@ -42,35 +42,35 @@ const PROXY_VERSION = (() => {
 // registers the ACP tools NATIVELY with its agent and runs the agent's own
 // tool loop, while the proxy stays the single compression authority (state,
 // history folding, philosophy prompt, nudges). The plugin:
-//   1. GETs /__bili/plugin/manifest and registers the served tool schemas
+//   1. GETs /__sophialin/plugin/manifest and registers the served tool schemas
 //      natively (single source of truth — zero schema drift between proxy
 //      and plugin),
-//   2. sends x-bili-plugin: <agent> + x-bili-plugin-conversation: <id> on
+//   2. sends x-sophialin-plugin: <agent> + x-sophialin-plugin-conversation: <id> on
 //      every model request. The proxy then suppresses wire-level tool
 //      injection for that session (tools are native) and stops intercepting
 //      proxy-named tool calls — the model's compress call flows back to the
 //      agent untouched, the plugin forwards it to (3),
-//   3. executes tools via POST /__bili/plugin/tool {conversationId, tool,
+//   3. executes tools via POST /__sophialin/plugin/tool {conversationId, tool,
 //      args}, under the session lock, against the same executeProxyTool the
 //      wire-mode compress loop uses.
 
-export const PLUGIN_AGENT_HEADER = "x-bili-plugin";
-export const PLUGIN_CONVERSATION_HEADER = "x-bili-plugin-conversation";
+export const PLUGIN_AGENT_HEADER = "x-sophialin-plugin";
+export const PLUGIN_CONVERSATION_HEADER = "x-sophialin-plugin-conversation";
 /** #920: legacy-lane marker. Set by the absorbed opencode-acp wrapper for
  *  sessions that still run through the legacy DCP machinery — the proxy
  *  forwards such requests VERBATIM (no wire injection, no session binding,
  *  no compress loop): the legacy extension owns compression for them. */
-export const PLUGIN_BYPASS_HEADER = "x-bili-plugin-bypass";
-export const PLUGIN_CONTEXT_WINDOW_HEADER = "x-bili-plugin-context-window";
-export const PLUGIN_MAX_OUTPUT_HEADER = "x-bili-plugin-max-output";
-export const PLUGIN_MODEL_HEADER = "x-bili-plugin-model";
+export const PLUGIN_BYPASS_HEADER = "x-sophialin-plugin-bypass";
+export const PLUGIN_CONTEXT_WINDOW_HEADER = "x-sophialin-plugin-context-window";
+export const PLUGIN_MAX_OUTPUT_HEADER = "x-sophialin-plugin-max-output";
+export const PLUGIN_MODEL_HEADER = "x-sophialin-plugin-model";
 /** #1102/#1106: stamped "1" by plugins whose host mints one conversation id per
  *  persona (opencode: subagents get their own child session ids). Since the
  *  instructions fingerprint became an allowlist (#1106 — exempt is the
  *  default for every non-codex/non-claude signal), this declaration is
  *  vestigial: hosts keep stamping it for protocol compatibility with older
  *  proxies, but current proxies key verbatim regardless. */
-export const PLUGIN_INSTRUCTIONS_MUTABLE_HEADER = "x-bili-plugin-instructions-mutable";
+export const PLUGIN_INSTRUCTIONS_MUTABLE_HEADER = "x-sophialin-plugin-instructions-mutable";
 /** #1699: the host's per-request persona/agent id (opencode v2 stamps its own
  *  taxonomy — "title", "build", "plan", ...). Carries INTENT the request body
  *  cannot express: opencode v2 title-gen requests carry NO max_tokens (options
@@ -79,11 +79,11 @@ export const PLUGIN_INSTRUCTIONS_MUTABLE_HEADER = "x-bili-plugin-instructions-mu
  *  compress prompt + tool injected into the title model. The proxy acts only on
  *  known side-request agents (side-request.ts SIDE_REQUEST_AGENTS); main-persona
  *  ids are inert telemetry. */
-export const PLUGIN_REQUEST_AGENT_HEADER = "x-bili-plugin-agent";
+export const PLUGIN_REQUEST_AGENT_HEADER = "x-sophialin-plugin-agent";
 
 export const PLUGIN_PROTOCOL_VERSION = 1;
 
-/** #1567: folds executed through POST /__bili/plugin/tool are minted this
+/** #1567: folds executed through POST /__sophialin/plugin/tool are minted this
  *  synthetic callId, which the client can never echo back — its own re-sent
  *  compress pair is the summary carrier for such blocks, so the kernel's
  *  in-place acp_summary anchor is redundant and must be stripped (#1567). */
@@ -133,7 +133,7 @@ export function pluginContextWindowHeader(headers: Record<string, string | strin
 }
 
 /** The reported window is honored ONLY from a request that also announces
- *  itself as a plugin (x-bili-plugin). This header is protocol-internal:
+ *  itself as a plugin (x-sophialin-plugin). This header is protocol-internal:
  *  honoring it from a plain (non-plugin) client would let anyone who can
  *  reach the endpoint rewrite the nudge denominator. A real plugin sends
  *  both headers together (see the manifest's `headers` block). */
@@ -219,7 +219,7 @@ function writeConversationsFile(): void {
         // #406: the only state file that used to be written in place — a
         // torn write or a dying dual instance must not zero every route.
         const filePath = conversationsFile();
-        const draft = `${filePath}.${process.pid}.bili-tmp`;
+        const draft = `${filePath}.${process.pid}.sophialin-tmp`;
         fs.writeFileSync(draft, JSON.stringify(obj));
         fs.renameSync(draft, filePath);
         conversationsDirty = false;
@@ -325,13 +325,13 @@ export function rememberPluginMessages(sessionId: string, processed: CoreMessage
 }
 
 // Launcher mode (#162): hosts that cannot attach per-request headers
-// (claude/codex spawned by `bili claude` / `bili codex`) pre-register their
-// conversation via POST /__bili/plugin/register — typically from a Claude
+// (claude/codex spawned by `sophialin claude` / `sophialin codex`) pre-register their
+// conversation via POST /__sophialin/plugin/register — typically from a Claude
 // Code SessionStart hook or at codex spawn time. A pending register is
 // consumed by the FIRST model request that creates a NEW session afterwards
 // (server.ts binding step): that session becomes plugin-mode (native tools,
 // wire injection suppressed) and the conversation id becomes its tool-API key
-// — no x-bili-plugin headers required.
+// — no x-sophialin-plugin headers required.
 export type PendingPluginRegister = { conversationId: string; agent: string; ts: number; parentConversationId?: string };
 
 /** Runtime-info protocol entry (#955): what the client's OWN config says it
@@ -412,7 +412,7 @@ export function runtimeConversationId(headers: Record<string, string | string[] 
 /** Accept the bootstrap/model-switch report. Body:
  *  { agent, model, contextWindow?, maxOutput?, baseURL?, source?,
  *    conversationId? } — agent+model are required; numbers are validated.
- *  Loopback-gated like every /__bili/plugin/* endpoint (the route lives
+ *  Loopback-gated like every /__sophialin/plugin/* endpoint (the route lives
  *  under the same admin gate in server.ts). */
 export function handlePluginRuntimeInfo(payload: string, res: import("node:http").ServerResponse): void {
     let parsed: unknown;
@@ -606,18 +606,18 @@ export function handlePluginManifest(res: import("node:http").ServerResponse, co
     // CCR (#1345 plugin policy = base block verbatim) — same conservative #1192
     // rule as acp_retrieve above. CCR-off manifests serve the no-range variants so
     // a registered agent never sees range fields execution would refuse.
-    const acpAnthropic = ccrOn ? BILI_ACP_TOOLS_ANTHROPIC : BILI_ACP_TOOLS_ANTHROPIC_NO_RANGE;
-    const acpOpenai = ccrOn ? BILI_ACP_TOOLS_OPENAI : BILI_ACP_TOOLS_OPENAI_NO_RANGE;
+    const acpAnthropic = ccrOn ? SOPHIALIN_ACP_TOOLS_ANTHROPIC : SOPHIALIN_ACP_TOOLS_ANTHROPIC_NO_RANGE;
+    const acpOpenai = ccrOn ? SOPHIALIN_ACP_TOOLS_OPENAI : SOPHIALIN_ACP_TOOLS_OPENAI_NO_RANGE;
     // Responses wire: plugin mode structurally disarms CCR there (#1271 —
     // PLUGIN_CCR_WIRES excludes it), so range restore can never execute for a
     // registered agent on that wire — always the no-range variant, mirroring
     // how ccrTools above is never spread into the responses array.
-    const acpResponses = BILI_ACP_TOOLS_RESPONSES_NO_RANGE;
+    const acpResponses = SOPHIALIN_ACP_TOOLS_RESPONSES_NO_RANGE;
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({
         ok: true,
         protocolVersion: PLUGIN_PROTOCOL_VERSION,
-        proxy: "billion-context",
+        proxy: "sophialin-context",
         version: VERSION,
         toolNames: [...PROXY_TOOL_NAMES, ...(absorbTools ? [absorbName] : []), ...(rulesOn ? [RULE_TOOL_NAME] : []), ...(ccrOn ? [ccrName] : [])],
         tools: {
@@ -626,9 +626,9 @@ export function handlePluginManifest(res: import("node:http").ServerResponse, co
             responses: [...acpResponses, ...(absorbTools ? [absorbTools.responses] : []), ...(rulesOn ? [RULE_TOOL_RESPONSES] : [])],
         },
         headers: { agent: PLUGIN_AGENT_HEADER, conversation: PLUGIN_CONVERSATION_HEADER, contextWindow: PLUGIN_CONTEXT_WINDOW_HEADER, maxOutput: PLUGIN_MAX_OUTPUT_HEADER, model: PLUGIN_MODEL_HEADER, instructionsMutable: PLUGIN_INSTRUCTIONS_MUTABLE_HEADER },
-        toolEndpoint: "/__bili/plugin/tool",
-        statusEndpoint: "/__bili/plugin/status",
-        runtimeInfoEndpoint: "/__bili/plugin/runtime-info",
+        toolEndpoint: "/__sophialin/plugin/tool",
+        statusEndpoint: "/__sophialin/plugin/status",
+        runtimeInfoEndpoint: "/__sophialin/plugin/runtime-info",
     }));
 }
 
@@ -683,9 +683,9 @@ export function resolveConversation(conversationId: string): { session: Session 
  *  generic 400 with its allowed list). */
 function disabledOptionalToolNote(tool: string, session: Session, config: Config): string | undefined {
     const absorbName = effectiveAbsorbConfig(session, config)?.toolName ?? ABSORB_TOOL_NAME;
-    if (tool === absorbName) return `${tool} is not enabled on this bili proxy (compress.absorb.enabled is not true) — nothing was absorbed.`;
-    if (tool === RULE_TOOL_NAME) return `${tool} is not enabled on this bili proxy (compress.rules.enabled is not true) — nothing was recorded.`;
-    if (!ccrEnabled(session) && tool === retrieveToolName(session)) return `${tool} is not enabled on this bili proxy (compress.ccr.enabled is not true) — nothing was retrieved.`;
+    if (tool === absorbName) return `${tool} is not enabled on this sophialin proxy (compress.absorb.enabled is not true) — nothing was absorbed.`;
+    if (tool === RULE_TOOL_NAME) return `${tool} is not enabled on this sophialin proxy (compress.rules.enabled is not true) — nothing was recorded.`;
+    if (!ccrEnabled(session) && tool === retrieveToolName(session)) return `${tool} is not enabled on this sophialin proxy (compress.ccr.enabled is not true) — nothing was retrieved.`;
     return undefined;
 }
 
@@ -732,7 +732,7 @@ export function _chainVerdictMapForTest(): Map<string, ChainVerdict> {
  *  Every /acp surface (pi / dsh / opencode) displays `panel` verbatim, so the
  *  server renders it once and all clients show it without agent-side changes. */
 function chainAdvisoryPanel(v: ChainVerdict): string {
-    return `ℹ️ billion-context: this conversation carried ACP-shaped content (evidence: ${v.kind}, protocol ${v.protocol}) with no prior local compression state. Historical ACP content is advisory-only (#1357) — it was NOT treated as a foreign bili chain, so the request was processed normally and this conversation owns its own compression session. Last observation: ${new Date(v.at).toISOString()}. See the [chain] warn in the bili log.`;
+    return `ℹ️ sophialin-context: this conversation carried ACP-shaped content (evidence: ${v.kind}, protocol ${v.protocol}) with no prior local compression state. Historical ACP content is advisory-only (#1357) — it was NOT treated as a foreign sophialin chain, so the request was processed normally and this conversation owns its own compression session. Last observation: ${new Date(v.at).toISOString()}. See the [chain] warn in the sophialin log.`;
 }
 
 /** Browser deep link into the built-in Web UI session detail page; undefined when no
@@ -740,7 +740,7 @@ function chainAdvisoryPanel(v: ChainVerdict): string {
 function webSessionUrl(origin: string | undefined, sessionId: string): string | undefined {
     const o = typeof origin === "string" ? origin.trim().replace(/\/+$/, "") : "";
     if (o.length === 0 || sessionId.length === 0) return undefined;
-    return `${o}/__bili/#/session/${encodeURIComponent(sessionId)}`;
+    return `${o}/__sophialin/#/session/${encodeURIComponent(sessionId)}`;
 }
 
 export function handlePluginStatus(conversationId: string, res: import("node:http").ServerResponse, deps: PluginToolDeps, fallbackLatest = false): void {
@@ -824,7 +824,7 @@ export function handlePluginStatus(conversationId: string, res: import("node:htt
     }
     let panel: string | undefined;
     try {
-        // #532: the kernel breakdown classifies messages only; bili measured
+        // #532: the kernel breakdown classifies messages only; sophialin measured
         // the outbound system+tools overhead at prepare time (same source as
         // estimateInputTokens) and stored it on the session. Feeding it in is
         // what makes Sent/SysPrompt reflect reality instead of undercounting
@@ -834,7 +834,7 @@ export function handlePluginStatus(conversationId: string, res: import("node:htt
         const sysTokRaw = session.metadata.systemPromptTokens;
         const systemPromptTokens = typeof sysTokRaw === "number" && Number.isFinite(sysTokRaw) && sysTokRaw > 0 ? sysTokRaw : 0;
         panel = buildStatusPanel({
-            version: `billion-context@${PROXY_VERSION} · pack: ${session.meta.activePack ?? "default"}`,
+            version: `sophialin-context@${PROXY_VERSION} · pack: ${session.meta.activePack ?? "default"}`,
             tokenCount: session.stats.lastInputTokens,
             systemPromptTokens,
             state: session.state,
@@ -923,7 +923,7 @@ export async function handlePluginTool(
         }
     } else if (witnessIds.size > 1 && !conversationId) {
         res.writeHead(400, { "content-type": "application/json" });
-        res.end(JSON.stringify({ ok: false, error: `cannot route tool "${tool}": its (name, arguments) was witnessed in ${witnessIds.size} sessions and the request carries no conversationId — refuse to guess. Re-send with a conversationId, or bind the MCP shim (CLAUDE_CODE_SESSION_ID / BILI_CONVERSATION_ID).` }));
+        res.end(JSON.stringify({ ok: false, error: `cannot route tool "${tool}": its (name, arguments) was witnessed in ${witnessIds.size} sessions and the request carries no conversationId — refuse to guess. Re-send with a conversationId, or bind the MCP shim (CLAUDE_CODE_SESSION_ID / SOPHIALIN_CONVERSATION_ID).` }));
         return;
     }
     if (!session && !conversationId) {
@@ -945,7 +945,7 @@ export async function handlePluginTool(
             if (session) routedBy = "arb";
         } else {
             res.writeHead(400, { "content-type": "application/json" });
-            res.end(JSON.stringify({ ok: false, error: `cannot route tool "${tool}": no conversationId, no outbound witness match, and ${fresh} conversation${fresh === 1 ? "" : "s"} active on this proxy — refuse to guess. Send a model message first, or bind the MCP shim (CLAUDE_CODE_SESSION_ID / BILI_CONVERSATION_ID).` }));
+            res.end(JSON.stringify({ ok: false, error: `cannot route tool "${tool}": no conversationId, no outbound witness match, and ${fresh} conversation${fresh === 1 ? "" : "s"} active on this proxy — refuse to guess. Send a model message first, or bind the MCP shim (CLAUDE_CODE_SESSION_ID / SOPHIALIN_CONVERSATION_ID).` }));
             return;
         }
     }
@@ -958,7 +958,7 @@ export async function handlePluginTool(
         // #656: two distinct failures shared one message before. An id that was
         // NEVER registered is the classic stale-shim-id case (host resumed its
         // session after the MCP shim captured CLAUDE_CODE_SESSION_ID) — say so,
-        // and log it: these 404s used to be invisible in bili.log.
+        // and log it: these 404s used to be invisible in sophialin.log.
         if (!entry) {
             // #1158: a tool call implies the model ALREADY answered, yet no model
             // request ever carried this conversation id — its traffic never reached
@@ -972,7 +972,7 @@ export async function handlePluginTool(
             if (!warnedNoModelRequests.has(conversationId)) {
                 if (warnedNoModelRequests.size >= WARNED_NO_MODEL_REQUESTS_CAP) warnedNoModelRequests.clear();
                 warnedNoModelRequests.add(conversationId);
-                deps.log("warn", `[plugin] NO MODEL REQUESTS seen for conversation ${conversationId} (tool "${tool}"): the model answered without any of its requests reaching this proxy — candidates: its LLM transport bypasses the intercepted fetch (SDK-injected fetch or non-global dispatcher), the host's attribution left this traffic unclaimed by the proxy, or the conversation id is stale after a host resume. Verify: send a message and look for processTurn lines in bili.log — none appearing means the traffic never reaches the proxy; routing through the client's bili launcher (baseURL rewrite) reaches it regardless of which fetch the transport uses.`);
+                deps.log("warn", `[plugin] NO MODEL REQUESTS seen for conversation ${conversationId} (tool "${tool}"): the model answered without any of its requests reaching this proxy — candidates: its LLM transport bypasses the intercepted fetch (SDK-injected fetch or non-global dispatcher), the host's attribution left this traffic unclaimed by the proxy, or the conversation id is stale after a host resume. Verify: send a message and look for processTurn lines in sophialin.log — none appearing means the traffic never reaches the proxy; routing through the client's sophialin launcher (baseURL rewrite) reaches it regardless of which fetch the transport uses.`);
             }
         } else {
             deps.log("warn", `[plugin] tool "${tool}" rejected for conversation ${conversationId}: id registered but session not resident in this proxy instance`);
@@ -981,7 +981,7 @@ export async function handlePluginTool(
         res.end(JSON.stringify({
             ok: false,
             error: !entry
-                ? "unknown plugin conversation (no model request has arrived with this conversation id yet — if your messages ARE still reaching the model, its LLM transport may be bypassing this proxy's fetch interception (SDK-injected fetch / non-global dispatcher), the host's attribution may have left this traffic unclaimed by the proxy, or the id may be stale after a host resume; check bili.log for processTurn lines)"
+                ? "unknown plugin conversation (no model request has arrived with this conversation id yet — if your messages ARE still reaching the model, its LLM transport may be bypassing this proxy's fetch interception (SDK-injected fetch / non-global dispatcher), the host's attribution may have left this traffic unclaimed by the proxy, or the id may be stale after a host resume; check sophialin.log for processTurn lines)"
                 : "unknown plugin conversation (id registered but its session is not resident in this proxy instance — a fresh model request re-binds it)",
         }));
         return;
@@ -1045,7 +1045,7 @@ export async function handlePluginTool(
     }
     releaseInFlight(session);
     // #760b: evidence-based plugin-mode flip. A successful MCP tool execution proves
-    // this session's host owns the bili compression tools, so bind it to plugin mode
+    // this session's host owns the sophialin compression tools, so bind it to plugin mode
     // (sticky) — the next model request stops injecting the duplicate ephemeral wire
     // tools. Guarded: only flips a session with NO existing agent binding, never
     // overriding a pi/omp/opencode plugin or a launcher-registered agent.
@@ -1256,8 +1256,8 @@ export async function pipePluginChatWithStrip(
     };
     const onBiliDrop = (snippet: string) => {
         sawStrippedEcho = true;
-        loggerLog("warn", `[bili-artifact] stripped model-emitted internal artifact (plugin passthrough): ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
-        log?.(`[bili-artifact] stripped model-emitted internal artifact from plugin passthrough text`);
+        loggerLog("warn", `[sophialin-artifact] stripped model-emitted internal artifact (plugin passthrough): ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
+        log?.(`[sophialin-artifact] stripped model-emitted internal artifact from plugin passthrough text`);
     };
     // One state machine per (field, block/choice index) — interleaved choices
     // or content blocks must not share partial-tag state. Tool-call arguments
@@ -1950,7 +1950,7 @@ export async function pipePluginChatWithStrip(
         const rest = flushTails();
         if (rest.length > 0 && !res.destroyed && !res.writableEnded) await write(offsetRetryIndices(rest));
         // Settle BEFORE res.end() in the finally below: the client can issue
-        // its next request (e.g. /__bili/plugin/status, or the follow-up turn
+        // its next request (e.g. /__sophialin/plugin/status, or the follow-up turn
         // that reads lastInputTokens for the nudge decision) the moment the
         // stream completes, and those must already see this usage.
         settleUsage();
@@ -2071,8 +2071,8 @@ export async function pipePluginResponsesWithStrip(
         log?.(`[tag-echo] stripped model-emitted render tag from plugin passthrough text`);
     };
     const onBiliDrop = (snippet: string) => {
-        loggerLog("warn", `[bili-artifact] stripped model-emitted internal artifact (plugin passthrough): ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
-        log?.(`[bili-artifact] stripped model-emitted internal artifact from plugin passthrough text`);
+        loggerLog("warn", `[sophialin-artifact] stripped model-emitted internal artifact (plugin passthrough): ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
+        log?.(`[sophialin-artifact] stripped model-emitted internal artifact from plugin passthrough text`);
     };
     const tagFilter = composeStreamFilters(
         composeStreamFilters(

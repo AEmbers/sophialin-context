@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { rmrf } from "./tmp-rm.ts";
 
-process.env.BILI_PERSIST = "0";
+process.env.SOPHIALIN_PERSIST = "0";
 
 import sharp from "sharp";
 import {
@@ -363,7 +363,7 @@ test("resetSessionCompression clears image state and caches", async () => {
 });
 
 test("image state survives persist/reload round-trip", async () => {
-    const P = mkdtempSync(path.join(tmpdir(), "bili-img-persist-"));
+    const P = mkdtempSync(path.join(tmpdir(), "sophialin-img-persist-"));
     try {
         const store = new SessionStore({ dir: P, debounceMs: 0 });
         _setStoreForTest(store);

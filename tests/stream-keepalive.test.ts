@@ -14,10 +14,10 @@ import { _setForTest as setRegistryForTest } from "../src/registry.ts";
 // client-side undici bodyTimeout (default 300s). The rewriter/strip pipes
 // swallow upstream comment pings (`: ping`, llama.cpp-style), so before the
 // fix ZERO bytes reached the client during prefill and the client died at
-// ~303s while leg 2 survived. beginStreamKeepalive emits `: bili-keepalive`
+// ~303s while leg 2 survived. beginStreamKeepalive emits `: sophialin-keepalive`
 // comment lines while the socket sees no growth.
 
-const KEEPALIVE_LINE = ": bili-keepalive";
+const KEEPALIVE_LINE = ": sophialin-keepalive";
 
 function openaiChunk(data: unknown): string {
     return `data: ${JSON.stringify(data)}\n\n`;
@@ -110,11 +110,11 @@ async function readStream(url: string, sessionId: string): Promise<{ status: num
 const countOccurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
 
 test("#1647 slow prefill: keep-alive comments hold the client through ping-only silence", async () => {
-    process.env.BILI_STREAM_KEEPALIVE_MS = "300";
+    process.env.SOPHIALIN_STREAM_KEEPALIVE_MS = "300";
     const up = await startUpstream("slow", 1000);
     const h = await startHarness(up.port);
     try {
-        const { status, raw } = await readStream(`http://127.0.0.1:${h.proxyPort}/bili/http://127.0.0.1:${up.port}/v1/chat/completions`, "keepalive-slow");
+        const { status, raw } = await readStream(`http://127.0.0.1:${h.proxyPort}/sophialin/http://127.0.0.1:${up.port}/v1/chat/completions`, "keepalive-slow");
         assert.equal(status, 200);
         // The strip pipe swallows upstream pings — they must NOT leak to the
         // client, which makes the keep-alive the only byte source in the gap.
@@ -127,7 +127,7 @@ test("#1647 slow prefill: keep-alive comments hold the client through ping-only 
         assert.ok(raw.includes('"finish_reason":"stop"'), "final chunk lost:\n" + raw);
         assert.ok(raw.includes("[DONE]"), "[DONE] missing:\n" + raw);
     } finally {
-        delete process.env.BILI_STREAM_KEEPALIVE_MS;
+        delete process.env.SOPHIALIN_STREAM_KEEPALIVE_MS;
         up.server.closeAllConnections?.();
         up.server.close();
         await once(up.server, "close");
@@ -136,17 +136,17 @@ test("#1647 slow prefill: keep-alive comments hold the client through ping-only 
 });
 
 test("#1647 fast stream: no spurious keep-alive injection", async () => {
-    process.env.BILI_STREAM_KEEPALIVE_MS = "300";
+    process.env.SOPHIALIN_STREAM_KEEPALIVE_MS = "300";
     const up = await startUpstream("fast", 0);
     const h = await startHarness(up.port);
     try {
-        const { status, raw } = await readStream(`http://127.0.0.1:${h.proxyPort}/bili/http://127.0.0.1:${up.port}/v1/chat/completions`, "keepalive-fast");
+        const { status, raw } = await readStream(`http://127.0.0.1:${h.proxyPort}/sophialin/http://127.0.0.1:${up.port}/v1/chat/completions`, "keepalive-fast");
         assert.equal(status, 200);
         assert.ok(raw.includes('"hel"'));
         assert.ok(raw.includes("[DONE]"));
         assert.equal(countOccurrences(raw, KEEPALIVE_LINE), 0, "healthy fast stream received injected keep-alives:\n" + raw);
     } finally {
-        delete process.env.BILI_STREAM_KEEPALIVE_MS;
+        delete process.env.SOPHIALIN_STREAM_KEEPALIVE_MS;
         up.server.closeAllConnections?.();
         up.server.close();
         await once(up.server, "close");
@@ -154,17 +154,17 @@ test("#1647 fast stream: no spurious keep-alive injection", async () => {
     }
 });
 
-test("#1647 BILI_STREAM_KEEPALIVE_MS=0 disables the hold", async () => {
-    process.env.BILI_STREAM_KEEPALIVE_MS = "0";
+test("#1647 SOPHIALIN_STREAM_KEEPALIVE_MS=0 disables the hold", async () => {
+    process.env.SOPHIALIN_STREAM_KEEPALIVE_MS = "0";
     const up = await startUpstream("slow", 500);
     const h = await startHarness(up.port);
     try {
-        const { status, raw } = await readStream(`http://127.0.0.1:${h.proxyPort}/bili/http://127.0.0.1:${up.port}/v1/chat/completions`, "keepalive-off");
+        const { status, raw } = await readStream(`http://127.0.0.1:${h.proxyPort}/sophialin/http://127.0.0.1:${up.port}/v1/chat/completions`, "keepalive-off");
         assert.equal(status, 200);
         assert.ok(raw.includes("[DONE]"));
         assert.equal(countOccurrences(raw, KEEPALIVE_LINE), 0, "hold should be disabled with 0:\n" + raw);
     } finally {
-        delete process.env.BILI_STREAM_KEEPALIVE_MS;
+        delete process.env.SOPHIALIN_STREAM_KEEPALIVE_MS;
         up.server.closeAllConnections?.();
         up.server.close();
         await once(up.server, "close");
@@ -199,7 +199,7 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 
 
 test("#1647 line-boundary guard: keep-alive never splices into a partial SSE line", async () => {
-    process.env.BILI_STREAM_KEEPALIVE_MS = "60";
+    process.env.SOPHIALIN_STREAM_KEEPALIVE_MS = "60";
     const { res, chunks } = makeStubRes();
     beginStreamKeepalive(res as unknown as import("node:http").ServerResponse, "unit-boundary", () => {});
     try {
@@ -238,7 +238,7 @@ test("#1647 line-boundary guard: keep-alive never splices into a partial SSE lin
             }
         }
     } finally {
-        delete process.env.BILI_STREAM_KEEPALIVE_MS;
+        delete process.env.SOPHIALIN_STREAM_KEEPALIVE_MS;
         (res as unknown as { emit(e: string): boolean }).emit("close");
     }
 });

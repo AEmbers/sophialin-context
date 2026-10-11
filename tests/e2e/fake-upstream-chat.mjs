@@ -1,5 +1,5 @@
 // Deterministic fake chat-completions upstream for the native-client E2E lanes
-// (#1239): drives a REAL host client (`pi`, `opencode`) through bili's native
+// (#1239): drives a REAL host client (`pi`, `opencode`) through sophialin's native
 // extension so interception, plugin-mode stamping, ACP tool registration and
 // compression ACTUALLY happen in-process, no real model/network. The prompt of
 // the FIRST user message scripts the conversation: every "请调用<tool>" marker
@@ -111,13 +111,13 @@ function compressArgs(refs) {
     return { content: [{ startId: start, endId: start, summary: "e2e fold: scripted compress round over the run-one filler message" }] };
 }
 
-// A chain-checkpoint carrier (<bili-chain ... /> #1421 step 3) rides as a
+// A chain-checkpoint carrier (<sophialin-chain ... /> #1421 step 3) rides as a
 // standalone trailing USER message on the openai wire. It is transport
 // metadata, not conversation: "last user message" semantics below (the
 // scripted directive queue source and the lastUserRef oracle) must skip it,
 // or the carrier masks the real prompt and the scripted compress never fires.
 const isChainCarrierMsg = (m) =>
-    m?.role === "user" && /^\s*\x3cbili-chain\s[\s\S]*\/\x3e\s*$/.test(String(flatContent(m.content)));
+    m?.role === "user" && /^\s*\x3csophialin-chain\s[\s\S]*\/\x3e\s*$/.test(String(flatContent(m.content)));
 
 function answerFor(convKey, firstUserText, body) {
     // Directives are parsed from the LAST user message: a `pi -p --continue`
@@ -191,7 +191,7 @@ const server = http.createServer((req, res) => {
                 const lastUserRefMatch = lastUserMsg
                     ? flatContent(lastUserMsg.content).match(/\x3cacp\s+[^>]*?\x3e(m\d{5})\x3c\/acp\x3e/)
                     : null;
-                const convKey = req.headers["x-bili-plugin-conversation"] ?? "anon";
+                const convKey = req.headers["x-sophialin-plugin-conversation"] ?? "anon";
                 const reply = answerFor(convKey, firstUserText, parsed);
                 try {
                     fs.appendFileSync(REQLOG, JSON.stringify({
@@ -199,10 +199,10 @@ const server = http.createServer((req, res) => {
                         url: req.url,
                         stream: !!parsed.stream,
                         model: parsed.model,
-                        plugin: req.headers["x-bili-plugin"] ?? null,
-                        conv: req.headers["x-bili-plugin-conversation"] ?? null,
-                        ctxwin: req.headers["x-bili-plugin-context-window"] ?? null,
-                        maxout: req.headers["x-bili-plugin-max-output"] ?? null,
+                        plugin: req.headers["x-sophialin-plugin"] ?? null,
+                        conv: req.headers["x-sophialin-plugin-conversation"] ?? null,
+                        ctxwin: req.headers["x-sophialin-plugin-context-window"] ?? null,
+                        maxout: req.headers["x-sophialin-plugin-max-output"] ?? null,
                         tools: (parsed.tools ?? []).map((t) => t?.function?.name ?? t?.name),
                         nmsg: messages.length,
                         roles: messages.map((x) => x?.role).join(","),

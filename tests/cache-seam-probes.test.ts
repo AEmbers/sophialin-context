@@ -156,7 +156,7 @@ async function driveChat(sessionId: string, opts: RigOpts): Promise<string[]> {
         proxy = await startServer(options);
         await listen(proxy);
         const proxyPort = (proxy.address() as { port: number }).port;
-        const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/chat/completions`;
+        const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/chat/completions`;
         const hist: Msg[] = [{ role: "system", content: "You are a coding agent. Follow conventions. Run tests." }];
         const turns = opts.turns ?? 12;
         const bigFrom = opts.bigToolFrom ?? 2;

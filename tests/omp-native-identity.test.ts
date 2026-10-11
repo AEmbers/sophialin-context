@@ -5,7 +5,7 @@ import { stampPromptCacheKey } from "../src/agent/pi.ts";
 // #1579: native omp mode routes at the fetch layer — ctx.model.baseUrl keeps
 // the real upstream URL, so the launcher-shaped destination checks can never
 // match. The stamp gate must mirror the interceptor's routing reality:
-// intercept installed AND a live proxy claimed (BILLION_CONTEXT_PROXY —
+// intercept installed AND a live proxy claimed (SOPHIALIN_CONTEXT_PROXY —
 // written by bootstrap, cleared by onGiveUp; the same claim
 // ownsCompaction/registerTools use) AND model-API-shaped URL (baseUrl or its
 // natural chat/completions expansion — the interceptor judges the full
@@ -15,18 +15,18 @@ import { stampPromptCacheKey } from "../src/agent/pi.ts";
 // persists after the interceptor degrades to direct sends, where a stamped
 // body would ride verbatim into strict upstreams (#1403's exact 400).
 
-const INTERCEPT_FLAG = Symbol.for("billion-context.native-fetch-intercept");
+const INTERCEPT_FLAG = Symbol.for("sophialin-context.native-fetch-intercept");
 const PROXY_ORIGIN = "http://127.0.0.1:36009";
 
 function withEnv<T>(origin: string | undefined, fn: () => T): T {
-    const prev = process.env.BILLION_CONTEXT_PROXY;
-    if (origin === undefined) delete process.env.BILLION_CONTEXT_PROXY;
-    else process.env.BILLION_CONTEXT_PROXY = origin;
+    const prev = process.env.SOPHIALIN_CONTEXT_PROXY;
+    if (origin === undefined) delete process.env.SOPHIALIN_CONTEXT_PROXY;
+    else process.env.SOPHIALIN_CONTEXT_PROXY = origin;
     try {
         return fn();
     } finally {
-        if (prev === undefined) delete process.env.BILLION_CONTEXT_PROXY;
-        else process.env.BILLION_CONTEXT_PROXY = prev;
+        if (prev === undefined) delete process.env.SOPHIALIN_CONTEXT_PROXY;
+        else process.env.SOPHIALIN_CONTEXT_PROXY = prev;
     }
 }
 
@@ -86,9 +86,9 @@ test("#1403 kept: intercept installed but no live proxy claim (bootstrap failed 
     }));
 });
 
-test("launcher lane: /bili/-wrapped baseUrl stamps without any native state", () => {
+test("launcher lane: /sophialin/-wrapped baseUrl stamps without any native state", () => {
     withIntercept(false, () => withEnv(undefined, () => {
-        const out = stampPromptCacheKey(makeEvent({}), makeCtx(`${PROXY_ORIGIN}/bili/http://10.0.0.8:8199/v1/chat/completions`), "omp");
+        const out = stampPromptCacheKey(makeEvent({}), makeCtx(`${PROXY_ORIGIN}/sophialin/http://10.0.0.8:8199/v1/chat/completions`), "omp");
         assert.deepEqual(out?.prompt_cache_key, "sess-1579");
     }));
 });

@@ -251,7 +251,7 @@ async function withProxy(sessionId: string, streamBody: string, jsonBody: string
     } as ProxyOptions);
     await once(proxy, "listening");
     try {
-        await fn(`http://127.0.0.1:${proxy.address().port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`, logs);
+        await fn(`http://127.0.0.1:${proxy.address().port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`, logs);
     } finally {
         setLogCapture(null);
         proxy.close();

@@ -12,7 +12,7 @@ let _tmpHome: string | undefined;
 const savedEnv: Record<string, string | undefined> = {};
 
 test.before(() => {
-    _tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "bili-ca-combined-"));
+    _tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-ca-combined-"));
     for (const k of ["HOME", "XDG_DATA_HOME", "SSL_CERT_FILE"]) {
         savedEnv[k] = process.env[k];
     }
@@ -54,7 +54,7 @@ test("#152: combined bundle re-merges when the root already exists", () => {
 });
 
 test("#152: collectSystemCaPems honors SSL_CERT_FILE user bundle first", () => {
-    const userBundle = fs.mkdtempSync(path.join(os.tmpdir(), "bili-user-ca-"));
+    const userBundle = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-user-ca-"));
     try {
         const bundlePath = path.join(userBundle, "custom-bundle.pem");
         fs.writeFileSync(bundlePath, tls.rootCertificates[0] + tls.rootCertificates[1]);
@@ -74,7 +74,7 @@ test("#152: collectSystemCaPems dedupes identical bundles", () => {
 
 test("#152: resolveCombinedCaPath mirrors the caDir layout", () => {
     const p = resolveCombinedCaPath({} as NodeJS.ProcessEnv);
-    assert.ok(p.endsWith(path.join("billion-context", "ca", "combined-ca.pem")));
+    assert.ok(p.endsWith(path.join("sophialin-context", "ca", "combined-ca.pem")));
     assert.equal(resolveCombinedCaPath({ XDG_DATA_HOME: "/custom/data" } as NodeJS.ProcessEnv),
-        path.join("/custom/data", "billion-context", "ca", "combined-ca.pem"));
+        path.join("/custom/data", "sophialin-context", "ca", "combined-ca.pem"));
 });

@@ -20,7 +20,7 @@ const FULL_DETAIL_LINES = 512;
 
 // #1536: identity of this daemon process boot. A session's first KNOWN sample under a
 // NEW boot id (with prior history) marks a proxy-restart / re-fork boundary (#499): its
-// upstream KV was dropped during downtime even though bili's message refs were preserved.
+// upstream KV was dropped during downtime even though sophialin's message refs were preserved.
 const BOOT_ID = randomUUID();
 
 interface LedgerFold {
@@ -565,7 +565,7 @@ export interface InvalidationTokenBreakdown {
     remaining: number;
 }
 
-export interface BiliCacheReport extends CacheReport {
+export interface SophialinCacheReport extends CacheReport {
     modelSwitches: ModelSwitchStats;
     wireSwitches: ModelSwitchStats;
     upstreamSwitches: ModelSwitchStats;
@@ -575,7 +575,7 @@ export interface BiliCacheReport extends CacheReport {
     seam: { suspects: number; missed: number; events: SeamEvent[]; providerSide: { count: number; missed: number }; rewinds: { count: number; missed: number }; abortCorrelated: number };
 }
 
-export function buildSessionCacheReport(session: Session): BiliCacheReport {
+export function buildSessionCacheReport(session: Session): SophialinCacheReport {
     const led = getCacheLedger(session);
     // Effective profile = stamped value over kernel defaults (w=1, r=0.1, q=4),
     // mirroring the per-field fallback inside computeFoldEconomics. Unstamped
@@ -736,7 +736,7 @@ function formatModelSwitches(sw: ModelSwitchStats, detail: "summary" | "full"): 
     return out.join("\n");
 }
 
-function formatSeam(r: BiliCacheReport): string {
+function formatSeam(r: SophialinCacheReport): string {
     const out: string[] = [];
     if (r.seam.suspects > 0) {
         out.push("⚠ CACHE SEAM (suspected mid-history prefix breaks)");
@@ -747,7 +747,7 @@ function formatSeam(r: BiliCacheReport): string {
         if (r.seam.events.length === 0) {
             out.push("    (no body-pair forensics on this lane — aggregate flag only; report the session + log if this persists)");
         }
-        out.push("  if reproducible: /acp-cache detail:\"full\" + bili.log around the timestamps above (likely a #1548-family round-2/steady render seam)");
+        out.push("  if reproducible: /acp-cache detail:\"full\" + sophialin.log around the timestamps above (likely a #1548-family round-2/steady render seam)");
     }
     if (r.seam.rewinds.count > 0) {
         out.push("↩ HISTORY REWOUND (client revert/trim)");
@@ -755,16 +755,16 @@ function formatSeam(r: BiliCacheReport): string {
     }
     if (r.seam.providerSide.count > 0) {
         out.push("▲ PROVIDER-SIDE MISS (wire was byte-stable)");
-        out.push(`  ${r.seam.providerSide.count} sample(s) · ${fmtTok(r.seam.providerSide.missed)} tok — the outbound body matched the previous request's prefix; the upstream did not serve its cache (TTL expiry / eviction / relay node rotation). Not a bili rebuild seam.`);
+        out.push(`  ${r.seam.providerSide.count} sample(s) · ${fmtTok(r.seam.providerSide.missed)} tok — the outbound body matched the previous request's prefix; the upstream did not serve its cache (TTL expiry / eviction / relay node rotation). Not a sophialin rebuild seam.`);
     }
     if (r.seam.abortCorrelated > 0) {
         out.push("⏻ ABORT-CORRELATED");
-        out.push(`  ${r.seam.abortCorrelated} missed sample(s) within 30s of a client mid-stream abort — abort/retry churn rewrites the resent tail; correlation, not causation (see bili.log 'client aborted mid-stream')`);
+        out.push(`  ${r.seam.abortCorrelated} missed sample(s) within 30s of a client mid-stream abort — abort/retry churn rewrites the resent tail; correlation, not causation (see sophialin.log 'client aborted mid-stream')`);
     }
     return out.length > 0 ? out.join("\n") : "";
 }
 
-function formatInvalidation(r: BiliCacheReport): string {
+function formatInvalidation(r: SophialinCacheReport): string {
     const b = r.invalidation;
     const named = b.model + b.wire + b.upstream + b.restart;
     const out: string[] = ["CACHE INVALIDATION"];

@@ -48,7 +48,7 @@ const WORK_ROOT = path.join(process.cwd(), "tmp");
 fs.mkdirSync(WORK_ROOT, { recursive: true });
 function pickCwdRoot(): string {
   try {
-    const sibling = path.join(path.dirname(REPO_ROOT), "billion-context-e2e-native-oc");
+    const sibling = path.join(path.dirname(REPO_ROOT), "sophialin-context-e2e-native-oc");
     fs.mkdirSync(sibling, { recursive: true });
     return sibling;
   } catch {
@@ -153,8 +153,8 @@ function cleanEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
   for (const key of Object.keys(env)) {
     if (
-      key.startsWith("BILI") ||
-      key.startsWith("BILLION_CONTEXT") ||
+      key.startsWith("SOPHIALIN") ||
+      key.startsWith("SOPHIALIN_CONTEXT") ||
       key.startsWith("ACP_") ||
       key.startsWith("OPENCODE")
     )
@@ -197,7 +197,7 @@ async function startCtx(): Promise<Ctx> {
     ctx.xdg.state,
     ctx.xdg.data,
     path.join(ctx.xdg.config, "opencode"),
-    path.join(ctx.xdg.config, "billion-context"),
+    path.join(ctx.xdg.config, "sophialin-context"),
   ])
     fs.mkdirSync(d, { recursive: true });
 
@@ -261,7 +261,7 @@ async function startCtx(): Promise<Ctx> {
   );
 
   fs.writeFileSync(
-    path.join(ctx.xdg.config, "billion-context", "billion-context.json"),
+    path.join(ctx.xdg.config, "sophialin-context", "sophialin-context.json"),
     JSON.stringify({ compress: { preserveRecentTokens: 0 } }, null, 2),
   );
 
@@ -283,7 +283,7 @@ async function startCtx(): Promise<Ctx> {
 type InstanceRecord = { pid?: number; startedAt?: number; origin?: string };
 
 function instanceRecords(ctx: Ctx): InstanceRecord[] {
-  const dir = path.join(ctx.xdg.state, "billion-context", "instances");
+  const dir = path.join(ctx.xdg.state, "sophialin-context", "instances");
   const out: InstanceRecord[] = [];
   try {
     for (const f of fs.readdirSync(dir)) {
@@ -426,10 +426,10 @@ async function ocRun(
   });
 }
 
-function biliLog(ctx: Ctx): string {
+function sophialinLog(ctx: Ctx): string {
   try {
     return fs.readFileSync(
-      path.join(ctx.xdg.state, "billion-context", "bili.log"),
+      path.join(ctx.xdg.state, "sophialin-context", "sophialin.log"),
       "utf8",
     );
   } catch {
@@ -447,7 +447,7 @@ type SessionFile = {
 };
 
 function sessionFiles(ctx: Ctx): { file: string; parsed: SessionFile }[] {
-  const dir = path.join(ctx.xdg.data, "billion-context", "sessions");
+  const dir = path.join(ctx.xdg.data, "sophialin-context", "sessions");
   const out: { file: string; parsed: SessionFile }[] = [];
   try {
     for (const prov of fs.readdirSync(dir)) {
@@ -574,7 +574,7 @@ test(
       `compress receipt must name the captured child session id ${childSes}, got: ${compressResult}`,
     );
 
-    assert.match(biliLog(ctx), /tool compress executed via plugin/, "proxy must log the plugin-channel compress execution");
+    assert.match(sophialinLog(ctx), /tool compress executed via plugin/, "proxy must log the plugin-channel compress execution");
 
     // — persisted state: sidecar entry per block, byte-clean summary.
     await stopProxiesGracefully(ctx);

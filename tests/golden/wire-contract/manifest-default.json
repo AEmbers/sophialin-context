@@ -1,7 +1,7 @@
 {
   "ok": true,
   "protocolVersion": 1,
-  "proxy": "billion-context",
+  "proxy": "sophialin-context",
   "version": "<VERSION>",
   "toolNames": [
     "compress",
@@ -600,14 +600,14 @@
     ]
   },
   "headers": {
-    "agent": "x-bili-plugin",
-    "conversation": "x-bili-plugin-conversation",
-    "contextWindow": "x-bili-plugin-context-window",
-    "maxOutput": "x-bili-plugin-max-output",
-    "model": "x-bili-plugin-model",
-    "instructionsMutable": "x-bili-plugin-instructions-mutable"
+    "agent": "x-sophialin-plugin",
+    "conversation": "x-sophialin-plugin-conversation",
+    "contextWindow": "x-sophialin-plugin-context-window",
+    "maxOutput": "x-sophialin-plugin-max-output",
+    "model": "x-sophialin-plugin-model",
+    "instructionsMutable": "x-sophialin-plugin-instructions-mutable"
   },
-  "toolEndpoint": "/__bili/plugin/tool",
-  "statusEndpoint": "/__bili/plugin/status",
-  "runtimeInfoEndpoint": "/__bili/plugin/runtime-info"
+  "toolEndpoint": "/__sophialin/plugin/tool",
+  "statusEndpoint": "/__sophialin/plugin/status",
+  "runtimeInfoEndpoint": "/__sophialin/plugin/runtime-info"
 }

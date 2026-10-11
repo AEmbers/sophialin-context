@@ -11,14 +11,14 @@ import type { StateStoreCodec } from "acp-kernel/persist";
  * THREAT MODEL (#708): the proxy may run on untrusted nodes; session files
  * hold block summaries plus up to ~16k tokens of folded conversation per
  * session — effectively full conversation content (code, pasted credentials).
- * The key comes ONLY from the BILI_ENCRYPTION_KEY environment variable: a key
+ * The key comes ONLY from the SOPHIALIN_ENCRYPTION_KEY environment variable: a key
  * file next to the data sits on the same untrusted filesystem and defeats the
  * purpose.
  *
  * COMPRESSION (#1080, owner decision): session JSON is zstd-compressed only
- * when opted in (BILI_PERSIST_ZSTD=1/true); the default stays plain JSON for
+ * when opted in (SOPHIALIN_PERSIST_ZSTD=1/true); the default stays plain JSON for
  * recoverability and downgrade safety. Clients and tools never see the
- * on-disk format — the store decodes transparently and `bili export` renders
+ * on-disk format — the store decodes transparently and `sophialin export` renders
  * plaintext.
  *
  * FORMATS (v1):
@@ -52,7 +52,7 @@ const ENCRYPT_HEADER_LEN = ENCRYPT_MAGIC.length + 2 + NONCE_LEN;
 const MIN_ENCRYPTED_LEN = ENCRYPT_HEADER_LEN + TAG_LEN;
 const PLAIN_HEADER_LEN = ZSTD_MAGIC.length + 2;
 
-/** Parse the BILI_ENCRYPTION_KEY value: hex or base64, must decode to
+/** Parse the SOPHIALIN_ENCRYPTION_KEY value: hex or base64, must decode to
  *  exactly 32 bytes. Hex wins when both parse (a base64 string made only of
  *  hex digits is ambiguous — hex-first is the documented rule). Throws with
  *  an actionable message; the caller surfaces it as a startup crash (fail
@@ -68,7 +68,7 @@ export function parseEncryptionKey(value: string): Buffer {
     if (!buf || buf.length !== 32) {
         const got = buf ? `${buf.length} bytes` : "an undecodable value";
         throw new Error(
-            `[encrypt] BILI_ENCRYPTION_KEY must be exactly 32 bytes encoded as hex (64 chars) or base64 — got ${got}`,
+            `[encrypt] SOPHIALIN_ENCRYPTION_KEY must be exactly 32 bytes encoded as hex (64 chars) or base64 — got ${got}`,
         );
     }
     return buf;
@@ -162,7 +162,7 @@ export function createStorageCodec(opts: StorageCodecOptions = {}): StateStoreCo
 
 function decryptEnvelope(buf: Buffer, key: Buffer | null): string {
     if (!key) {
-        throw new Error("[storage] session file is BILIENC1-encrypted but no BILI_ENCRYPTION_KEY is set — cannot read it");
+        throw new Error("[storage] session file is BILIENC1-encrypted but no SOPHIALIN_ENCRYPTION_KEY is set — cannot read it");
     }
     if (buf.length < MIN_ENCRYPTED_LEN || buf[ENCRYPT_MAGIC.length] !== FORMAT_VERSION) {
         throw new Error(`[encrypt] unsupported session file format version ${buf[ENCRYPT_MAGIC.length]}`);

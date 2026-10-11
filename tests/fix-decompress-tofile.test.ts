@@ -15,7 +15,7 @@ import { applyRanges } from "../src/stream.ts";
 import { parseCompressInput } from "../src/compress-tool.ts";
 import { resolveDecompress } from "../src/decompress-shared.ts";
 
-process.env.BILI_PERSIST = "0";
+process.env.SOPHIALIN_PERSIST = "0";
 
 const pad = (n: number): string => String(n).padStart(5, "0");
 
@@ -47,7 +47,7 @@ function foldBlock(tag: string, endRef: number, log?: (msg: string) => void) {
 }
 
 test("#1691 whole-block toFile: a small restore (would be inline) writes to the requested path", () => {
-    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "bili-tofile-"));
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-tofile-"));
     try {
         const { ctx, session, blockId } = foldBlock("s", 4);
         const target = path.join(scratch, "nested", "small-restore.txt");
@@ -68,7 +68,7 @@ test("#1691 whole-block toFile: a small restore (would be inline) writes to the 
 });
 
 test("#1691 whole-block toFile: a large restore targets the caller path, not os.tmpdir()", () => {
-    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "bili-tofile-"));
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-tofile-"));
     try {
         const { ctx, blockId } = foldBlock("l", 8);
         const target = path.join(scratch, "large-restore.txt");
@@ -86,7 +86,7 @@ test("#1691 whole-block toFile: a large restore targets the caller path, not os.
 
 test("#1691 default unchanged: no toFile leaves a small restore inline (no file)", () => {
     const prevTmp = process.env.TMPDIR;
-    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "bili-tofile-none-"));
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-tofile-none-"));
     process.env.TMPDIR = scratch;
     try {
         const { ctx, blockId } = foldBlock("n", 4);
@@ -112,7 +112,7 @@ test("#1691 malformed toFile (non-string) warns once and falls back to the defau
 });
 
 test("#1691 relative toFile resolves against the proxy cwd", () => {
-    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "bili-tofile-rel-"));
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-tofile-rel-"));
     const prevCwd = process.cwd();
     try {
         process.chdir(scratch);
@@ -155,7 +155,7 @@ function foldCcr() {
 }
 
 test("#1691 range toFile: writes the span to the caller path and queues only a lean pointer", () => {
-    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "bili-tofile-range-"));
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-tofile-range-"));
     try {
         const f = foldCcr();
         const ctx = { core: f.core, config: f.config, messages: f.msgs, session: f.session, log: () => {} };

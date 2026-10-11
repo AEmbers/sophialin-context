@@ -44,14 +44,14 @@ test("package root export points at the dsh host half and stays inert (#1590)", 
     assert.equal(pkg.exports["."], "./dist/agent/dsh-native.js");
     const entry = path.join(root, "dist", "agent", "dsh-native.js");
     ensureDistBuilt(entry);
-    const box = fs.mkdtempSync(path.join(os.tmpdir(), "bili-entry-guard-"));
+    const box = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-entry-guard-"));
     try {
         const host = path.join(box, "host.mjs");
         fs.writeFileSync(host, `import(${JSON.stringify(pathToFileURL(entry).href)}).then((m) => { process.stdout.write("name:" + typeof m.name + " apply:" + typeof m.apply + "\\n"); });\n`);
         const r = runNode([host]);
         assert.equal(r.code, 0, `stderr: ${r.stderr}`);
         assert.match(r.stdout, /^name:string apply:function$/m);
-        assert.doesNotMatch(r.stdout + r.stderr, /bili:|unknown command|EADDRINUSE/);
+        assert.doesNotMatch(r.stdout + r.stderr, /sophialin:|unknown command|EADDRINUSE/);
     } finally {
         rmrf(box);
     }
@@ -60,7 +60,7 @@ test("package root export points at the dsh host half and stays inert (#1590)", 
 test("import-only host: awaiting import of the entry runs no CLI", () => {
     const entry = path.join(root, "dist", "index.js");
     ensureDistBuilt(entry);
-    const box = fs.mkdtempSync(path.join(os.tmpdir(), "bili-entry-guard-"));
+    const box = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-entry-guard-"));
     try {
         // Exactly opencode's posture: a host script whose OWN argv[1] is the
         // host, importing the package entry as a module.
@@ -69,7 +69,7 @@ test("import-only host: awaiting import of the entry runs no CLI", () => {
         const r = runNode([host]);
         assert.equal(r.code, 0, `stderr: ${r.stderr}`);
         assert.match(r.stdout, /HOST-IMPORT-OK/);
-        assert.doesNotMatch(r.stdout + r.stderr, /bili:|port 8787|unknown command/);
+        assert.doesNotMatch(r.stdout + r.stderr, /sophialin:|port 8787|unknown command/);
     } finally {
         rmrf(box);
     }
@@ -77,7 +77,7 @@ test("import-only host: awaiting import of the entry runs no CLI", () => {
 
 test("import-only host under tsx: src entry equally inert", () => {
     const srcEntry = path.join(root, "src", "index.ts");
-    const box = fs.mkdtempSync(path.join(os.tmpdir(), "bili-entry-guard-"));
+    const box = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-entry-guard-"));
     try {
         const host = path.join(box, "host.ts");
         // Top-level await would be CJS-incompatible under tsx outside a

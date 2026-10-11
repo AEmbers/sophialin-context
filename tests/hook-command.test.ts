@@ -7,19 +7,19 @@ import path from "node:path";
 import { isOursSessionStartEntry, portableHookCommand } from "../src/plugin-install.ts";
 import { rmrf } from "./tmp-rm.ts";
 
-// The SessionStart hook is the one place bili hands a client a SHELL STRING
+// The SessionStart hook is the one place sophialin hands a client a SHELL STRING
 // rather than an argv array, so the client's shell re-parses our path. The unit
 // tests pin the exact spelling; the integration tests below run the produced
 // command through every shell the platform actually has, so a "fix" that only
 // looks right on paper fails here. See portableHookCommand for the traps.
 
 const EXE = "D:\\Dev\\node\\node.exe";
-const JS = "C:\\Users\\u\\AppData\\Local\\Temp\\bili\\claude-native-bootstrap.js";
+const JS = "C:\\Users\\u\\AppData\\Local\\Temp\\sophialin\\claude-native-bootstrap.js";
 
 test("portableHookCommand: plain paths emit a bare token and an unquoted argument", () => {
     assert.equal(
         portableHookCommand(EXE, [JS]),
-        "D:/Dev/node/node.exe C:/Users/u/AppData/Local/Temp/bili/claude-native-bootstrap.js",
+        "D:/Dev/node/node.exe C:/Users/u/AppData/Local/Temp/sophialin/claude-native-bootstrap.js",
     );
 });
 
@@ -38,8 +38,8 @@ test("portableHookCommand: no backslash survives into the command line", () => {
 
 test("portableHookCommand: an argument with whitespace is quoted (safe in bash, PowerShell and cmd)", () => {
     assert.equal(
-        portableHookCommand(EXE, ["C:\\Program Files\\bili\\bootstrap.js"]),
-        'D:/Dev/node/node.exe "C:/Program Files/bili/bootstrap.js"',
+        portableHookCommand(EXE, ["C:\\Program Files\\sophialin\\bootstrap.js"]),
+        'D:/Dev/node/node.exe "C:/Program Files/sophialin/bootstrap.js"',
     );
 });
 
@@ -49,7 +49,7 @@ test("portableHookCommand: a command path with whitespace falls back to the & ca
     // Windows (see the probe test below).
     assert.equal(
         portableHookCommand("C:\\Program Files\\nodejs\\node.exe", [JS]),
-        '& "C:/Program Files/nodejs/node.exe" C:/Users/u/AppData/Local/Temp/bili/claude-native-bootstrap.js',
+        '& "C:/Program Files/nodejs/node.exe" C:/Users/u/AppData/Local/Temp/sophialin/claude-native-bootstrap.js',
     );
     assert.equal(
         portableHookCommand("C:\\Program Files\\nodejs\\node.exe", ["C:\\a b\\c.js"]),
@@ -61,14 +61,14 @@ test("portableHookCommand: no arguments, and the bare `node` the kimi hook uses"
     assert.equal(portableHookCommand("node"), "node");
     // The kimi hook resolves `node` through PATH, so it can never need `&` —
     // the one shell the fallback would break (cmd) never sees a spaced command.
-    const kimi = portableHookCommand("node", ["C:\\Users\\u\\.kimi\\plugins\\managed\\billion-context\\dist\\kimi\\bootstrap-hook.js"]);
-    assert.equal(kimi, "node C:/Users/u/.kimi/plugins/managed/billion-context/dist/kimi/bootstrap-hook.js");
+    const kimi = portableHookCommand("node", ["C:\\Users\\u\\.kimi\\plugins\\managed\\sophialin-context\\dist\\kimi\\bootstrap-hook.js"]);
+    assert.equal(kimi, "node C:/Users/u/.kimi/plugins/managed/sophialin-context/dist/kimi/bootstrap-hook.js");
     assert.ok(!kimi.startsWith("& "), kimi);
 });
 
 test("isOursSessionStartEntry still matches every form the installer can emit", () => {
     // Uninstall/reinstall detection keys off this regex; if it drifts from the
-    // emitted spelling, bili stops recognizing its own hook and leaves orphans.
+    // emitted spelling, sophialin stops recognizing its own hook and leaves orphans.
     const entry = (cmd: string) => ({ hooks: [{ command: cmd }] });
     for (const cmd of [
         portableHookCommand(EXE, [JS]),
@@ -122,7 +122,7 @@ function runInShell(shell: Shell, command: string): { status: number | null; out
 }
 
 test("the emitted command really runs: bare token + spaced argument, through every shell here", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-hookcmd-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-hookcmd-"));
     // A space in the directory name forces the argument to be quoted — the
     // common real case, since Windows temp paths and usernames both carry them.
     const dir = path.join(root, "probe dir");
@@ -155,7 +155,7 @@ test("the emitted command really runs: bare token + spaced argument, through eve
 test("the & fallback really runs under PowerShell", { skip: process.platform !== "win32" }, () => {
     const ps = platformShells().find((s) => s.name === "powershell");
     assert.ok(ps, "powershell entry missing");
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-hookamp-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-hookamp-"));
     try {
         // A spaced directory holding a runnable stands in for a node.exe
         // installed under `C:\Program Files` — same shape, no 100MB copy.

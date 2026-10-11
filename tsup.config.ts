@@ -26,9 +26,9 @@ defineConfig({
     // and are never read at runtime, so committing them made every git-based
     // install (and every clone) needlessly heavy — the DSH plugin market
     // installs this package straight from the repository. Run a local build
-    // with BILI_SOURCEMAP=1 when you actually need to debug the bundle:
-    //   BILI_SOURCEMAP=1 npm run build
-    sourcemap: process.env.BILI_SOURCEMAP === "1",
+    // with SOPHIALIN_SOURCEMAP=1 when you actually need to debug the bundle:
+    //   SOPHIALIN_SOURCEMAP=1 npm run build
+    sourcemap: process.env.SOPHIALIN_SOURCEMAP === "1",
     splitting: false,
     shims: false,
     // acp-kernel is a BUILD-TIME dependency: tsup inlines it into dist so the
@@ -76,7 +76,7 @@ defineConfig({
     banner: {
         // Trailing balance: `load({ id, factory: (require) => {` opens call +
         // object + arrow-body, so the footer closes all three.
-        js: "window.__ModuleLoader__.load({ id: \"billion-context\", factory: (require) => {\nvar module = { exports: {} };\nvar exports = module.exports;\n",
+        js: "window.__ModuleLoader__.load({ id: \"sophialin-context\", factory: (require) => {\nvar module = { exports: {} };\nvar exports = module.exports;\n",
     },
     footer: {
         js: "\nreturn module.exports;\n}});",

@@ -25,7 +25,7 @@ const ORIGIN_A = "http://127.0.0.1:18787";
 const ORIGIN_B = "http://127.0.0.1:28787";
 const UPSTREAM = ZCODE_BIGMODEL_ANTHROPIC_UPSTREAM;
 // #1622 made route:"all" the default; these tests pin the explicitly-selected
-// pre-#1622 whitelist behavior (still available via BILI_ZCODE_ROUTE=plans).
+// pre-#1622 whitelist behavior (still available via SOPHIALIN_ZCODE_ROUTE=plans).
 const PLANS_POLICY: ZcodeRoutePolicy = { route: "plans", directPrefixes: [], assumeSigningFixed: false };
 
 function dataDir(): string {
@@ -99,7 +99,7 @@ test("applyZcodeRouting legacy wraps plan entries and preserves everything else 
     assert.equal(out.wrapped.length, 1);
     assert.deepEqual(out.wrapped[0], { id: "builtin:bigmodel-coding-plan", upstream: UPSTREAM });
     const parsed = JSON.parse(out.text) as typeof doc;
-    assert.equal(parsed.provider["builtin:bigmodel-coding-plan"].options.baseURL, `${ORIGIN_A}/bili/${UPSTREAM}`);
+    assert.equal(parsed.provider["builtin:bigmodel-coding-plan"].options.baseURL, `${ORIGIN_A}/sophialin/${UPSTREAM}`);
     assert.equal(parsed.provider["builtin:bigmodel-coding-plan"].name, "bigmodel");
     assert.equal(parsed.provider["custom:mine"].options.baseURL, "https://example.com/v1");
     assert.equal(parsed.theme, "dark");
@@ -112,7 +112,7 @@ test("applyZcodeRouting legacy re-wraps across sessions with different ports", (
     assert.equal(twice.wrapped.length, 1);
     assert.equal(twice.wrapped[0].upstream, UPSTREAM);
     const parsed = JSON.parse(twice.text) as { provider: Record<string, { options: { baseURL: string } }> };
-    assert.equal(parsed.provider["builtin:bigmodel-coding-plan"].options.baseURL, `${ORIGIN_B}/bili/${UPSTREAM}`);
+    assert.equal(parsed.provider["builtin:bigmodel-coding-plan"].options.baseURL, `${ORIGIN_B}/sophialin/${UPSTREAM}`);
 });
 
 test("applyZcodeRouting legacy keeps a user-custom upstream and defaults invalid ones — route:\"plans\"", () => {
@@ -141,7 +141,7 @@ test("applyZcodeRouting legacy creates the canonical bigmodel set when nothing e
     );
     const parsed = JSON.parse(out.text) as { provider: Record<string, { options: { baseURL: string } }> };
     for (const id of ["builtin:bigmodel-coding-plan", "builtin:bigmodel-start-plan"]) {
-        assert.equal(parsed.provider[id].options.baseURL, `${ORIGIN_A}/bili/${UPSTREAM}`);
+        assert.equal(parsed.provider[id].options.baseURL, `${ORIGIN_A}/sophialin/${UPSTREAM}`);
     }
 });
 
@@ -165,9 +165,9 @@ test("applyZcodeRouting new wraps account:* rules and leaves others alone — ro
     );
     const parsed = JSON.parse(out.text) as typeof doc;
     const rules = parsed.config.providerConfigRules.providerRules as Array<{ providerId: string; config: { api: Record<string, unknown> } }>;
-    assert.equal(rules[0].config.api.baseUrl, `${ORIGIN_A}/bili/${UPSTREAM}`);
+    assert.equal(rules[0].config.api.baseUrl, `${ORIGIN_A}/sophialin/${UPSTREAM}`);
     assert.equal(rules[1].config.api.type, "openai-chat-completions");
-    assert.equal(rules[1].config.api.baseUrl, `${ORIGIN_A}/bili/https://z.z.ai/api`);
+    assert.equal(rules[1].config.api.baseUrl, `${ORIGIN_A}/sophialin/https://z.z.ai/api`);
     assert.equal(rules[2].config.api.baseUrl, "https://example.com");
 });
 
@@ -220,7 +220,7 @@ test("applyZcodeRouting refuses malformed or wrong-shaped input loudly", () => {
 test("stampZcodePluginHeader stamps wrapped entries only and is byte-stable", () => {
     const doc = {
         provider: {
-            "builtin:bigmodel-coding-plan": { options: { baseURL: `${ORIGIN_A}/bili/${UPSTREAM}`, headers: { "x-foo": "bar" } } },
+            "builtin:bigmodel-coding-plan": { options: { baseURL: `${ORIGIN_A}/sophialin/${UPSTREAM}`, headers: { "x-foo": "bar" } } },
             "custom:mine": { options: { baseURL: "https://example.com/v1", headers: { "x-foo": "bar" } } },
         },
     };
@@ -228,7 +228,7 @@ test("stampZcodePluginHeader stamps wrapped entries only and is byte-stable", ()
     const stamped = stampZcodePluginHeader(text, "legacy");
     assert.notEqual(stamped, text);
     const parsed = JSON.parse(stamped) as typeof doc;
-    assert.deepEqual(parsed.provider["builtin:bigmodel-coding-plan"].options.headers, { "x-foo": "bar", "x-bili-plugin": "zcode" });
+    assert.deepEqual(parsed.provider["builtin:bigmodel-coding-plan"].options.headers, { "x-foo": "bar", "x-sophialin-plugin": "zcode" });
     assert.deepEqual(parsed.provider["custom:mine"].options.headers, { "x-foo": "bar" });
     assert.equal(stampZcodePluginHeader(stamped, "legacy"), stamped);
     const unwrapped = JSON.stringify({ provider: { "custom:mine": { options: { baseURL: "https://example.com/v1" } } } });
@@ -236,7 +236,7 @@ test("stampZcodePluginHeader stamps wrapped entries only and is byte-stable", ()
 });
 
 test("unrouteZcodeText strips wrapper and header in place", () => {
-    const doc = { provider: { "builtin:bigmodel-coding-plan": { options: { baseURL: `${ORIGIN_A}/bili/${UPSTREAM}`, headers: { "x-bili-plugin": "zcode", keep: "1" } } } } };
+    const doc = { provider: { "builtin:bigmodel-coding-plan": { options: { baseURL: `${ORIGIN_A}/sophialin/${UPSTREAM}`, headers: { "x-sophialin-plugin": "zcode", keep: "1" } } } } };
     const once = unrouteZcodeText(JSON.stringify(doc), "legacy");
     assert.equal(once.changed, true);
     const parsed = JSON.parse(once.text) as typeof doc;
@@ -254,7 +254,7 @@ test("inspectZcodeRouting reports the routed entries per store kind", () => {
 
         assert.equal(inspectZcodeRouting(dir), undefined);
 
-        const legacyDoc = { provider: { "builtin:bigmodel-coding-plan": { options: { baseURL: `${ORIGIN_A}/bili/${UPSTREAM}` } } } };
+        const legacyDoc = { provider: { "builtin:bigmodel-coding-plan": { options: { baseURL: `${ORIGIN_A}/sophialin/${UPSTREAM}` } } } };
         writeFileSync(zcodeStoreCandidates(dir, "legacy")[0], JSON.stringify(legacyDoc));
         assert.deepEqual(inspectZcodeRouting(dir), {
             kind: "legacy",
@@ -266,7 +266,7 @@ test("inspectZcodeRouting reports the routed entries per store kind", () => {
             schemaVersion: 1,
             config: {
                 providerConfigRules: {
-                    providerRules: [{ providerId: "account:bigmodel-individual-coding-plan", config: { api: { baseUrl: `${ORIGIN_B}/bili/${UPSTREAM}` } } }],
+                    providerRules: [{ providerId: "account:bigmodel-individual-coding-plan", config: { api: { baseUrl: `${ORIGIN_B}/sophialin/${UPSTREAM}` } } }],
                 },
             },
         };

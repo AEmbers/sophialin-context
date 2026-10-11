@@ -21,7 +21,7 @@ import { rmrf } from "./tmp-rm.ts";
  *  the retry/backoff budget first — the reported 十几秒 stall). The proxy must
  *  therefore answer every WebSocket upgrade with a clean, immediately-closed
  *  426, both on plain connections and on MITM-decrypted TLS connections (the
- *  `bili codex` path). */
+ *  `sophialin codex` path). */
 
 function close(server: http.Server): Promise<void> {
     return new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
@@ -106,10 +106,10 @@ test("ws upgrade: answered with 426 + close on a plain connection", async () => 
     }
 });
 
-test("ws upgrade: answered with 426 + close on an MITM-decrypted TLS connection (bili codex path)", async () => {
+test("ws upgrade: answered with 426 + close on an MITM-decrypted TLS connection (sophialin codex path)", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "bili-ws-"));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-ws-"));
     const prevDataHome = process.env.XDG_DATA_HOME;
     process.env.XDG_DATA_HOME = tmp;
     resetCaForTest();

@@ -78,7 +78,7 @@ async function startRig(): Promise<Rig> {
         new Promise((resolve, reject) => s.close((e) => (e ? reject(e) : resolve())));
     return {
         proxyUrl: (path) => `http://127.0.0.1:${proxyPort}${path}`,
-        chatUrl: () => `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/chat/completions`,
+        chatUrl: () => `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/chat/completions`,
         upstreamBodies,
         closeAll: async () => {
             await closeOne(proxy);
@@ -104,7 +104,7 @@ function postChatRaw(rig: Rig, body: Record<string, unknown>): Promise<Response>
 }
 
 async function register(rig: Rig, conversationId: string, agent: string, identity: boolean): Promise<void> {
-    const res = await fetch(rig.proxyUrl("/__bili/plugin/register"), {
+    const res = await fetch(rig.proxyUrl("/__sophialin/plugin/register"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ conversationId, agent, identity }),
@@ -113,7 +113,7 @@ async function register(rig: Rig, conversationId: string, agent: string, identit
 }
 
 async function status(rig: Rig, conversationId: string): Promise<{ ok: boolean; pluginAgent?: string | null; panel?: string }> {
-    const res = await fetch(rig.proxyUrl(`/__bili/plugin/status?conversationId=${encodeURIComponent(conversationId)}`));
+    const res = await fetch(rig.proxyUrl(`/__sophialin/plugin/status?conversationId=${encodeURIComponent(conversationId)}`));
     return (await res.json()) as { ok: boolean; pluginAgent?: string | null; panel?: string };
 }
 

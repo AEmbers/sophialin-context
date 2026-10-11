@@ -1,12 +1,12 @@
 // zcode native MCP entry (#1145): spawned per-session by ZCode (mcp.servers.
-// bili). Bootstraps a bili proxy, routes the provider store through it,
+// sophialin). Bootstraps a sophialin proxy, routes the provider store through it,
 // verifies the ACP tool manifest BEFORE stamping the plugin-mode header
 // (round 1 rides wire mode), then serves the ACP tools over stdio with a
 // watchdog that respawns the proxy or reverts routing on its death. #1623:
 // every tick also repairs a shared-store pointer left dead by ANY instance
 // (last-writer-wins means our own death can strand it too), and exiting this
 // process hands OUR pointer off instead of leaving a dead port behind. Logs
-// go through the shared bili.log tee because zcode does not capture this
+// go through the shared sophialin.log tee because zcode does not capture this
 // child's stderr.
 
 import { runMcpStdio } from "../mcp.js";
@@ -56,7 +56,7 @@ function startWatchdog(
                     } else {
                         // #1660: same zone semantics as
                         // zcode/native.ts defaultEnsureProxy — explicit
-                        // BILI_ZCODE_PORT is strict; otherwise port 0 lets the
+                        // SOPHIALIN_ZCODE_PORT is strict; otherwise port 0 lets the
                         // launcher resolve the zone preference AND settle the
                         // actually-bound port sticky (#1660).
                         const explicit = resolveZcodeNativePort();
@@ -65,7 +65,7 @@ function startWatchdog(
                             { scriptPath: nativeProxyScriptPath() },
                         );
                         if (handle.origin !== state.origin) {
-                            process.env.BILI_MCP_PROXY = handle.origin;
+                            process.env.SOPHIALIN_MCP_PROXY = handle.origin;
                             const routed = await routeZcodeConfig({ origin: handle.origin, log, policy: state.policy });
                             if (!routed) throw new Error("proxy respawned but the zcode config rewrite failed");
                             await activateZcodePluginMode(routed, { log });
@@ -103,7 +103,7 @@ function installExitHandoff(state: { origin: string }, log: (msg: string) => voi
 export async function main(): Promise<void> {
     if (process.env.NODE_TEST_CONTEXT !== undefined) return;
     configureLogger(defaultLogFile());
-    const log = (msg: string) => teeLog("info", `[bili-zcode] ${msg}`);
+    const log = (msg: string) => teeLog("info", `[sophialin-zcode] ${msg}`);
     let bootstrap;
     try {
         bootstrap = await bootstrapZcodeNative({ log });
@@ -118,7 +118,7 @@ export async function main(): Promise<void> {
     if (!applied) {
         process.exit(0);
     }
-    process.env.BILI_MCP_PROXY = applied.origin;
+    process.env.SOPHIALIN_MCP_PROXY = applied.origin;
     try {
         const tools = await fetchManifest(applied.origin, "anthropic");
         if (tools.length === 0) throw new Error("manifest returned no tools");
@@ -129,7 +129,7 @@ export async function main(): Promise<void> {
     }
     await activateZcodePluginMode(applied, { log });
     // #1622: the watchdog respawn path must re-route with the SAME policy
-    // (BILI_ZCODE_ROUTE / providers direct) — not the hardcoded default.
+    // (SOPHIALIN_ZCODE_ROUTE / providers direct) — not the hardcoded default.
     const state = { origin: applied.origin, policy: zcodePolicyFromEnv(process.env) };
     startWatchdog(state, bootstrap.attached, log);
     installExitHandoff(state, log);
@@ -138,7 +138,7 @@ export async function main(): Promise<void> {
 
 if (process.argv[1] && /(?:^|[\\/])mcp-entry\.(?:ts|js)$/.test(process.argv[1])) {
     main().catch((err) => {
-        process.stderr.write(`[bili-zcode] fatal: ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
+        process.stderr.write(`[sophialin-zcode] fatal: ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
         process.exit(1);
     });
 }

@@ -1,5 +1,6 @@
 import { createInitialState, defaultConfig, resetImageFullState, type CompressionState, type Config, type CoreMessage, type MessageContentStore } from "acp-kernel";
 import { createHash } from "node:crypto";
+import type { ImageOffloadRecord } from "./image-offload.js";
 import { log as loggerLog } from "./logger.js";
 import { getStore } from "./persist.js";
 import type { WireProtocol } from "./util.js";
@@ -182,6 +183,11 @@ export type Session = {
         imageFullCalls?: number;
         /** #1095: image_full calls that restored a downscaled ref. */
         imageFullRestores?: number;
+        /** DSH-offload compat: image occurrences removed from the wire because
+         *  the request exceeded its inline image budget (lifetime). */
+        imageOffloadedCount?: number;
+        /** DSH-offload compat: cumulative decoded bytes removed by offload. */
+        imageBytesOffloaded?: number;
         /** #1179 CCR v2: range-level decompress restores served (ephemeral channel). */
         rangeRestores: number;
         /** #1336: whole-block decompress restores served. Optional — absent in
@@ -257,6 +263,13 @@ export type Session = {
      *  original payloads shrunk per ref — lets image_full invalidate the exact
      *  encode-cache entries a restored ref contributed. */
     imageFingerprintsByRef?: Map<string, string[]>;
+    /** DSH-offload compat: occurrences removed from the wire because the
+     *  request exceeded its inline image budget, oldest-first. In-memory only
+     *  (NOT persisted): selection is recomputed deterministically from the
+     *  durable history on every request, so a reload reproduces the same
+     *  prefix. Kept so image_full can refuse a dropped ref and so the usage
+     *  suffix can report the running count. */
+    imageOffloads?: ImageOffloadRecord[];
     /** Number of in-flight requests using this session. A session with
      *  inFlight > 0 must NOT be LRU-evicted: evicting it mid-stream flushes a
      *  half-mutated snapshot and then a miss reloads a SECOND Session object,
@@ -376,7 +389,7 @@ export function diagnoseSuccessWithoutUsage(session: Session, wire: string): voi
 const sessions = new Map<string, Session>();
 
 // `|| 256` only catches falsy (0/NaN); Math.max(1, ...) also rejects negatives.
-let MAX_SESSIONS = Math.max(1, Number.parseInt(process.env.BILI_MAX_SESSIONS ?? "256", 10) || 256);
+let MAX_SESSIONS = Math.max(1, Number.parseInt(process.env.SOPHIALIN_MAX_SESSIONS ?? "256", 10) || 256);
 
 let initialized = false;
 
@@ -514,7 +527,7 @@ export function peekSession(id: string): Session | undefined {
 
 // #1086: does THIS instance hold processed compression state for the given
 // conversation? Memory first, then the persisted record (covers the
-// auto-update restart: memory is gone, disk state survives). A bili instance
+// auto-update restart: memory is gone, disk state survives). A sophialin instance
 // only ever creates a session record when it PROCESSED the request, so
 // "record exists" ⇒ "the ACP artifacts this client re-sends are ours" — the
 // exemption the chain-detection content fallback needs before passing a
@@ -631,6 +644,10 @@ export function resetSessionCompression(session: Session): void {
     // fingerprint entries keyed by old refs would misattribute after rebase.
     session.imageEncodeCache?.clear();
     session.imageFingerprintsByRef?.clear();
+    // DSH-offload compat: same ref-reissue rationale — the ledger names refs
+    // from the pre-compaction history, so it must be rebuilt by the next pass
+    // rather than carried across the rebase.
+    session.imageOffloads = undefined;
     session.stats.lastInputTokens = 0;
     // #857: a zeroed baseline carries no provenance — drop any stale flag.
     delete session.stats.lastInputTokensSource;

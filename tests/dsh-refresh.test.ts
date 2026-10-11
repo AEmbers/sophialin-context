@@ -20,7 +20,7 @@ import { rmrf } from "./tmp-rm.ts";
 // — planDshSpawn (#679 spawn rules) ---------------------------------
 
 test("planDshSpawn: posix passthrough", () => {
-    assert.deepEqual(planDshSpawn("dsh", ["plugin", "--profile", "x", "add", "billion-context"], {}, "linux"), { command: "dsh", args: ["plugin", "--profile", "x", "add", "billion-context"] });
+    assert.deepEqual(planDshSpawn("dsh", ["plugin", "--profile", "x", "add", "sophialin-context"], {}, "linux"), { command: "dsh", args: ["plugin", "--profile", "x", "add", "sophialin-context"] });
 });
 
 test("planDshSpawn: win32 bare names and .cmd shims ride comspec /d /s /c", () => {
@@ -40,8 +40,8 @@ test("planDshSpawn: win32 bare names and .cmd shims ride comspec /d /s /c", () =
 
 // — resolveDshBinary (#1732) ------------------------------------------
 
-test("resolveDshBinary: BILI_DSH_BIN override wins even when the path does not exist", () => {
-    assert.equal(resolveDshBinary({ BILI_DSH_BIN: "C:\\odd\\dsh.exe" }, "win32", () => false), "C:\\odd\\dsh.exe");
+test("resolveDshBinary: SOPHIALIN_DSH_BIN override wins even when the path does not exist", () => {
+    assert.equal(resolveDshBinary({ SOPHIALIN_DSH_BIN: "C:\\odd\\dsh.exe" }, "win32", () => false), "C:\\odd\\dsh.exe");
 });
 
 test("resolveDshBinary: win32 PATH hit returns the full path", () => {
@@ -96,14 +96,14 @@ test("resolveDshBinary: posix PATH hit, ~/.local/bin fallback, PATH beats known 
 });
 
 test("runDshPlugin: spawns the resolved binary, not a hardcoded bare name (#1732)", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dsh-resolve-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-dsh-resolve-"));
     try {
         const binName = process.platform === "win32" ? "dsh.cmd" : "dsh";
         fs.writeFileSync(path.join(dir, binName), "");
         const seen: DshPlan[] = [];
         _setDshRunnersForTest({ sync: (plan) => { seen.push(plan); return { stdout: "", stderr: "" }; } });
         const env = { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH ?? ""}` };
-        runDshPlugin(["plugin", "--profile", "x", "add", "billion-context"], env);
+        runDshPlugin(["plugin", "--profile", "x", "add", "sophialin-context"], env);
         const resolved = `${dir}/${binName}`;
         if (process.platform === "win32") {
             // #679: .cmd shims spawn through comspec /d /s /c — the resolved path lives in the wrapped line
@@ -153,17 +153,17 @@ test("decodeChildOutput: pure-trap GBK that is also valid UTF-8 still decodes as
 
 test("isRegistryDepSpec: registry forms yes, local pins no", () => {
     for (const s of ["^0.1.120", "~0.1.0", "0.1.120", ">=0.1.0", "latest", "dev"]) assert.equal(isRegistryDepSpec(s), true, s);
-    for (const s of ["link:/home/u/bc", "link:C:\\dev\\bc", "file:/tmp/bc.tgz", "workspace:*", "git+https://github.com/x/y.git", "github:ranxianglei/billion-context"]) assert.equal(isRegistryDepSpec(s), false, s);
+    for (const s of ["link:/home/u/bc", "link:C:\\dev\\bc", "file:/tmp/bc.tgz", "workspace:*", "git+https://github.com/x/y.git", "github:AEmbers/sophialin-context"]) assert.equal(isRegistryDepSpec(s), false, s);
 });
 
 test("dshProfileDepSpec / dshProfileDependsOnBili read the manifest dependency", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dsh-depspec-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-dsh-depspec-"));
     try {
         assert.equal(dshProfileDepSpec(dir), undefined);
         assert.equal(dshProfileDependsOnBili(dir), false);
         fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ dependencies: {} }));
         assert.equal(dshProfileDepSpec(dir), undefined);
-        fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ dependencies: { "billion-context": "^0.1.120" } }));
+        fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ dependencies: { "sophialin-context": "^0.1.120" } }));
         assert.equal(dshProfileDepSpec(dir), "^0.1.120");
         assert.equal(dshProfileDependsOnBili(dir), true);
     } finally {
@@ -176,7 +176,7 @@ test("dshProfileDepSpec / dshProfileDependsOnBili read the manifest dependency",
 type Manifest = { name?: string; dependencies?: Record<string, string>; dsh?: { profile?: { bundles?: string[] } } };
 
 function makeHome(entries: Record<string, Manifest | undefined>): string {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dsh-refresh-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-dsh-refresh-"));
     for (const [name, manifest] of Object.entries(entries)) {
         fs.mkdirSync(path.join(home, "profiles", name), { recursive: true });
         if (manifest) fs.writeFileSync(path.join(home, "profiles", name, "package.json"), JSON.stringify(manifest));
@@ -202,10 +202,10 @@ function recordingAsyncRunner(calls: string[], failNames?: Set<string>): (plan: 
 
 test("refreshDshProfileBundles: registry-pinned profiles get the exact new version, local pins stay put", async () => {
     const home = makeHome({
-        a: { dependencies: { "billion-context": "^0.1.119" } },
-        b: { dependencies: { "billion-context": "link:/home/u/dev/bc" } },
+        a: { dependencies: { "sophialin-context": "^0.1.119" } },
+        b: { dependencies: { "sophialin-context": "link:/home/u/dev/bc" } },
         c: {},
-        d: { dependencies: { "billion-context": "file:/tmp/bc.tgz" } },
+        d: { dependencies: { "sophialin-context": "file:/tmp/bc.tgz" } },
     });
     const calls: string[] = [];
     const logs: string[] = [];
@@ -213,7 +213,7 @@ test("refreshDshProfileBundles: registry-pinned profiles get the exact new versi
     try {
         _setDshRunnersForTest({ async: recordingAsyncRunner(calls) });
         await refreshDshProfileBundles("0.1.121", log, { ...process.env, DSH_HOME: home });
-        assert.deepEqual(calls, ["plugin --profile a add billion-context@0.1.121"]);
+        assert.deepEqual(calls, ["plugin --profile a add sophialin-context@0.1.121"]);
         assert.ok(logs.some((l) => l.includes("refreshed 1 dsh profile bundle(s) to 0.1.121")));
         assert.ok(logs.some((l) => l.includes("dsh profile b") && l.includes("leaving it alone")));
         assert.ok(logs.some((l) => l.includes("dsh profile d") && l.includes("leaving it alone")));
@@ -225,19 +225,19 @@ test("refreshDshProfileBundles: registry-pinned profiles get the exact new versi
 
 test("refreshDshProfileBundles: one profile's failure does not stop the rest and never throws", async () => {
     const home = makeHome({
-        a: { dependencies: { "billion-context": "^0.1.119" } },
-        b: { dependencies: { "billion-context": "^0.1.119" } },
+        a: { dependencies: { "sophialin-context": "^0.1.119" } },
+        b: { dependencies: { "sophialin-context": "^0.1.119" } },
     });
     const calls: string[] = [];
     const logs: string[] = [];
     try {
         _setDshRunnersForTest({ async: recordingAsyncRunner(calls, new Set(["a"])) });
         await assert.doesNotReject(refreshDshProfileBundles("0.1.121", (l, m) => logs.push(`${l}: ${m}`), { ...process.env, DSH_HOME: home }));
-        assert.deepEqual(calls, ["plugin --profile b add billion-context@0.1.121"]);
+        assert.deepEqual(calls, ["plugin --profile b add sophialin-context@0.1.121"]);
         const failLog = logs.find((l) => l.startsWith("warn") && l.includes("dsh profile a"));
         assert.ok(failLog, "expected a warn log for the failed profile");
         // #1675: error text renders the executed argv — no duplicated "plugin" token
-        assert.ok(failLog.endsWith(`dsh plugin --profile a add billion-context@0.1.121 failed: boom — manual fix: run \`dsh plugin --profile a add billion-context@0.1.121\` from a shell where \`dsh\` resolves (or point BILI_DSH_BIN at dsh's executable)`), failLog);
+        assert.ok(failLog.endsWith(`dsh plugin --profile a add sophialin-context@0.1.121 failed: boom — manual fix: run \`dsh plugin --profile a add sophialin-context@0.1.121\` from a shell where \`dsh\` resolves (or point SOPHIALIN_DSH_BIN at dsh's executable)`), failLog);
         assert.ok(!failLog.includes("plugin plugin"), failLog);
         assert.ok(logs.some((l) => l.includes("refreshed 1 dsh profile bundle(s) to 0.1.121")));
     } finally {
@@ -250,10 +250,10 @@ test("runDshPlugin: failure message renders the executed argv, no duplicated 'pl
     try {
         _setDshRunnersForTest({ sync: () => { throw Object.assign(new Error("exit 1"), { status: 1, stderr: "pnpm not found on PATH" }); } });
         assert.throws(
-            () => runDshPlugin(["plugin", "--profile", "web", "add", "billion-context@0.1.171"]),
+            () => runDshPlugin(["plugin", "--profile", "web", "add", "sophialin-context@0.1.171"]),
             (err: unknown) => {
                 const msg = (err as Error).message;
-                assert.equal(msg, "dsh plugin --profile web add billion-context@0.1.171 failed: pnpm not found on PATH");
+                assert.equal(msg, "dsh plugin --profile web add sophialin-context@0.1.171 failed: pnpm not found on PATH");
                 assert.ok(!msg.includes("plugin plugin"), msg);
                 return true;
             },
@@ -263,7 +263,7 @@ test("runDshPlugin: failure message renders the executed argv, no duplicated 'pl
     }
 });
 
-test("refreshDshProfileBundles: no profiles root or no bili deps → silent no-op", async () => {
+test("refreshDshProfileBundles: no profiles root or no sophialin deps → silent no-op", async () => {
     const logs: string[] = [];
     const log = (level: string, msg: string): void => logs.push(`${level}: ${msg}`);
     await refreshDshProfileBundles("0.1.121", log, { ...process.env, DSH_HOME: "/nonexistent-dsh-home-xyz" });

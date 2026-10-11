@@ -43,28 +43,28 @@ function mockRes(): { res: http.ServerResponse; body(): string } {
 
 describe("runtime-info header parsing (#955)", () => {
     it("max-output is honored only from a plugin request", () => {
-        const headers = { "x-bili-plugin": "dsh", "x-bili-plugin-max-output": "32768" };
+        const headers = { "x-sophialin-plugin": "dsh", "x-sophialin-plugin-max-output": "32768" };
         assert.equal(pluginReportedMaxOutput(headers), 32768);
-        assert.equal(pluginReportedMaxOutput({ "x-bili-plugin-max-output": "32768" }), undefined);
-        assert.equal(pluginReportedMaxOutput({ "x-bili-plugin": "dsh", "x-bili-plugin-max-output": "nope" }), undefined);
-        assert.equal(pluginReportedMaxOutput({ "x-bili-plugin": "dsh", "x-bili-plugin-max-output": "0" }), undefined);
+        assert.equal(pluginReportedMaxOutput({ "x-sophialin-plugin-max-output": "32768" }), undefined);
+        assert.equal(pluginReportedMaxOutput({ "x-sophialin-plugin": "dsh", "x-sophialin-plugin-max-output": "nope" }), undefined);
+        assert.equal(pluginReportedMaxOutput({ "x-sophialin-plugin": "dsh", "x-sophialin-plugin-max-output": "0" }), undefined);
     });
 
     it("model id is honored only from a plugin request and must be a bare token", () => {
-        assert.equal(pluginReportedModel({ "x-bili-plugin": "pi", "x-bili-plugin-model": "qwen3.5-33b" }), "qwen3.5-33b");
-        assert.equal(pluginReportedModel({ "x-bili-plugin-model": "qwen" }), undefined);
-        assert.equal(pluginReportedModel({ "x-bili-plugin": "pi", "x-bili-plugin-model": "a b" }), undefined);
+        assert.equal(pluginReportedModel({ "x-sophialin-plugin": "pi", "x-sophialin-plugin-model": "qwen3.5-33b" }), "qwen3.5-33b");
+        assert.equal(pluginReportedModel({ "x-sophialin-plugin-model": "qwen" }), undefined);
+        assert.equal(pluginReportedModel({ "x-sophialin-plugin": "pi", "x-sophialin-plugin-model": "a b" }), undefined);
     });
 
     it("header/model cross-check: a different body model rejects the plugin headers (#956 hardening)", () => {
-        const h = { "x-bili-plugin": "pi", "x-bili-plugin-model": "qwen-a" };
+        const h = { "x-sophialin-plugin": "pi", "x-sophialin-plugin-model": "qwen-a" };
         assert.equal(pluginHeadersMatchModel(h, "qwen-a"), true);
         assert.equal(pluginHeadersMatchModel(h, "qwen-b"), false);
         // provider/model composite bodies match the bare stamped id
         assert.equal(pluginHeadersMatchModel(h, "sglang/qwen-a"), true);
         assert.equal(pluginHeadersMatchModel(h, "sglang/qwen-b"), false);
         // no model header = pre-#956 trust preserved
-        assert.equal(pluginHeadersMatchModel({ "x-bili-plugin": "pi" }, "qwen-b"), true);
+        assert.equal(pluginHeadersMatchModel({ "x-sophialin-plugin": "pi" }, "qwen-b"), true);
         assert.equal(pluginHeadersMatchModel(h, undefined), true);
     });
 });
@@ -148,8 +148,8 @@ describe("runtime-info endpoint handler (#955)", () => {
         assert.equal(runtimeConversationId({}, {}), undefined);
         assert.equal(runtimeConversationId({}, null), undefined);
         assert.equal(runtimeConversationId({ "x-my-sess": "custom" }, {}, "x-my-sess"), "custom");
-        // x-bili-plugin-conversation alone (no marker) is not honored — same rule as binding
-        assert.equal(runtimeConversationId({ "x-bili-plugin-conversation": "c" }, {}), undefined);
+        // x-sophialin-plugin-conversation alone (no marker) is not honored — same rule as binding
+        assert.equal(runtimeConversationId({ "x-sophialin-plugin-conversation": "c" }, {}), undefined);
     });
 });
 
@@ -181,7 +181,7 @@ describe("reportRuntimeInfoOnChange (#955)", () => {
         reportRuntimeInfoOnChange("http://proxy", { agent: "pi", model: "m1", contextWindow: 1000 });
         await new Promise((r) => setTimeout(r, 10));
         assert.equal(posts.length, 1);
-        assert.equal(posts[0]?.url, "http://proxy/__bili/plugin/runtime-info");
+        assert.equal(posts[0]?.url, "http://proxy/__sophialin/plugin/runtime-info");
 
         reportRuntimeInfoOnChange("http://proxy", { agent: "pi", model: "m2" });
         await new Promise((r) => setTimeout(r, 10));
@@ -238,7 +238,7 @@ describe("reportRuntimeInfoOnChange (#955)", () => {
         reportRuntimeInfoOnChange("http://proxy2", { agent: "omp", model: "astra", conversationId: "sid-o" });
         await new Promise((r) => setTimeout(r, 10));
         assert.equal(posts.length, 2);
-        assert.equal(posts[1]?.url, "http://proxy2/__bili/plugin/runtime-info");
+        assert.equal(posts[1]?.url, "http://proxy2/__sophialin/plugin/runtime-info");
     });
 
     it("#1531: legacy agent-scoped reports (no conversationId) still dedupe per agent", async () => {
@@ -260,7 +260,7 @@ interface Harness {
 async function startHarness(): Promise<Harness> {
     // isolate the state dir: prefix-affinity hydration reattaches anonymous
     // sessions from disk, which would defeat the "no session yet" preconditions
-    const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), "bili-ri-state-"));
+    const stateHome = fs.mkdtempSync(path.join(os.tmpdir(), "sophialin-ri-state-"));
     const prevStateHome = process.env.XDG_STATE_HOME;
     process.env.XDG_STATE_HOME = stateHome;
     const upstream = http.createServer((req, res) => {
@@ -319,83 +319,83 @@ describe("runtime-info in the native-window chain (#955, e2e)", () => {
     });
 
     it("a matching bootstrap report sizes the window when no header carries one", async () => {
-        const report = await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/runtime-info`, {
+        const report = await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/runtime-info`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ agent: "dsh", model: "test-model", contextWindow: 262144, maxOutput: 32768, source: "client-config" }),
         });
         assert.equal(report.status, 200);
 
-        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/bili/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
+        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/sophialin/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
             method: "POST",
-            headers: { "content-type": "application/json", "x-bili-plugin": "dsh", "x-bili-plugin-conversation": "conv-ri-1" },
+            headers: { "content-type": "application/json", "x-sophialin-plugin": "dsh", "x-sophialin-plugin-conversation": "conv-ri-1" },
             body: JSON.stringify({ model: "test-model", stream: false, messages: [{ role: "user", content: "hello" }] }),
         });
         assert.equal(resp.status, 200);
 
-        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/status?conversationId=conv-ri-1`)).json() as { model: string | null; windowSource: string | null; runtimeInfo: { contextWindow?: number } | null };
+        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/status?conversationId=conv-ri-1`)).json() as { model: string | null; windowSource: string | null; runtimeInfo: { contextWindow?: number } | null };
         assert.equal(status.model, "test-model");
         assert.equal(status.windowSource, "runtime-info");
         assert.equal(status.runtimeInfo?.contextWindow, 262144);
     });
 
     it("a per-request window header still outranks the runtime table", async () => {
-        await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/runtime-info`, {
+        await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/runtime-info`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ agent: "dsh", model: "test-model", contextWindow: 111111, source: "client-config" }),
         });
-        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/bili/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
+        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/sophialin/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
             method: "POST",
-            headers: { "content-type": "application/json", "x-bili-plugin": "dsh", "x-bili-plugin-conversation": "conv-ri-2", "x-bili-plugin-context-window": "222222" },
+            headers: { "content-type": "application/json", "x-sophialin-plugin": "dsh", "x-sophialin-plugin-conversation": "conv-ri-2", "x-sophialin-plugin-context-window": "222222" },
             body: JSON.stringify({ model: "test-model", stream: false, messages: [{ role: "user", content: "hello" }] }),
         });
         assert.equal(resp.status, 200);
-        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/status?conversationId=conv-ri-2`)).json() as { windowSource: string | null };
+        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/status?conversationId=conv-ri-2`)).json() as { windowSource: string | null };
         assert.equal(status.windowSource, "plugin");
     });
 
     it("a report for a DIFFERENT model never sizes this request", async () => {
-        await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/runtime-info`, {
+        await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/runtime-info`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ agent: "dsh", model: "other-model", contextWindow: 111111, source: "client-config" }),
         });
-        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/bili/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
+        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/sophialin/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
             method: "POST",
-            headers: { "content-type": "application/json", "x-bili-plugin": "dsh", "x-bili-plugin-conversation": "conv-ri-3" },
+            headers: { "content-type": "application/json", "x-sophialin-plugin": "dsh", "x-sophialin-plugin-conversation": "conv-ri-3" },
             body: JSON.stringify({ model: "test-model", stream: false, messages: [{ role: "user", content: "hello" }] }),
         });
         assert.equal(resp.status, 200);
-        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/status?conversationId=conv-ri-3`)).json() as { windowSource: string | null };
+        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/status?conversationId=conv-ri-3`)).json() as { windowSource: string | null };
         assert.notEqual(status.windowSource, "runtime-info");
     });
 
     // #1531: header-less agents (omp native) resolve their conversation-scoped
-    // report through the prompt_cache_key identity — no x-bili-plugin header is
+    // report through the prompt_cache_key identity — no x-sophialin-plugin header is
     // ever sent on model requests by this lane.
     it("#1531: a header-less request adopts its own conversation-scoped report via prompt_cache_key", async () => {
-        const register = await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/register`, {
+        const register = await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/register`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: "sid-omp-1", agent: "omp", identity: true }),
         });
         assert.equal(register.status, 200);
-        const report = await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/runtime-info`, {
+        const report = await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/runtime-info`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ agent: "omp", model: "test-model", contextWindow: 262144, maxOutput: 32768, conversationId: "sid-omp-1", source: "client-config" }),
         });
         assert.equal(report.status, 200);
 
-        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/bili/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
+        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/sophialin/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ model: "test-model", stream: false, prompt_cache_key: "sid-omp-1", messages: [{ role: "user", content: "hello" }] }),
         });
         assert.equal(resp.status, 200);
 
-        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/status?conversationId=sid-omp-1`)).json() as { pluginAgent: string | null; model: string | null; windowSource: string | null; contextLimit: number | null; runtimeInfo: { contextWindow?: number } | null };
+        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/status?conversationId=sid-omp-1`)).json() as { pluginAgent: string | null; model: string | null; windowSource: string | null; contextLimit: number | null; runtimeInfo: { contextWindow?: number } | null };
         assert.equal(status.pluginAgent, "omp");
         assert.equal(status.model, "test-model");
         assert.equal(status.windowSource, "runtime-info");
@@ -406,19 +406,19 @@ describe("runtime-info in the native-window chain (#955, e2e)", () => {
 
     it("#1531: sibling sessions no longer clobber each other's windows", async () => {
         const postReport = (model: string, window: number, maxOut: number, sid: string) =>
-            fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/runtime-info`, {
+            fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/runtime-info`, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ agent: "omp", model, contextWindow: window, maxOutput: maxOut, conversationId: sid, source: "client-config" }),
             });
         const ask = async (model: string, sid: string): Promise<{ windowSource: string | null; contextLimit: number | null }> => {
-            const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/bili/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
+            const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/sophialin/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ model, stream: false, prompt_cache_key: sid, messages: [{ role: "user", content: "hello" }] }),
             });
             assert.equal(resp.status, 200);
-            return (await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/status?conversationId=${sid}`)).json() as { windowSource: string | null; contextLimit: number | null };
+            return (await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/status?conversationId=${sid}`)).json() as { windowSource: string | null; contextLimit: number | null };
         };
 
         await postReport("astra", 262144, 32768, "sid-a");
@@ -439,41 +439,41 @@ describe("runtime-info in the native-window chain (#955, e2e)", () => {
     });
 
     it("#1531: a per-agent header still wins exclusively over a conversation entry", async () => {
-        await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/runtime-info`, {
+        await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/runtime-info`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ agent: "omp", model: "test-model", contextWindow: 100000, maxOutput: 10000, source: "client-config" }),
         });
-        await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/runtime-info`, {
+        await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/runtime-info`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ agent: "omp", model: "test-model", contextWindow: 262144, maxOutput: 32768, conversationId: "sid-h", source: "client-config" }),
         });
-        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/bili/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
+        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/sophialin/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
             method: "POST",
-            headers: { "content-type": "application/json", "x-bili-plugin": "omp", "x-bili-plugin-conversation": "sid-h" },
+            headers: { "content-type": "application/json", "x-sophialin-plugin": "omp", "x-sophialin-plugin-conversation": "sid-h" },
             body: JSON.stringify({ model: "test-model", stream: false, prompt_cache_key: "sid-h", messages: [{ role: "user", content: "hello" }] }),
         });
         assert.equal(resp.status, 200);
-        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/status?conversationId=sid-h`)).json() as { windowSource: string | null; contextLimit: number | null };
+        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/status?conversationId=sid-h`)).json() as { windowSource: string | null; contextLimit: number | null };
         assert.equal(status.windowSource, "runtime-info");
         // 100000 − min(10000, cap × 100000) = 90000 — the AGENT-SLOT entry, not the conv entry's 229376
         assert.equal(status.contextLimit, 90000);
     });
 
     it("#1531: no conversation signal + no header still misses (plain clients unchanged)", async () => {
-        await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/runtime-info`, {
+        await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/runtime-info`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ agent: "omp", model: "test-model", contextWindow: 262144, maxOutput: 32768, conversationId: "sid-orphan", source: "client-config" }),
         });
-        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/bili/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
+        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/sophialin/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ model: "test-model", stream: false, messages: [{ role: "user", content: "hello" }] }),
         });
         assert.equal(resp.status, 200);
-        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/status?conversationId=sid-orphan`)).json().catch(() => null) as { windowSource: string | null } | null;
+        const status = await (await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/status?conversationId=sid-orphan`)).json().catch(() => null) as { windowSource: string | null } | null;
         if (status !== null) assert.notEqual(status.windowSource, "runtime-info");
     });
 });
@@ -491,7 +491,7 @@ describe("runtime-info pre-first-request status (#955)", () => {
     });
 
     it("answers from the agent-keyed table before any session exists", async () => {
-        const report = await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/runtime-info`, {
+        const report = await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/runtime-info`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ agent: "dsh", model: "test-model", contextWindow: 262144, maxOutput: 32768, source: "client-config" }),
@@ -500,7 +500,7 @@ describe("runtime-info pre-first-request status (#955)", () => {
 
         // clients without a stable conversation id probe with their agent name
         // (fetchStatusLatest hardcodes conversationId=dsh&fallback=latest)
-        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/status?conversationId=dsh&fallback=latest`);
+        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/status?conversationId=dsh&fallback=latest`);
         assert.equal(resp.status, 200);
         const json = (await resp.json()) as { ok: boolean; phase?: string; model: string | null; contextLimit: number | null; runtimeInfo: { maxOutput?: number } | null; panel: unknown };
         assert.equal(json.ok, true);
@@ -512,25 +512,25 @@ describe("runtime-info pre-first-request status (#955)", () => {
     });
 
     it("still 404s when nothing was reported", async () => {
-        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/status?conversationId=dsh&fallback=latest`);
+        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/status?conversationId=dsh&fallback=latest`);
         assert.equal(resp.status, 404);
         const json = (await resp.json()) as { error: string };
         assert.match(json.error, /no session with activity since boot/);
     });
 
     it("yields to the real session once a model request lands", async () => {
-        await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/runtime-info`, {
+        await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/runtime-info`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ agent: "dsh", model: "test-model", contextWindow: 262144, source: "client-config" }),
         });
-        const req = await fetch(`http://127.0.0.1:${h!.proxyPort}/bili/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
+        const req = await fetch(`http://127.0.0.1:${h!.proxyPort}/sophialin/http://127.0.0.1:${h!.upstreamPort}/v1/chat/completions`, {
             method: "POST",
-            headers: { "content-type": "application/json", "x-bili-plugin": "dsh", "x-bili-plugin-conversation": "conv-pre-1" },
+            headers: { "content-type": "application/json", "x-sophialin-plugin": "dsh", "x-sophialin-plugin-conversation": "conv-pre-1" },
             body: JSON.stringify({ model: "test-model", stream: false, messages: [{ role: "user", content: "hello" }] }),
         });
         assert.equal(req.status, 200);
-        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/__bili/plugin/status?conversationId=dsh&fallback=latest`);
+        const resp = await fetch(`http://127.0.0.1:${h!.proxyPort}/__sophialin/plugin/status?conversationId=dsh&fallback=latest`);
         assert.equal(resp.status, 200);
         const json = (await resp.json()) as { phase?: string; conversationId: string };
         assert.equal(json.phase, undefined);

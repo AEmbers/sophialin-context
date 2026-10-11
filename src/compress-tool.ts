@@ -104,17 +104,17 @@ export { ACP_TOOL_NAMES as PROXY_TOOL_NAMES, ACP_MUTATING_TOOLS as MUTATING_PROX
 // conversation_id extension (#841/#760) is REMOVED — the model never sees a
 // conversation id anymore, so it cannot cite one. Cross-session search keeps
 // working for hosts that pass a target id out-of-band; the schema the model
-// sees is the kernel constant, verbatim. The BILI_ copies stay as the
+// sees is the kernel constant, verbatim. The SOPHIALIN_ copies stay as the
 // served-shape anchor the wire-contract golden test pins.
 type JsonSchemaObject = { type: string; properties?: Record<string, unknown>; required?: string[] };
 
-export const BILI_SEARCH_CONTEXT_TOOL = {
+export const SOPHIALIN_SEARCH_CONTEXT_TOOL = {
     name: SEARCH_CONTEXT_TOOL.name,
     description: SEARCH_CONTEXT_TOOL.description,
     input_schema: SEARCH_CONTEXT_TOOL.input_schema as JsonSchemaObject,
 };
 
-export const BILI_SEARCH_CONTEXT_TOOL_OPENAI = {
+export const SOPHIALIN_SEARCH_CONTEXT_TOOL_OPENAI = {
     type: "function" as const,
     function: {
         name: SEARCH_CONTEXT_TOOL_OPENAI.function.name,
@@ -123,14 +123,14 @@ export const BILI_SEARCH_CONTEXT_TOOL_OPENAI = {
     },
 };
 
-export const BILI_SEARCH_CONTEXT_TOOL_RESPONSES = {
+export const SOPHIALIN_SEARCH_CONTEXT_TOOL_RESPONSES = {
     type: "function" as const,
     name: SEARCH_CONTEXT_TOOL_RESPONSES.name,
     description: SEARCH_CONTEXT_TOOL_RESPONSES.description,
     parameters: SEARCH_CONTEXT_TOOL_RESPONSES.parameters as JsonSchemaObject,
 };
 
-export const BILI_SEARCH_CONTEXT_TOOL_GOOGLE = {
+export const SOPHIALIN_SEARCH_CONTEXT_TOOL_GOOGLE = {
     name: SEARCH_CONTEXT_TOOL_GOOGLE.name,
     description: SEARCH_CONTEXT_TOOL_GOOGLE.description,
     parameters: SEARCH_CONTEXT_TOOL_GOOGLE.parameters as JsonSchemaObject,
@@ -152,12 +152,12 @@ const CONTINUATION_ANCHOR_NOTE =
 
 /** Same schema as the kernel's compress tool, with the trigger rubric appended
  *  to the served description. */
-export const BILI_COMPRESS_TOOL = {
+export const SOPHIALIN_COMPRESS_TOOL = {
     ...COMPRESS_TOOL,
     description: COMPRESS_TOOL.description + TRIGGER_RUBRIC_NOTE,
 };
 
-export const BILI_COMPRESS_TOOL_OPENAI = {
+export const SOPHIALIN_COMPRESS_TOOL_OPENAI = {
     ...COMPRESS_TOOL_OPENAI,
     function: {
         ...COMPRESS_TOOL_OPENAI.function,
@@ -165,22 +165,22 @@ export const BILI_COMPRESS_TOOL_OPENAI = {
     },
 };
 
-export const BILI_COMPRESS_TOOL_RESPONSES = {
+export const SOPHIALIN_COMPRESS_TOOL_RESPONSES = {
     ...COMPRESS_TOOL_RESPONSES,
     description: COMPRESS_TOOL_RESPONSES.description + TRIGGER_RUBRIC_NOTE,
 };
 
-export const BILI_COMPRESS_TOOL_GOOGLE = {
+export const SOPHIALIN_COMPRESS_TOOL_GOOGLE = {
     ...COMPRESS_TOOL_GOOGLE,
     description: COMPRESS_TOOL_GOOGLE.description + TRIGGER_RUBRIC_NOTE,
 };
 
 /** The OpenAI tool list carrying the fork's compress description, for the native
  *  faces (opencode v1/v2) that build their own tool objects from the kernel list
- *  rather than from a `BILI_ACP_TOOLS_*` map. Same single swap, so the rubric is
+ *  rather than from a `SOPHIALIN_ACP_TOOLS_*` map. Same single swap, so the rubric is
  *  identical on every face that serves the tool. */
-export const BILI_COMPRESS_OPENAI_TOOLS = ACP_TOOLS_OPENAI.map((t) =>
-    t.function.name === COMPRESS_TOOL_NAME ? BILI_COMPRESS_TOOL_OPENAI : t);
+export const SOPHIALIN_COMPRESS_OPENAI_TOOLS = ACP_TOOLS_OPENAI.map((t) =>
+    t.function.name === COMPRESS_TOOL_NAME ? SOPHIALIN_COMPRESS_TOOL_OPENAI : t);
 
 /** Append the post-compaction continuation anchor to a compress tool result.
  *  Successful folds only: a rejected call changed nothing, so there is no
@@ -212,25 +212,25 @@ function withRangeParams(schema: JsonSchemaObject): JsonSchemaObject {
     return { ...schema, properties: { ...schema.properties, startId: DECOMPRESS_RANGE_PARAM_START, endId: DECOMPRESS_RANGE_PARAM_END } };
 }
 
-export const BILI_DECOMPRESS_TOOL = { name: DECOMPRESS_TOOL.name, description: DECOMPRESS_TOOL.description, input_schema: withRangeParams(DECOMPRESS_TOOL.input_schema) };
-export const BILI_DECOMPRESS_TOOL_OPENAI = { type: "function" as const, function: { name: DECOMPRESS_TOOL_OPENAI.function.name, description: DECOMPRESS_TOOL_OPENAI.function.description, parameters: withRangeParams(DECOMPRESS_TOOL_OPENAI.function.parameters) } };
-export const BILI_DECOMPRESS_TOOL_RESPONSES = { type: "function" as const, name: DECOMPRESS_TOOL_RESPONSES.name, description: DECOMPRESS_TOOL_RESPONSES.description, parameters: withRangeParams(DECOMPRESS_TOOL_RESPONSES.parameters) };
-export const BILI_DECOMPRESS_TOOL_GOOGLE = { name: DECOMPRESS_TOOL_GOOGLE.name, description: DECOMPRESS_TOOL_GOOGLE.description, parameters: withRangeParams(DECOMPRESS_TOOL_GOOGLE.parameters) };
+export const SOPHIALIN_DECOMPRESS_TOOL = { name: DECOMPRESS_TOOL.name, description: DECOMPRESS_TOOL.description, input_schema: withRangeParams(DECOMPRESS_TOOL.input_schema) };
+export const SOPHIALIN_DECOMPRESS_TOOL_OPENAI = { type: "function" as const, function: { name: DECOMPRESS_TOOL_OPENAI.function.name, description: DECOMPRESS_TOOL_OPENAI.function.description, parameters: withRangeParams(DECOMPRESS_TOOL_OPENAI.function.parameters) } };
+export const SOPHIALIN_DECOMPRESS_TOOL_RESPONSES = { type: "function" as const, name: DECOMPRESS_TOOL_RESPONSES.name, description: DECOMPRESS_TOOL_RESPONSES.description, parameters: withRangeParams(DECOMPRESS_TOOL_RESPONSES.parameters) };
+export const SOPHIALIN_DECOMPRESS_TOOL_GOOGLE = { name: DECOMPRESS_TOOL_GOOGLE.name, description: DECOMPRESS_TOOL_GOOGLE.description, parameters: withRangeParams(DECOMPRESS_TOOL_GOOGLE.parameters) };
 
-export const BILI_ACP_TOOLS_ANTHROPIC = ACP_TOOLS_ANTHROPIC.map((t) => (t.name === COMPRESS_TOOL_NAME ? BILI_COMPRESS_TOOL : t.name === SEARCH_CONTEXT_TOOL_NAME ? BILI_SEARCH_CONTEXT_TOOL : t.name === DECOMPRESS_TOOL_NAME ? BILI_DECOMPRESS_TOOL : t));
-export const BILI_ACP_TOOLS_OPENAI = ACP_TOOLS_OPENAI.map((t) => (t.function.name === COMPRESS_TOOL_NAME ? BILI_COMPRESS_TOOL_OPENAI : t.function.name === SEARCH_CONTEXT_TOOL_NAME ? BILI_SEARCH_CONTEXT_TOOL_OPENAI : t.function.name === DECOMPRESS_TOOL_NAME ? BILI_DECOMPRESS_TOOL_OPENAI : t));
-export const BILI_ACP_TOOLS_RESPONSES = ACP_TOOLS_RESPONSES.map((t) => (t.name === COMPRESS_TOOL_NAME ? BILI_COMPRESS_TOOL_RESPONSES : t.name === SEARCH_CONTEXT_TOOL_NAME ? BILI_SEARCH_CONTEXT_TOOL_RESPONSES : t.name === DECOMPRESS_TOOL_NAME ? BILI_DECOMPRESS_TOOL_RESPONSES : t));
-export const BILI_ACP_TOOLS_GOOGLE = ACP_TOOLS_GOOGLE.map((t) => (t.name === COMPRESS_TOOL_NAME ? BILI_COMPRESS_TOOL_GOOGLE : t.name === SEARCH_CONTEXT_TOOL_NAME ? BILI_SEARCH_CONTEXT_TOOL_GOOGLE : t.name === DECOMPRESS_TOOL_NAME ? BILI_DECOMPRESS_TOOL_GOOGLE : t));
+export const SOPHIALIN_ACP_TOOLS_ANTHROPIC = ACP_TOOLS_ANTHROPIC.map((t) => (t.name === COMPRESS_TOOL_NAME ? SOPHIALIN_COMPRESS_TOOL : t.name === SEARCH_CONTEXT_TOOL_NAME ? SOPHIALIN_SEARCH_CONTEXT_TOOL : t.name === DECOMPRESS_TOOL_NAME ? SOPHIALIN_DECOMPRESS_TOOL : t));
+export const SOPHIALIN_ACP_TOOLS_OPENAI = ACP_TOOLS_OPENAI.map((t) => (t.function.name === COMPRESS_TOOL_NAME ? SOPHIALIN_COMPRESS_TOOL_OPENAI : t.function.name === SEARCH_CONTEXT_TOOL_NAME ? SOPHIALIN_SEARCH_CONTEXT_TOOL_OPENAI : t.function.name === DECOMPRESS_TOOL_NAME ? SOPHIALIN_DECOMPRESS_TOOL_OPENAI : t));
+export const SOPHIALIN_ACP_TOOLS_RESPONSES = ACP_TOOLS_RESPONSES.map((t) => (t.name === COMPRESS_TOOL_NAME ? SOPHIALIN_COMPRESS_TOOL_RESPONSES : t.name === SEARCH_CONTEXT_TOOL_NAME ? SOPHIALIN_SEARCH_CONTEXT_TOOL_RESPONSES : t.name === DECOMPRESS_TOOL_NAME ? SOPHIALIN_DECOMPRESS_TOOL_RESPONSES : t));
+export const SOPHIALIN_ACP_TOOLS_GOOGLE = ACP_TOOLS_GOOGLE.map((t) => (t.name === COMPRESS_TOOL_NAME ? SOPHIALIN_COMPRESS_TOOL_GOOGLE : t.name === SEARCH_CONTEXT_TOOL_NAME ? SOPHIALIN_SEARCH_CONTEXT_TOOL_GOOGLE : t.name === DECOMPRESS_TOOL_NAME ? SOPHIALIN_DECOMPRESS_TOOL_GOOGLE : t));
 
 // #1712: no-range variants — identical except decompress lacks startId/endId.
 // Served where range restore cannot be armed so the advertised schema never
 // offers what execution will refuse (see the #1179 note above).
-export const BILI_ACP_TOOLS_ANTHROPIC_NO_RANGE = ACP_TOOLS_ANTHROPIC.map((t) => (t.name === COMPRESS_TOOL_NAME ? BILI_COMPRESS_TOOL : t.name === SEARCH_CONTEXT_TOOL_NAME ? BILI_SEARCH_CONTEXT_TOOL : t));
-export const BILI_ACP_TOOLS_OPENAI_NO_RANGE = ACP_TOOLS_OPENAI.map((t) => (t.function.name === COMPRESS_TOOL_NAME ? BILI_COMPRESS_TOOL_OPENAI : t.function.name === SEARCH_CONTEXT_TOOL_NAME ? BILI_SEARCH_CONTEXT_TOOL_OPENAI : t));
-export const BILI_ACP_TOOLS_RESPONSES_NO_RANGE = ACP_TOOLS_RESPONSES.map((t) => (t.name === COMPRESS_TOOL_NAME ? BILI_COMPRESS_TOOL_RESPONSES : t.name === SEARCH_CONTEXT_TOOL_NAME ? BILI_SEARCH_CONTEXT_TOOL_RESPONSES : t));
-export const BILI_ACP_TOOLS_GOOGLE_NO_RANGE = ACP_TOOLS_GOOGLE.map((t) => (t.name === COMPRESS_TOOL_NAME ? BILI_COMPRESS_TOOL_GOOGLE : t.name === SEARCH_CONTEXT_TOOL_NAME ? BILI_SEARCH_CONTEXT_TOOL_GOOGLE : t));
-export const BILI_ACP_READONLY_TOOLS_RESPONSES_NO_RANGE = ACP_READONLY_TOOLS_RESPONSES.map((t) => (t.name === SEARCH_CONTEXT_TOOL_NAME ? BILI_SEARCH_CONTEXT_TOOL_RESPONSES : t));
-export const BILI_ACP_READONLY_TOOLS_RESPONSES = ACP_READONLY_TOOLS_RESPONSES.map((t) => (t.name === SEARCH_CONTEXT_TOOL_NAME ? BILI_SEARCH_CONTEXT_TOOL_RESPONSES : t.name === DECOMPRESS_TOOL_NAME ? BILI_DECOMPRESS_TOOL_RESPONSES : t));
+export const SOPHIALIN_ACP_TOOLS_ANTHROPIC_NO_RANGE = ACP_TOOLS_ANTHROPIC.map((t) => (t.name === COMPRESS_TOOL_NAME ? SOPHIALIN_COMPRESS_TOOL : t.name === SEARCH_CONTEXT_TOOL_NAME ? SOPHIALIN_SEARCH_CONTEXT_TOOL : t));
+export const SOPHIALIN_ACP_TOOLS_OPENAI_NO_RANGE = ACP_TOOLS_OPENAI.map((t) => (t.function.name === COMPRESS_TOOL_NAME ? SOPHIALIN_COMPRESS_TOOL_OPENAI : t.function.name === SEARCH_CONTEXT_TOOL_NAME ? SOPHIALIN_SEARCH_CONTEXT_TOOL_OPENAI : t));
+export const SOPHIALIN_ACP_TOOLS_RESPONSES_NO_RANGE = ACP_TOOLS_RESPONSES.map((t) => (t.name === COMPRESS_TOOL_NAME ? SOPHIALIN_COMPRESS_TOOL_RESPONSES : t.name === SEARCH_CONTEXT_TOOL_NAME ? SOPHIALIN_SEARCH_CONTEXT_TOOL_RESPONSES : t));
+export const SOPHIALIN_ACP_TOOLS_GOOGLE_NO_RANGE = ACP_TOOLS_GOOGLE.map((t) => (t.name === COMPRESS_TOOL_NAME ? SOPHIALIN_COMPRESS_TOOL_GOOGLE : t.name === SEARCH_CONTEXT_TOOL_NAME ? SOPHIALIN_SEARCH_CONTEXT_TOOL_GOOGLE : t));
+export const SOPHIALIN_ACP_READONLY_TOOLS_RESPONSES_NO_RANGE = ACP_READONLY_TOOLS_RESPONSES.map((t) => (t.name === SEARCH_CONTEXT_TOOL_NAME ? SOPHIALIN_SEARCH_CONTEXT_TOOL_RESPONSES : t));
+export const SOPHIALIN_ACP_READONLY_TOOLS_RESPONSES = ACP_READONLY_TOOLS_RESPONSES.map((t) => (t.name === SEARCH_CONTEXT_TOOL_NAME ? SOPHIALIN_SEARCH_CONTEXT_TOOL_RESPONSES : t.name === DECOMPRESS_TOOL_NAME ? SOPHIALIN_DECOMPRESS_TOOL_RESPONSES : t));
 
 // The kernel ships no Responses-format absorb const (the four ACP tools have
 // *_RESPONSES variants; absorb is host-registered opt-in). Synthesize it in
@@ -423,7 +423,7 @@ export function extractResponsesTextTriggers(
 }
 
 // #189 staged-compression / prefix-survival guidance, appended to the nudge
-// text ONLY when BILI_MAX_SHRINK_PER_COMPRESS is set (the "smooth transition"
+// text ONLY when SOPHIALIN_MAX_SHRINK_PER_COMPRESS is set (the "smooth transition"
 // switch). It steers the model — at the moment it is choosing the range —
 // toward smaller, tail-biased folds so the stable prefix (m00001..foldPoint)
 // survives for prefix caching and each round's request-shape change stays
@@ -450,7 +450,7 @@ export function withStagedCompressGuidance(text: string): string {
 // confirmation lines plus preambles/summaries (incl. non-English commentary)
 // before and after each real compression.
 const MARKER_INTEGRITY_NOTE =
-    "\n\n[ACP marker integrity: lines shaped like '📦 [ACP] Compressed …' or '❌ [ACP] … FAILED' are CONFIRMATION MARKERS emitted by the bili proxy itself, right after it executes a compress/decompress/search_context/acp_status call. They are not something you write. NEVER emit such a line as your own text — writing one fakes a state change that did not happen, and the proxy strips it. To compress, call the compress tool. To verify a compression landed, call acp_status and confirm the block count increased — a confirmation line you wrote yourself proves nothing.";
+    "\n\n[ACP marker integrity: lines shaped like '📦 [ACP] Compressed …' or '❌ [ACP] … FAILED' are CONFIRMATION MARKERS emitted by the sophialin proxy itself, right after it executes a compress/decompress/search_context/acp_status call. They are not something you write. NEVER emit such a line as your own text — writing one fakes a state change that did not happen, and the proxy strips it. To compress, call the compress tool. To verify a compression landed, call acp_status and confirm the block count increased — a confirmation line you wrote yourself proves nothing.";
 const MARKER_SILENCE_CLAUSE =
     " Execute these calls silently: no announcement or preamble before the call, and no completion summary, status line, or marker-style line after it — when the tool returns, continue the task directly as if the call had not happened.]";
 

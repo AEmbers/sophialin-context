@@ -96,7 +96,7 @@ async function startRig(): Promise<Rig> {
     const proxyPort = (proxy.address() as { port: number }).port;
     return {
         proxyUrl: (path) => `http://127.0.0.1:${proxyPort}${path}`,
-        modelUrl: () => `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`,
+        modelUrl: () => `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`,
         upstreamBodies,
         closeAll: async () => {
             await close(proxy);
@@ -114,7 +114,7 @@ function postModel(rig: Rig, conversationId: string, headerName = "x-session-aff
 }
 
 async function toolCall(rig: Rig, conversationId: string, tool = "acp_status", args: Record<string, unknown> = {}): Promise<{ status: number; data: { ok?: boolean; result?: string; error?: string } }> {
-    const res = await fetch(rig.proxyUrl("/__bili/plugin/tool"), {
+    const res = await fetch(rig.proxyUrl("/__sophialin/plugin/tool"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ conversationId, tool, args }),
@@ -123,7 +123,7 @@ async function toolCall(rig: Rig, conversationId: string, tool = "acp_status", a
 }
 
 async function statusOf(rig: Rig, conversationId: string): Promise<{ ok?: boolean; pluginAgent?: string }> {
-    const res = await fetch(rig.proxyUrl(`/__bili/plugin/status?conversationId=${encodeURIComponent(conversationId)}`));
+    const res = await fetch(rig.proxyUrl(`/__sophialin/plugin/status?conversationId=${encodeURIComponent(conversationId)}`));
     return (await res.json()) as { ok?: boolean; pluginAgent?: string };
 }
 
@@ -171,7 +171,7 @@ function canonicalOf(sessionId: string): string {
 test("plugin manifest advertises NO conversation_id in any tool format (#1685 zero-injection)", async () => {
     const rig = await startRig();
     try {
-        const res = await fetch(rig.proxyUrl("/__bili/plugin/manifest"));
+        const res = await fetch(rig.proxyUrl("/__sophialin/plugin/manifest"));
         assert.equal(res.status, 200);
         const m = (await res.json()) as { ok: boolean; tools: Record<string, unknown[]> };
         assert.equal(m.ok, true);
@@ -200,7 +200,7 @@ test("wire mode: NO conversation id anywhere in the system part (#1685), byte-st
         await postModel(rig, "conv-760-a");
         await waitFor(() => rig.upstreamBodies.length >= 2, "two upstream bodies");
         const sys0 = sysText(rig.upstreamBodies[0]);
-        assert.doesNotMatch(sys0, /Your bili conversation id/, "zero-injection: no model-visible conversation id");
+        assert.doesNotMatch(sys0, /Your sophialin conversation id/, "zero-injection: no model-visible conversation id");
         assert.equal(sysText(rig.upstreamBodies[1]), sys0, "system bytes stable across turns (prefix-cache anchor)");
     } finally {
         await rig.closeAll();
@@ -243,7 +243,7 @@ test("canonical pfa-* id (derived, not the client's own) routes to the right ses
         await postModel(rig, "conv-canonical");
         await waitFor(() => rig.upstreamBodies.length >= 1, "one upstream body");
         const sys0 = sysText(rig.upstreamBodies[0]);
-        assert.doesNotMatch(sys0, /Your bili conversation id/, "zero-injection: no model-visible id (#1685)");
+        assert.doesNotMatch(sys0, /Your sophialin conversation id/, "zero-injection: no model-visible id (#1685)");
 
         // Route by the CANONICAL id — a legacy model echo (or a host that
         // captured the id before #1685) still routes via the reverse lookup.
@@ -323,8 +323,8 @@ function byId(lines: string[], n: number): Record<string, unknown> {
 test("shared shim, no env/meta id: per-call ids route two sessions independently and flip them to plugin mode", async () => {
     const rig = await startRig();
     const h = spawnShell({
-        BILI_MCP_PROXY: rig.proxyUrl(""),
-        BILI_CONVERSATION_ID: "",
+        SOPHIALIN_MCP_PROXY: rig.proxyUrl(""),
+        SOPHIALIN_CONVERSATION_ID: "",
         CLAUDE_CODE_SESSION_ID: "",
     });
     try {
@@ -365,14 +365,14 @@ test("shared shim, no env/meta id: per-call ids route two sessions independently
         await waitFor(() => rig.upstreamBodies.length >= 5, "five upstream bodies");
         // A's first request: wire mode — ephemeral compress tool injected, zero id bytes.
         assert.ok(toolNames(rig.upstreamBodies[0]).includes("compress"), "wire request carries the ephemeral compress tool");
-        assert.doesNotMatch(sysText(rig.upstreamBodies[0]), /Your bili conversation id/, "no id in wire mode (#1685)");
+        assert.doesNotMatch(sysText(rig.upstreamBodies[0]), /Your sophialin conversation id/, "no id in wire mode (#1685)");
         // A's second request arrives AFTER the tool call landed:
         // pure plugin mode — no ephemeral tools, still zero id bytes.
         assert.ok(!toolNames(rig.upstreamBodies[2]).includes("compress"), "post-tool-call request drops the ephemeral compress tool");
-        assert.doesNotMatch(sysText(rig.upstreamBodies[2]), /Your bili conversation id/, "no id in plugin mode either (#1685)");
+        assert.doesNotMatch(sysText(rig.upstreamBodies[2]), /Your sophialin conversation id/, "no id in plugin mode either (#1685)");
         // B's requests never carry A's id — no cross-talk (trivially true now,
         // but pins the zero-injection invariant per session).
-        assert.doesNotMatch(sysText(rig.upstreamBodies[3]), /Your bili conversation id/);
+        assert.doesNotMatch(sysText(rig.upstreamBodies[3]), /Your sophialin conversation id/);
 
         // Sticky plugin-mode flip, and the untouched sibling stays wire mode.
         const stA = await statusOf(rig, "conv-mcp-a");
@@ -404,16 +404,16 @@ test("shim: per-call id strips the forwarded arg, routes on the body field, neve
             const body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
             if (req.method === "POST") posts.push({ url: req.url ?? "", body });
             res.writeHead(200, { "content-type": "application/json" });
-            if ((req.url ?? "").startsWith("/__bili/plugin/manifest")) {
+            if ((req.url ?? "").startsWith("/__sophialin/plugin/manifest")) {
                 res.end(JSON.stringify({
                     ok: true, version: "t", protocolVersion: 1, toolNames: [],
                     tools: {
                         anthropic: [{ name: "acp_status", description: "", input_schema: { type: "object", properties: {}, required: [] } }],
                         openai: [], responses: [],
                     },
-                    headers: {}, toolEndpoint: "/__bili/plugin/tool", statusEndpoint: "/__bili/plugin/status",
+                    headers: {}, toolEndpoint: "/__sophialin/plugin/tool", statusEndpoint: "/__sophialin/plugin/status",
                 }));
-            } else if ((req.url ?? "").startsWith("/__bili/plugin/register")) {
+            } else if ((req.url ?? "").startsWith("/__sophialin/plugin/register")) {
                 res.end(JSON.stringify({ ok: true }));
             } else if (body.conversationId === "GHOST") {
                 res.statusCode = 404;
@@ -427,8 +427,8 @@ test("shim: per-call id strips the forwarded arg, routes on the body field, neve
     await listen(mock);
     const mockPort = (mock.address() as { port: number }).port;
     const h = spawnShell({
-        BILI_MCP_PROXY: `http://127.0.0.1:${mockPort}`,
-        BILI_CONVERSATION_ID: "",
+        SOPHIALIN_MCP_PROXY: `http://127.0.0.1:${mockPort}`,
+        SOPHIALIN_CONVERSATION_ID: "",
         CLAUDE_CODE_SESSION_ID: "",
     });
     try {
@@ -443,7 +443,7 @@ test("shim: per-call id strips the forwarded arg, routes on the body field, neve
         const noId = byId(h.lines, 2) as { result?: { content?: { text?: string }[]; isError?: boolean } };
         assert.equal(noId.result?.isError, false, "id-less call forwarded to the proxy (#1685)");
         assert.equal(noId.result?.content?.[0]?.text, "fine");
-        const idlessPost = posts.find((p) => p.url.startsWith("/__bili/plugin/tool"));
+        const idlessPost = posts.find((p) => p.url.startsWith("/__sophialin/plugin/tool"));
         assert.equal(idlessPost?.body.conversationId, undefined, "id-less POST carries no conversationId key");
 
         h.send({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "acp_status", arguments: { conversation_id: "X", extra: 1 } } });
@@ -455,15 +455,15 @@ test("shim: per-call id strips the forwarded arg, routes on the body field, neve
         // No lazy registration for per-call ids anymore — the sticky flip comes
         // from successful-tool evidence inside the call, not from a registration
         // a raw-client-id request would never consume.
-        assert.equal(posts.filter((p) => p.url.startsWith("/__bili/plugin/register")).length, 0, "no lazy registration issued for a per-call id");
-        const toolPost = posts.find((p) => p.url.startsWith("/__bili/plugin/tool") && p.body.conversationId === "X");
+        assert.equal(posts.filter((p) => p.url.startsWith("/__sophialin/plugin/register")).length, 0, "no lazy registration issued for a per-call id");
+        const toolPost = posts.find((p) => p.url.startsWith("/__sophialin/plugin/tool") && p.body.conversationId === "X");
         assert.equal(toolPost?.body.conversationId, "X", "routes on the body-level field");
         assert.deepEqual(toolPost?.body.args, { extra: 1 }, "conversation_id stripped from the forwarded args");
 
         // A repeat call still issues no registration.
         h.send({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "acp_status", arguments: { conversation_id: "X" } } });
         await waitFor(() => h.lines.some((l) => (JSON.parse(l) as { id?: number }).id === 4), "repeat per-call X");
-        assert.equal(posts.filter((p) => p.url.startsWith("/__bili/plugin/register")).length, 0, "still no registration after a repeat call");
+        assert.equal(posts.filter((p) => p.url.startsWith("/__sophialin/plugin/register")).length, 0, "still no registration after a repeat call");
 
         // Unknown per-call id fails loudly — no orphan adoption (which would
         // mutate the shared default binding for everyone else's calls).
@@ -472,7 +472,7 @@ test("shim: per-call id strips the forwarded arg, routes on the body field, neve
         const ghost = byId(h.lines, 5) as { result?: { content?: { text?: string }[]; isError?: boolean } };
         assert.equal(ghost.result?.isError, true, "unknown per-call id surfaces as a tool error");
         assert.match(ghost.result?.content?.[0]?.text ?? "", /no model request has arrived/);
-        assert.ok(!posts.some((p) => p.url.startsWith("/__bili/plugin/status")), "no adoption lookup for per-call failures");
+        assert.ok(!posts.some((p) => p.url.startsWith("/__sophialin/plugin/status")), "no adoption lookup for per-call failures");
     } finally {
         h.kill();
         await close(mock);

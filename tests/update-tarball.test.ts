@@ -28,11 +28,11 @@ function makeFixture(): Fixture {
     writeFileSync(
         path.join(installDir, "package.json"),
         JSON.stringify({
-            name: "billion-context",
+            name: "sophialin-context",
             version: "1.2.3",
             type: "module",
             main: "dist/index.js",
-            bin: { bili: "./dist/index.js" },
+            bin: { sophialin: "./dist/index.js" },
         }),
     );
     writeFileSync(path.join(installDir, "dist", "index.js"), "export const loaded = '1.2.3';\n");
@@ -68,17 +68,17 @@ function withTarballFetch<T>(tgz: Buffer, fn: () => Promise<T>): Promise<T> {
 /** v2.0.0 package.json for tarball payloads. */
 function pkgJson(version: string): string {
     return JSON.stringify({
-        name: "billion-context",
+        name: "sophialin-context",
         version,
         type: "module",
         main: "dist/index.js",
-        bin: { bili: "./dist/index.js" },
+        bin: { sophialin: "./dist/index.js" },
     });
 }
 
 test("declaredEntryRelPaths: main plus bin values (string and map), deduped", () => {
     assert.deepEqual(
-        declaredEntryRelPaths({ main: "dist/index.js", bin: { bili: "dist/index.js", proxy: "./dist/proxy.js" } }),
+        declaredEntryRelPaths({ main: "dist/index.js", bin: { sophialin: "dist/index.js", proxy: "./dist/proxy.js" } }),
         ["dist/index.js", "./dist/proxy.js"],
     );
     assert.deepEqual(declaredEntryRelPaths({ bin: "cli.js" }), ["cli.js"]);
@@ -100,7 +100,7 @@ test("installViaTarball: clean tarball installs and removes the backup", { timeo
         assert.equal(r.ok, true, r.error);
         assert.equal(JSON.parse(readFileSync(path.join(fx.installDir, "package.json"), "utf-8")).version, "2.0.0");
         assert.equal(readFileSync(path.join(fx.installDir, "dist", "index.js"), "utf-8"), "export const loaded = '2.0.0';\n");
-        assert.equal(existsSync(path.join(fx.cacheDir, "billion-context", ".update-backup-2.0.0")), false, "backup must be removed on success");
+        assert.equal(existsSync(path.join(fx.cacheDir, "sophialin-context", ".update-backup-2.0.0")), false, "backup must be removed on success");
     } finally {
         delete process.env.XDG_CACHE_HOME;
         rmrf(fx.root);

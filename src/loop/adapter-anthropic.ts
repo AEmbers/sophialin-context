@@ -286,7 +286,7 @@ export function createAnthropicAdapter(requestBody: Record<string, unknown>, ori
                     }),
                 ),
                 createBiliArtifactFilter((snippet) => {
-                    loggerLog("warn", `[bili-artifact] stripped model-emitted internal artifact: ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
+                    loggerLog("warn", `[sophialin-artifact] stripped model-emitted internal artifact: ${snippet.slice(0, 80).replace(/\n/g, " ")}`);
                 }),
             );
             let lastTextIndex: number | null = null;

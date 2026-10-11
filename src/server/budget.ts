@@ -27,7 +27,7 @@ const OUTPUT_CLAMP_FLOOR = 1024;
 const EMERGENCY_NUDGE_ESCALATION_PCT = 0.7;
 
 /** chars/4 measure of the per-request overhead that lives OUTSIDE the kernel's
- *  fold space: the outbound system prompt (client text plus bili-injected parts)
+ *  fold space: the outbound system prompt (client text plus sophialin-injected parts)
  *  and the tool schemas. The kernel's contextBreakdown classifies messages only,
  *  so this is what the status panel's SysPrompt row must add back (#532). Same
  *  counting method as estimateInputTokens below. */

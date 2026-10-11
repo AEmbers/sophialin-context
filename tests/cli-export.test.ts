@@ -25,8 +25,8 @@ function makeSession(id: string, title: string, label: string | undefined): Sess
     };
 }
 
-test("bili export lists sessions and renders a handoff doc with summaries and originals", async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "bili-export-"));
+test("sophialin export lists sessions and renders a handoff doc with summaries and originals", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "sophialin-export-"));
     const store = new SessionStore({ dir, enabled: true, debounceMs: 0 });
     const s = makeSession("abc123", "Fix auth bug", "ses_abc");
     s.state.blocks.push({
@@ -53,7 +53,7 @@ test("bili export lists sessions and renders a handoff doc with summaries and or
         assert.match(listing, /Fix auth bug/);
 
         const md = await exportSession("abc123", { dir });
-        assert.match(md, /# billion-context session handoff/);
+        assert.match(md, /# sophialin-context session handoff/);
         assert.match(md, /Fix auth bug/);
         assert.match(md, /b0 — auth debug/);
         assert.match(md, /stale token in config\.ts:12/);
@@ -74,7 +74,7 @@ test("bili export lists sessions and renders a handoff doc with summaries and or
     }
 });
 
-test("parseArgs recognizes bili export forms", () => {
+test("parseArgs recognizes sophialin export forms", () => {
     const a = parseArgs(["export"]);
     assert.equal(a.command, "export");
     assert.equal(a.exportSelector, undefined);

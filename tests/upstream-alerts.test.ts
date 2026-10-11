@@ -19,11 +19,11 @@ import {
 
 // #1682: web UI surfaces active upstream-connection failures as a global banner.
 // Three layers pinned here: the alert table itself (dedup / success-clear /
-// bounded eviction / kind gating), the /__bili/overview payload (real request
+// bounded eviction / kind gating), the /__sophialin/overview payload (real request
 // through the proxy against a dead, then recovered, upstream), and the rendered
 // banner (real client IIFE in a VM, including dismiss-per-instance semantics).
 
-process.env.BILI_PERSIST_ZSTD = "0";
+process.env.SOPHIALIN_PERSIST_ZSTD = "0";
 
 function close(server: http.Server): Promise<void> {
     return new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
@@ -191,7 +191,7 @@ async function startProxyFor(upstreamPort: number, registerRoute: boolean): Prom
 }
 
 function chatPost(proxyPort: number, upstreamPort: number, sessionId: string): Promise<Response> {
-    return fetch(`http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/chat/completions`, {
+    return fetch(`http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/chat/completions`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-acp-session": sessionId },
         body: JSON.stringify({ model: "gpt-test", messages: [{ role: "user", content: "hi" }] }),
@@ -199,14 +199,14 @@ function chatPost(proxyPort: number, upstreamPort: number, sessionId: string): P
 }
 
 async function overviewAlerts(proxyPort: number): Promise<UpstreamAlert[]> {
-    const res = await fetch(`http://127.0.0.1:${proxyPort}/__bili/overview`);
+    const res = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/overview`);
     assert.equal(res.status, 200);
     const d = (await res.json()) as { alerts: UpstreamAlert[] };
     assert.ok(Array.isArray(d.alerts), "overview payload carries an alerts array");
     return d.alerts;
 }
 
-test("#1682: transport failure appears in /__bili/overview and clears on recovery", async () => {
+test("#1682: transport failure appears in /__sophialin/overview and clears on recovery", async () => {
     _resetUpstreamAlertsForTest();
     const deadPort = await freePort();
     const { proxy, proxyPort } = await startProxyFor(deadPort, true);
@@ -419,7 +419,7 @@ test("#1682: banner renders active alerts, dismisses per instance, hides on reco
         btn.click();
         assert.equal(banner!.hidden, true, "banner hides after dismissing its only row");
         assert.equal(banner!.children.length, 0);
-        const stored = JSON.parse(storage.get("bili-alert-dismissed") ?? "[]") as string[];
+        const stored = JSON.parse(storage.get("sophialin-alert-dismissed") ?? "[]") as string[];
         assert.deepEqual(stored, [`connect-timeout|chatgpt.example.com|${seeded.firstSeen}`]);
 
         // 3) count growth on the SAME instance does not re-show it

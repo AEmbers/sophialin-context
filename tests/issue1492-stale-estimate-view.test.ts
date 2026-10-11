@@ -140,7 +140,7 @@ async function runCase(sessionId: string, poisonSource: "usage" | "estimate", co
     } as ProxyOptions);
     await once(proxy, "listening");
     try {
-        const url = `http://127.0.0.1:${proxy.address().port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${proxy.address().port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const headers = { "content-type": "application/json", "x-acp-session": sessionId };
         const base = conversation ?? baseConversation();
 

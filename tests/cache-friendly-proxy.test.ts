@@ -44,7 +44,7 @@ type Item = Record<string, unknown>;
 type Wire = "responses" | "chat" | "anthropic" | "google";
 
 const SUMMARY_MARKER = "[Compressed conversation section]";
-const CHAIN_MARKER = "bili-chain";
+const CHAIN_MARKER = "sophialin-chain";
 const THRESHOLD = 40 * 1024;
 const MAX_TURNS = 20;
 const TAIL_VOLATILE_SLOTS = 3;
@@ -410,7 +410,7 @@ async function driveWire(wire: Wire, sessionId: string, model: string, ctx: numb
         proxy = await startServer(proxyOptions(upstreamPort, model, ctx));
         await listen(proxy);
         const proxyPort = (proxy.address() as { port: number }).port;
-        const base = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}`;
+        const base = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}`;
         const url =
             wire === "responses" ? `${base}/v1/responses`
             : wire === "chat" ? `${base}/v1/chat/completions`

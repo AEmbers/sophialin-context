@@ -5,7 +5,7 @@
 // requests 31s apart. Two surviving suspects: (A) mid-history byte churn around the
 // abort region whenever the client rewinds (opencode drops the partial assistant turn
 // and retries), so the prefix diverges at the first perturbed message; (B) relay-side
-// refusal. This test adjudicates the bili side locally:
+// refusal. This test adjudicates the sophialin side locally:
 //
 // Property under test — the proxy is a faithful serializer:
 //   For every consecutive outbound pair, divergence is allowed ONLY at items the
@@ -66,7 +66,7 @@ function textSse(res: http.ServerResponse, id: string, text: string): void {
 }
 
 const isChain = (it: Item | undefined): boolean =>
-    !!it && it.type === "message" && typeof (it.content as string) === "string" && (it.content as string).includes("bili-chain");
+    !!it && it.type === "message" && typeof (it.content as string) === "string" && (it.content as string).includes("sophialin-chain");
 
 const j = (it: Item | undefined): string => (it === undefined ? "<absent>" : JSON.stringify(it));
 
@@ -162,8 +162,8 @@ test("abort/rewind cycles keep the outbound prefix item-stable (#1613 suspects A
         proxy = await startServer(opts);
         await once(proxy, "listening");
         const proxyPort = (proxy.address() as { port: number }).port;
-        const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}/v1/responses`;
-        const headers = { "content-type": "application/json", "x-bili-plugin": "test-agent", "x-acp-session": "abort-seam-test" };
+        const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}/v1/responses`;
+        const headers = { "content-type": "application/json", "x-sophialin-plugin": "test-agent", "x-acp-session": "abort-seam-test" };
 
         // history as opencode resends it: user msg + (reasoning?) + assistant + tool pair
         const history: Item[] = [];
@@ -284,7 +284,7 @@ test("abort/rewind cycles keep the outbound prefix item-stable (#1613 suspects A
                 if (bad >= 0) failures.push(`pair ${k - 1}->${k} (${phase[k - 1]} -> ${phase[k]}): rewind changed pre-rewrite item ${bad}:\n  kept: ${j(next[bad]).slice(0, 220)}\n  prev: ${j(prev[bad]).slice(0, 220)}`);
             }
         }
-        assert.deepEqual(failures, [], `bili introduced mid-history churn (suspect A confirmed):\n${failures.join("\n")}`);
+        assert.deepEqual(failures, [], `sophialin introduced mid-history churn (suspect A confirmed):\n${failures.join("\n")}`);
 
         // Sanity: the rig actually exercised what production saw — history with tool runs,
         // at least two aborted requests, and render tags present in outbound bodies.

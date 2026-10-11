@@ -20,8 +20,8 @@ import { setLogCapture } from "../src/logger.ts";
 const OLD_TS = Date.now() - 2 * 60 * 60 * 1000;
 const DIGEST_A = "sha256:" + "ab".repeat(32);
 const DIGEST_B = "sha256:" + "cd".repeat(32);
-const STAMP_A = `<bili-chain v="1" processor="leaked-instance" issued-at="${OLD_TS}" request-id="r-old-a" digest="${DIGEST_A}"/>`;
-const STAMP_B = `<bili-chain v="1" processor="leaked-instance" issued-at="${OLD_TS + 1000}" request-id="r-old-b" digest="${DIGEST_B}"/>`;
+const STAMP_A = `<sophialin-chain v="1" processor="leaked-instance" issued-at="${OLD_TS}" request-id="r-old-a" digest="${DIGEST_A}"/>`;
+const STAMP_B = `<sophialin-chain v="1" processor="leaked-instance" issued-at="${OLD_TS + 1000}" request-id="r-old-b" digest="${DIGEST_B}"/>`;
 
 test("openai: mid-history user carrier stripped from any position", () => {
     const body = {
@@ -58,7 +58,7 @@ test("openai: tag-shaped text embedded in prose is NOT a carrier", () => {
     const body = {
         messages: [
             { role: "assistant", content: `I notice a ${STAMP_A} tag in your message — what is it?` },
-            { role: "user", content: "see <bili-chain v=\"1\" processor=x/> above" },
+            { role: "user", content: "see <sophialin-chain v=\"1\" processor=x/> above" },
         ],
     };
     const n = stripEmbeddedChainCarriers(body, "openai");
@@ -67,7 +67,7 @@ test("openai: tag-shaped text embedded in prose is NOT a carrier", () => {
 });
 
 test("openai: malformed tag (bad digest shape) left alone", () => {
-    const body = { messages: [{ role: "user", content: `<bili-chain v="1" processor="x" issued-at="${OLD_TS}" request-id="r" digest="not-hex!"/>` }] };
+    const body = { messages: [{ role: "user", content: `<sophialin-chain v="1" processor="x" issued-at="${OLD_TS}" request-id="r" digest="not-hex!"/>` }] };
     assert.equal(stripEmbeddedChainCarriers(body, "openai"), 0);
 });
 
@@ -232,7 +232,7 @@ async function runPollutedRequest(pluginMode: boolean, overrides?: Partial<Proxy
             headers: {
                 "content-type": "application/json",
                 ...(pluginMode
-                    ? { "x-bili-plugin": "pi", "x-bili-plugin-conversation": `conv-1542-${randomUUID()}` }
+                    ? { "x-sophialin-plugin": "pi", "x-sophialin-plugin-conversation": `conv-1542-${randomUUID()}` }
                     : { "x-acp-session": "proxy-1542" }),
             },
             body,
@@ -252,7 +252,7 @@ async function runPollutedRequest(pluginMode: boolean, overrides?: Partial<Proxy
 }
 
 // #1683 made egress stamping opt-in (default OFF), so a polluted body now leaves
-// the LLM with ZERO <bili-chain> markers by default (stale carriers stripped, no
+// the LLM with ZERO <sophialin-chain> markers by default (stale carriers stripped, no
 // fresh one added); with chainEgressStamp:true it is re-stamped with exactly one
 // fresh trailing carrier. Both outcomes are pinned below (deliberate behavior change).
 for (const pluginMode of [true, false]) {
@@ -260,7 +260,7 @@ for (const pluginMode of [true, false]) {
     test(`#1542 server: polluted ${modeLabel} body reaches LLM with NO carrier by default (#1683)`, async () => {
         const { atLlm, logs } = await runPollutedRequest(pluginMode);
         const out = JSON.parse(atLlm.body) as { messages: { role: string; content: string }[] };
-        const stamped = out.messages.filter((m) => typeof m.content === "string" && m.content.includes("<bili-chain"));
+        const stamped = out.messages.filter((m) => typeof m.content === "string" && m.content.includes("<sophialin-chain"));
         assert.equal(stamped.length, 0, `no carrier may reach the LLM by default, got ${stamped.length}: ${atLlm.body.slice(0, 400)}`);
         assert.ok(!atLlm.body.includes(DIGEST_A), "old carrier A must not reach the LLM");
         assert.ok(!atLlm.body.includes(DIGEST_B), "old carrier B must not reach the LLM");
@@ -269,7 +269,7 @@ for (const pluginMode of [true, false]) {
     test(`#1542 server: polluted ${modeLabel} body reaches LLM with only the fresh stamp (egress stamping enabled)`, async () => {
         const { atLlm, logs } = await runPollutedRequest(pluginMode, { chainEgressStamp: true });
         const out = JSON.parse(atLlm.body) as { messages: { role: string; content: string }[] };
-        const stamped = out.messages.filter((m) => typeof m.content === "string" && m.content.includes("<bili-chain"));
+        const stamped = out.messages.filter((m) => typeof m.content === "string" && m.content.includes("<sophialin-chain"));
         assert.equal(stamped.length, 1, `exactly one (fresh) carrier may reach the LLM, got ${stamped.length}: ${atLlm.body.slice(0, 400)}`);
         assert.equal(stamped[0]!.role, "user");
         assert.equal(out.messages[out.messages.length - 1], stamped[0], "the fresh carrier sits in the trailing slot");

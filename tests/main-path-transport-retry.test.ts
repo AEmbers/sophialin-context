@@ -5,8 +5,8 @@ import { once } from "node:events";
 import { afterEach, test } from "node:test";
 
 process.env.NODE_ENV = "test";
-process.env.BILI_REPLAY_RETRY_MAX = "3";
-process.env.BILI_REPLAY_RETRY_BASE_MS = "0";
+process.env.SOPHIALIN_REPLAY_RETRY_MAX = "3";
+process.env.SOPHIALIN_REPLAY_RETRY_BASE_MS = "0";
 
 import { defaultConfig } from "acp-kernel";
 import { _liveUpstreamTimersForTest, _resetFetchUtilForTest, fetchWithTransportRetry, type ReplayRetryInfo } from "../src/fetch-util.ts";
@@ -18,14 +18,14 @@ import { _setForTest as setRegistryForTest } from "../src/registry.ts";
 // DNS/reset/refused blip killed the whole round while acp-loop/preflight
 // already replayed under fetchWithRetry. These tests pin the new contract:
 // fail-fast pre-response transport deaths are bounded-transparently replayed
-// (BILI_REPLAY_RETRY_MAX / BILI_REPLAY_RETRY_BASE_MS), HTTP verdicts stay
-// untouched (no replay, no UpstreamHttpError conversion), and BILI_REPLAY_RETRY_MAX=1
+// (SOPHIALIN_REPLAY_RETRY_MAX / SOPHIALIN_REPLAY_RETRY_BASE_MS), HTTP verdicts stay
+// untouched (no replay, no UpstreamHttpError conversion), and SOPHIALIN_REPLAY_RETRY_MAX=1
 // restores the legacy single-attempt behavior exactly.
 
 afterEach(() => {
     assert.equal(_liveUpstreamTimersForTest(), 0, "each attempt releases its upstream idle timer");
     _resetFetchUtilForTest();
-    process.env.BILI_REPLAY_RETRY_BASE_MS = "0";
+    process.env.SOPHIALIN_REPLAY_RETRY_BASE_MS = "0";
 });
 
 function errorChainText(err: unknown): string {
@@ -49,7 +49,7 @@ async function closedPort(): Promise<number> {
 }
 
 test("#1688 unit: connect-refused is replayed and the recovered response is returned", async () => {
-    process.env.BILI_REPLAY_RETRY_BASE_MS = "50";
+    process.env.SOPHIALIN_REPLAY_RETRY_BASE_MS = "50";
     const holder = net.createServer();
     holder.listen(0, "127.0.0.1");
     await once(holder, "listening");
@@ -115,7 +115,7 @@ test("#1688 unit: persistent DNS failure exhausts the budget and rethrows the or
     const retries: ReplayRetryInfo[] = [];
     let thrown: unknown;
     try {
-        await fetchWithTransportRetry("http://bili-does-not-exist.invalid/x", { method: "GET" }, undefined, undefined, (i) => retries.push(i));
+        await fetchWithTransportRetry("http://sophialin-does-not-exist.invalid/x", { method: "GET" }, undefined, undefined, (i) => retries.push(i));
     } catch (e) {
         thrown = e;
     }
@@ -152,8 +152,8 @@ test("#1688 unit: any HTTP verdict passes through untouched — never replayed, 
     assert.equal(hits, 1, "a 4xx verdict goes straight back to the caller");
 });
 
-test("#1688 unit: BILI_REPLAY_RETRY_MAX=1 restores the legacy single-attempt behavior", async () => {
-    process.env.BILI_REPLAY_RETRY_MAX = "1";
+test("#1688 unit: SOPHIALIN_REPLAY_RETRY_MAX=1 restores the legacy single-attempt behavior", async () => {
+    process.env.SOPHIALIN_REPLAY_RETRY_MAX = "1";
     try {
         const port = await closedPort();
         let retries = 0;
@@ -167,12 +167,12 @@ test("#1688 unit: BILI_REPLAY_RETRY_MAX=1 restores the legacy single-attempt beh
         assert.match(errorChainText(thrown), /ECONNREFUSED/);
         assert.equal(retries, 0);
     } finally {
-        process.env.BILI_REPLAY_RETRY_MAX = "3";
+        process.env.SOPHIALIN_REPLAY_RETRY_MAX = "3";
     }
 });
 
 test("#1688 unit: replays honor the exponential backoff budget", async () => {
-    process.env.BILI_REPLAY_RETRY_BASE_MS = "50";
+    process.env.SOPHIALIN_REPLAY_RETRY_BASE_MS = "50";
     const port = await closedPort();
     const delays: number[] = [];
     const t0 = Date.now();
@@ -189,7 +189,7 @@ test("#1688 unit: replays honor the exponential backoff budget", async () => {
 });
 
 test("#1688 unit: a client disconnect during backoff kills the replay chain promptly", async () => {
-    process.env.BILI_REPLAY_RETRY_BASE_MS = "500";
+    process.env.SOPHIALIN_REPLAY_RETRY_BASE_MS = "500";
     const port = await closedPort();
     const ac = new AbortController();
     setTimeout(() => ac.abort(), 20);
@@ -309,7 +309,7 @@ test("#1688 e2e: a pre-response reset mid-round is replayed transparently — th
     const { proxy, port } = await startProxy(upstreamPort);
 
     try {
-        const url = `http://127.0.0.1:${port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const r = await fetch(url, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "retry-sess" },
@@ -327,7 +327,7 @@ test("#1688 e2e: a pre-response reset mid-round is replayed transparently — th
     }
 });
 
-test("#1688 e2e: persistent transport failure exhausts the budget, then surfaces bili's 502", async () => {
+test("#1688 e2e: persistent transport failure exhausts the budget, then surfaces sophialin's 502", async () => {
     const relay = makeRelay({ destroyStreamingAt: [1, 2, 3, 4, 5] });
     relay.server.listen(0, "127.0.0.1");
     await once(relay.server, "listening");
@@ -335,7 +335,7 @@ test("#1688 e2e: persistent transport failure exhausts the budget, then surfaces
     const { proxy, port } = await startProxy(upstreamPort);
 
     try {
-        const url = `http://127.0.0.1:${port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const r = await fetch(url, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "retry-sess-2" },
@@ -345,7 +345,7 @@ test("#1688 e2e: persistent transport failure exhausts the budget, then surfaces
         const text = await r.text();
         assert.match(text, /acp-proxy failure/);
         assert.match(text, /upstream request failed/);
-        assert.equal(relay.streamingCalls(), 3, "exactly BILI_REPLAY_RETRY_MAX attempts, no unbounded storm");
+        assert.equal(relay.streamingCalls(), 3, "exactly SOPHIALIN_REPLAY_RETRY_MAX attempts, no unbounded storm");
     } finally {
         proxy.close();
         await once(proxy, "close");
@@ -362,7 +362,7 @@ test("#1688 e2e: an upstream 4xx verdict passes through verbatim without any rep
     const { proxy, port } = await startProxy(upstreamPort);
 
     try {
-        const url = `http://127.0.0.1:${port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const r = await fetch(url, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "retry-sess-3" },

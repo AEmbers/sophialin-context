@@ -2,12 +2,12 @@
 //
 // Two compressors on one conversation double-compress: message refs get
 // re-anchored against rewritten history, summaries cite deleted content, and
-// the client's view silently scrambles. The installer swaps out bili's own
+// the client's view silently scrambles. The installer swaps out sophialin's own
 // sibling extensions (opencode-acp / billion-context-pi), but a user can
 // always install OTHER third-party context-compression plugins alongside
-// bili — nothing detects that today. This module scans the client's plugin
+// sophialin — nothing detects that today. This module scans the client's plugin
 // registry (best-effort, read-only, cached) for:
-//   1. known conflicting entries (bili's siblings, when not absorbed by design);
+//   1. known conflicting entries (sophialin's siblings, when not absorbed by design);
 //   2. suspected compression plugins by name keyword (compress*/compact*/acp/
 //      summar*) — flagged for user confirmation, never auto-fixed.
 // Callers: launcher pre-launch warning, proxy first-request-per-session
@@ -46,7 +46,7 @@ export interface ScanResult {
     sourcesScanned: number;
 }
 
-/** #920: opencode-acp co-resident with bili's OWN opencode native/launcher
+/** #920: opencode-acp co-resident with sophialin's OWN opencode native/launcher
  *  mode is absorbed by design (legacy sessions keep their compression
  *  carrier) — it is NOT a conflict there. Everywhere else (wire mode, other
  *  clients) the same entry warns like any known conflict. */
@@ -72,12 +72,12 @@ export function clearScanCache(): void {
 }
 
 export function conflictScanEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-    const v = env.BILI_CONFLICT_SCAN?.trim().toLowerCase();
+    const v = env.SOPHIALIN_CONFLICT_SCAN?.trim().toLowerCase();
     return !(v === "0" || v === "false");
 }
 
 /** Identify the requesting client from wire headers so a standalone proxy
- *  (no x-bili-plugin header) can still scan the right registry. Codex is
+ *  (no x-sophialin-plugin header) can still scan the right registry. Codex is
  *  recognized but returns undefined — it has no scannable plugin registry
  *  here, and its compaction paths are already intercepted/budget-aligned. */
 export function sniffScanClient(headers: Record<string, string | string[] | undefined>): ScanClient | undefined {
@@ -128,8 +128,8 @@ function entryName(entry: string): string {
 
 function isBiliSelf(entry: string): boolean {
     const name = entryName(entry);
-    if (name === "billion-context") return true;
-    return /[/\\]billion-context([/\\]|$)/.test(entry.trim());
+    if (name === "sophialin-context") return true;
+    return /[/\\]sophialin-context([/\\]|$)/.test(entry.trim());
 }
 
 function classifyOpencodeEntry(c: Collector, entry: string, source: string): void {
@@ -279,7 +279,7 @@ function scanKimi(env: NodeJS.ProcessEnv): ScanResult {
         } catch { /* no plugins dir at all */ }
     }
     for (const id of ids) {
-        if (id === "billion-context") continue;
+        if (id === "sophialin-context") continue;
         if (KEYWORD_RE.test(id)) add(c, { client: "kimi", entry: id, source: registry, match: "keyword" });
     }
     return { client: "kimi", findings: c.findings, sourcesScanned: c.sources };
@@ -298,7 +298,7 @@ function scanHermes(env: NodeJS.ProcessEnv): ScanResult {
     // Dir name only: matching plugin.yaml full text false-positives on any
     // description mentioning "context"/"summarize".
     for (const e of entries) {
-        if (!e.isDirectory() || e.name === "billion-context") continue;
+        if (!e.isDirectory() || e.name === "sophialin-context") continue;
         if (KEYWORD_RE.test(e.name)) add(c, { client: "hermes", entry: e.name, source: path.join(pluginsDir, e.name), match: "keyword" });
     }
     return { client: "hermes", findings: c.findings, sourcesScanned: c.sources };
@@ -323,7 +323,7 @@ function scanDsh(env: NodeJS.ProcessEnv): ScanResult {
             const deps = obj[key];
             if (!deps || typeof deps !== "object" || Array.isArray(deps)) continue;
             for (const dep of Object.keys(deps as Record<string, unknown>)) {
-                if (dep === "billion-context") continue;
+                if (dep === "sophialin-context") continue;
                 if (KEYWORD_RE.test(dep)) add(c, { client: "dsh", entry: dep, source: file, match: "keyword" });
             }
         }

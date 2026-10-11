@@ -203,7 +203,7 @@ async function driveAnthropic(sessionId: string, trigger: ProbeTrigger, label: s
         proxy = await startServer(proxyOptions(upstreamPort, model, ctx));
         await listen(proxy);
         const proxyPort = (proxy.address() as { port: number }).port;
-        const base = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}`;
+        const base = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}`;
         const url = `${base}/v1/messages`;
 
         const hist: Item[] = [];

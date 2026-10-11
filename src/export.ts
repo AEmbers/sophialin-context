@@ -47,6 +47,22 @@ function latestBlockTime(s: Session): number {
     return latest;
 }
 
+/** acp-kernel renders the handoff doc header from its own bundled product-name
+ *  constant and takes no override (HandoffInput has no such field), so the title
+ *  it emitted kept the dependency's historical name. Retitle the rendered doc
+ *  here: the product name is this build's concern, not the kernel's.
+ *  Matched by SHAPE (`# <anything> session handoff`) rather than by the kernel's
+ *  literal, so no copy of the dependency's private string lives in this repo and
+ *  a future kernel rename still lands correctly. */
+const KERNEL_HANDOFF_HEADER = /^# [^\n]* session handoff/;
+const HANDOFF_HEADER = "# sophialin-context session handoff";
+
+function rebrandHandoff(md: string): string {
+    const m = KERNEL_HANDOFF_HEADER.exec(md);
+    if (!m) return md;
+    return HANDOFF_HEADER + md.slice(m[0].length);
+}
+
 export function renderHandoff(s: Session, full: boolean): string {
     const messages = s.lastMessages;
     if (messages && messages.length > 0) {
@@ -68,13 +84,13 @@ export function renderHandoff(s: Session, full: boolean): string {
                 ],
             },
         });
-        return base + blockSummariesSection(s, full && folded, base);
+        return rebrandHandoff(base) + blockSummariesSection(s, full && folded, base);
     }
 
     // v2 fallback: no snapshot persisted. Block summaries (+ originals with
     // --full from the blockContents cache) are all that is recoverable offline.
     const lines: string[] = [];
-    lines.push(`# billion-context session handoff`);
+    lines.push(`# sophialin-context session handoff`);
     lines.push("");
     lines.push(`- title: ${s.meta.title ?? "(untitled)"}`);
     if (s.meta.label) lines.push(`- label: ${s.meta.label}`);
@@ -115,7 +131,7 @@ export function renderHandoff(s: Session, full: boolean): string {
 }
 
 // #845: the kernel handoff never emits state.blocks[].summary, and the persisted
-// snapshot keeps only the newest BILI_PERSIST_TAIL_TOKENS tail — a summary whose
+// snapshot keeps only the newest SOPHIALIN_PERSIST_TAIL_TOKENS tail — a summary whose
 // anchor fell outside that tail vanishes from the doc although it survives on
 // disk in state.blocks[]. This section guarantees every active block's summary
 // appears at least once. Originals attach only for folded snapshots — a
@@ -166,11 +182,11 @@ export async function exportSession(selector: string | undefined, opts: ExportOp
         const rows = list.map((s) =>
             `${s.id}${s.label ? `  label=${s.label}` : ""}${s.protocol ? `  [${s.protocol}]` : ""}  blocks=${s.blocks}${s.contextTokens ? `  ctx~${s.contextTokens}` : ""}  ${s.title ?? ""}`
         );
-        return ["Persisted sessions:", "", ...rows.map((r) => `  ${r}`), "", "Usage: bili export <session-id|label> [--output handoff.md] [--full]"].join("\n");
+        return ["Persisted sessions:", "", ...rows.map((r) => `  ${r}`), "", "Usage: sophialin export <session-id|label> [--output handoff.md] [--full]"].join("\n");
     }
     const matches = matchSession(all, selector);
     if (matches.length === 0) {
-        throw new Error(`no session matches "${selector}" (run "bili export" to list sessions)`);
+        throw new Error(`no session matches "${selector}" (run "sophialin export" to list sessions)`);
     }
     if (matches.length > 1) {
         const ids = matches.map((s) => s.id).join(", ");

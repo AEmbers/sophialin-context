@@ -15,14 +15,14 @@ import { handleConfigPut, readProviders } from "../src/web/api.js";
 import { setLogCapture } from "../src/logger.js";
 
 function withConfigFile(t: test.TestContext, providers: unknown): string {
-    const dir = mkdtempSync(path.join(tmpdir(), "bili-named-bind-"));
-    const p = path.join(dir, "billion-context.json");
+    const dir = mkdtempSync(path.join(tmpdir(), "sophialin-named-bind-"));
+    const p = path.join(dir, "sophialin-context.json");
     writeFileSync(p, JSON.stringify({ providers }, null, 2), "utf8");
-    const prev = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = p;
+    const prev = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = p;
     t.after(() => {
-        if (prev === undefined) delete process.env.BILI_CONFIG_FILE;
-        else process.env.BILI_CONFIG_FILE = prev;
+        if (prev === undefined) delete process.env.SOPHIALIN_CONFIG_FILE;
+        else process.env.SOPHIALIN_CONFIG_FILE = prev;
         rmSync(dir, { recursive: true, force: true });
     });
     return p;
@@ -201,7 +201,7 @@ test("compactionOptIn is still consumed alongside bind", (t) => {
         "claude-bridge": { bind: "https://api.anthropic.com", compactionOptIn: true, compress: { maxContextLimitPct: 0.75 } },
         "optin-only": { compactionOptIn: true },
     });
-    const ids = resolveNonHttpProviders({ BILI_NON_HTTP_PROVIDERS: "envopt" });
+    const ids = resolveNonHttpProviders({ SOPHIALIN_NON_HTTP_PROVIDERS: "envopt" });
     for (const id of ["claude-bridge", "optin-only", "envopt"]) assert.ok(ids.includes(id));
     const routes = loadRoutes();
     assert.equal(routes["https://api.anthropic.com"]?.compress?.maxContextLimitPct, 0.75);

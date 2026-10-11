@@ -27,22 +27,22 @@ type ClientContext = {
 
 export const inject = ["slots", "locale"];
 
-const NS = "bili";
+const NS = "sophialin";
 
 const zh: Dict = {
-    "nav": "bili设置",
-    "title": "billion-context 压缩代理",
+    "nav": "sophialin设置",
+    "title": "sophialin-context 压缩代理",
     "open": "打开 Web UI",
     "hint": "查看压缩状态、会话与上下文窗口。",
-    "degraded": "当前 dsh 进程未绑定 bili 代理（未经 bili dsh 启动，或代理尚未就绪）——先运行 /acp，或改用 bili dsh 启动。",
+    "degraded": "当前 dsh 进程未绑定 sophialin 代理（未经 sophialin dsh 启动，或代理尚未就绪）——先运行 /acp，或改用 sophialin dsh 启动。",
 };
 
 const en: Dict = {
-    "nav": "bili",
-    "title": "billion-context compression proxy",
+    "nav": "sophialin",
+    "title": "sophialin-context compression proxy",
     "open": "Open Web UI",
     "hint": "Inspect compression status, sessions and context windows.",
-    "degraded": "This dsh process is not bound to a bili proxy (not launched via bili dsh, or the proxy is not up yet) — run /acp first, or launch through bili dsh.",
+    "degraded": "This dsh process is not bound to a sophialin proxy (not launched via sophialin dsh, or the proxy is not up yet) — run /acp first, or launch through sophialin dsh.",
 };
 
 function readOrigin(): string | undefined {
@@ -61,7 +61,7 @@ export function apply(ctx: ClientContext): void {
     const enDict = en;
     ctx.effect(
         () => ctx.locale.register(NS, { zh: zhDict, en: enDict }),
-        "bili: dictionaries",
+        "sophialin: dictionaries",
     );
     const t = ctx.locale.bind(NS);
     const section = (): unknown => {
@@ -76,7 +76,7 @@ export function apply(ctx: ClientContext): void {
                     "button",
                     {
                         type: "button",
-                        onClick: () => openExternal(`${origin}/__bili/`),
+                        onClick: () => openExternal(`${origin}/__sophialin/`),
                         style: {
                             alignSelf: "flex-start",
                             cursor: "pointer",
@@ -97,6 +97,6 @@ export function apply(ctx: ClientContext): void {
     };
     ctx.slots.inject(
         "settings.section",
-        () => ctx.slots.register({ name: "settings.section", id: "bili", order: 100, label: () => t("nav"), locale: NS }, section),
+        () => ctx.slots.register({ name: "settings.section", id: "sophialin", order: 100, label: () => t("nav"), locale: NS }, section),
     );
 }

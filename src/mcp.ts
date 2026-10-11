@@ -1,10 +1,10 @@
-// MCP stdio thin shell for launcher mode (#162): a single "bili" MCP server
-// the hosts load via --mcp-config / -c mcp_servers.bili. It fetches the
+// MCP stdio thin shell for launcher mode (#162): a single "sophialin" MCP server
+// the hosts load via --mcp-config / -c mcp_servers.sophialin. It fetches the
 // proxy's plugin manifest (single source of truth — zero schema drift),
 // exposes the manifest's ACP tools over stdio JSON-RPC, and forwards executes to
-// POST /__bili/plugin/tool. Claude Code passes its session id via the MCP
+// POST /__sophialin/plugin/tool. Claude Code passes its session id via the MCP
 // initialize request's _meta.ui.sessionId (documented SessionStart context);
-// we also accept BILI_CONVERSATION_ID env (codex spawn-time registration).
+// we also accept SOPHIALIN_CONVERSATION_ID env (codex spawn-time registration).
 // #760: a fourth channel for hosts that share ONE shim across several
 // concurrent conversations (no env/meta session at all): every tool accepts an
 // optional conversation_id argument the model copies from the proxy's notes,
@@ -36,13 +36,13 @@ type McpToolDef = {
 // Claude Code passes the session id as an env var to MCP children (verified
 // against claude 2.1.227: CLAUDE_CODE_SESSION_ID) — and puts the SAME id on
 // every model request (x-claude-code-session-id), so binding is by identity.
-// BILI_CONVERSATION_ID (launcher-spawned hosts like codex) has no matching
+// SOPHIALIN_CONVERSATION_ID (launcher-spawned hosts like codex) has no matching
 // request id — binding is headless (next NEW session).
 const DEFAULT_PROXY_ORIGIN = "http://127.0.0.1:8787";
 let warnedStaleRecord = false;
 
 export function resolveProxyOrigin(): string {
-    const fromEnv = process.env.BILI_MCP_PROXY?.trim();
+    const fromEnv = process.env.SOPHIALIN_MCP_PROXY?.trim();
     if (fromEnv && fromEnv.length > 0) return fromEnv;
     const discovered = readProxyInstanceFile();
     if (discovered && /^https?:\/\/\S+$/.test(discovered.origin)) {
@@ -54,7 +54,7 @@ export function resolveProxyOrigin(): string {
         if (isProxyInstanceFile(discovered) && discovered.pid > 0 && !isPidAlive(discovered.pid)) {
             if (!warnedStaleRecord) {
                 warnedStaleRecord = true;
-                process.stderr.write(`[bili-mcp] recorded bili proxy (${discovered.origin}, pid ${discovered.pid}) is not running — falling back to ${DEFAULT_PROXY_ORIGIN}; set BILI_MCP_PROXY if your proxy listens elsewhere\n`);
+                process.stderr.write(`[sophialin-mcp] recorded sophialin proxy (${discovered.origin}, pid ${discovered.pid}) is not running — falling back to ${DEFAULT_PROXY_ORIGIN}; set SOPHIALIN_MCP_PROXY if your proxy listens elsewhere\n`);
             }
             return DEFAULT_PROXY_ORIGIN;
         }
@@ -64,16 +64,16 @@ export function resolveProxyOrigin(): string {
 }
 
 const TOOL_TIMEOUT_MS = 60_000;
-const CONVERSATION_FROM_ENV = process.env.CLAUDE_CODE_SESSION_ID?.trim() || process.env.BILI_CONVERSATION_ID?.trim() || undefined;
+const CONVERSATION_FROM_ENV = process.env.CLAUDE_CODE_SESSION_ID?.trim() || process.env.SOPHIALIN_CONVERSATION_ID?.trim() || undefined;
 const IDENTITY_BINDING = Boolean(process.env.CLAUDE_CODE_SESSION_ID?.trim());
 // #656: hosts that resume a session (claude --resume forks a NEW session id)
 // do so after MCP children were spawned — the env-captured id goes stale and
 // every tool call 404s forever. When that exact failure is seen, adopt the
 // proxy's most-recent active conversation (status?fallback=latest) and retry
 // once. Only armed for identity-bound hosts (claude code); opt out with
-// BILI_MCP_NO_ORPHAN_ADOPT=1 when several host sessions share one proxy and
+// SOPHIALIN_MCP_NO_ORPHAN_ADOPT=1 when several host sessions share one proxy and
 // the resumed one must not adopt a sibling's conversation.
-const ORPHAN_ADOPT = IDENTITY_BINDING && process.env.BILI_MCP_NO_ORPHAN_ADOPT !== "1";
+const ORPHAN_ADOPT = IDENTITY_BINDING && process.env.SOPHIALIN_MCP_NO_ORPHAN_ADOPT !== "1";
 let manifestTools: McpToolDef[] = [];
 let conversationId = CONVERSATION_FROM_ENV;
 // #760: every conversation this shim has ever registered — the default
@@ -95,7 +95,7 @@ function sendError(id: JsonRpcId, code: number, message: string): void {
 }
 
 async function fetchManifest(): Promise<void> {
-    const res = await fetch(`${resolveProxyOrigin()}/__bili/plugin/manifest`, { signal: AbortSignal.timeout(5000) });
+    const res = await fetch(`${resolveProxyOrigin()}/__sophialin/plugin/manifest`, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) throw new Error(`manifest fetch failed: ${res.status}`);
     const data = (await res.json()) as { tools?: Record<string, { name: string; description?: string; input_schema?: unknown }[]> };
     // Anthropic wire shape is the canonical MCP-compatible schema source.
@@ -118,7 +118,7 @@ export async function forwardTool(tool: string, args: unknown, timeoutMs: number
     for (let attempt = 0; ; attempt++) {
         let res: Response;
         try {
-            res = await fetch(`${resolveProxyOrigin()}/__bili/plugin/tool`, {
+            res = await fetch(`${resolveProxyOrigin()}/__sophialin/plugin/tool`, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ conversationId: effectiveConversationId, tool, args }),
@@ -152,14 +152,14 @@ export async function forwardTool(tool: string, args: unknown, timeoutMs: number
 async function adoptLatestActiveConversation(): Promise<boolean> {
     try {
         const res = await fetch(
-            `${resolveProxyOrigin()}/__bili/plugin/status?conversationId=${encodeURIComponent(conversationId ?? "")}&fallback=latest`,
+            `${resolveProxyOrigin()}/__sophialin/plugin/status?conversationId=${encodeURIComponent(conversationId ?? "")}&fallback=latest`,
             { signal: AbortSignal.timeout(5000) },
         );
         if (!res.ok) return false;
         const data = (await res.json()) as { ok?: boolean; conversationId?: string; fallback?: boolean };
         if (data.ok !== true || data.fallback !== true || !data.conversationId || data.conversationId === conversationId) return false;
         process.stderr.write(
-            `[bili-mcp] conversation id no longer known by the proxy (host resumed its session?); adopting latest active conversation ${data.conversationId}\n`,
+            `[sophialin-mcp] conversation id no longer known by the proxy (host resumed its session?); adopting latest active conversation ${data.conversationId}\n`,
         );
         conversationId = data.conversationId;
         return true;
@@ -193,7 +193,7 @@ async function handleMessage(msg: {
             if (fromMeta) conversationId ??= fromMeta;
             initialized = true;
             if (conversationId && !registeredConversations.has(conversationId)) {
-                const registerFetch = fetch(`${resolveProxyOrigin()}/__bili/plugin/register`, {
+                const registerFetch = fetch(`${resolveProxyOrigin()}/__sophialin/plugin/register`, {
                     method: "POST",
                     headers: { "content-type": "application/json" },
                     body: JSON.stringify({ conversationId, agent: "mcp", identity: IDENTITY_BINDING }),
@@ -214,7 +214,7 @@ async function handleMessage(msg: {
             }
             sendResult(id, {
                 protocolVersion: "2025-06-18",
-                serverInfo: { name: "bili", version: VERSION },
+                serverInfo: { name: "sophialin", version: VERSION },
                 capabilities: { tools: {} },
             });
             return;
@@ -230,7 +230,7 @@ async function handleMessage(msg: {
                 await ensureManifest();
                 sendResult(id, { tools: manifestTools });
             } catch (err) {
-                sendError(id, -32003, `bili proxy unreachable at ${resolveProxyOrigin()} (${err instanceof Error ? err.message : String(err)}) — start bili or set BILI_MCP_PROXY`);
+                sendError(id, -32003, `sophialin proxy unreachable at ${resolveProxyOrigin()} (${err instanceof Error ? err.message : String(err)}) — start sophialin or set SOPHIALIN_MCP_PROXY`);
             }
             return;
         }
@@ -242,7 +242,7 @@ async function handleMessage(msg: {
                 return;
             }
             // #760: per-call conversation_id — the model copies the id the
-            // proxy printed in its notes ("your bili conversation id: …").
+            // proxy printed in its notes ("your sophialin conversation id: …").
             // Overrides the default binding (env/meta); stripped before
             // forwarding since the proxy routes on the body-level field.
             // #841 exception: search_context's conversation_id doubles as a
@@ -269,7 +269,7 @@ async function handleMessage(msg: {
             } catch (err) {
                 // Protocol failures are results (isError), not JSON-RPC
                 // errors, so the host surfaces them to the model.
-                sendResult(id, { content: [{ type: "text", text: `bili tool error: ${err instanceof Error ? err.message : String(err)}` }], isError: true });
+                sendResult(id, { content: [{ type: "text", text: `sophialin tool error: ${err instanceof Error ? err.message : String(err)}` }], isError: true });
             }
             return;
         }
@@ -305,7 +305,7 @@ async function mcpMain(): Promise<void> {
     process.stdin.on("end", () => process.exit(0));
 }
 
-/** CLI entry (`bili mcp`): the stdio loop keeps the process alive. */
+/** CLI entry (`sophialin mcp`): the stdio loop keeps the process alive. */
 export function runMcpStdio(): void {
     void mcpMain();
 }

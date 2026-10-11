@@ -97,7 +97,7 @@ test("isOrphanMarkupText classifies a released tail by its bytes, not its origin
     assert.equal(isOrphanMarkupText('\x3cacp tokens="1" type="text"'), true, "unclosed render-tag opening");
     assert.equal(isOrphanMarkupText("\x3c/acp t"), true, "partial render-tag close");
     assert.equal(isOrphanMarkupText("[ACP] Compressed m00120–m0300"), true, "literal marker line");
-    assert.equal(isOrphanMarkupText("\u003cbili-cha"), true, "truncated internal-artifact open");
+    assert.equal(isOrphanMarkupText("\u003csophialin-cha"), true, "truncated internal-artifact open");
 });
 
 test("#1760 repro: the recorded deepseek SSE returns 好 without a nudge re-issue", async () => {

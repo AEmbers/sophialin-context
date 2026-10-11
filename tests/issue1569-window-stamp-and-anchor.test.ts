@@ -96,7 +96,7 @@ function makeMinimalCtx(extra: Record<string, unknown>) {
         await cb!({
             sessionID: "ses_1569",
             model,
-            request: { url: `${globalThis.__miniOrigin}/bili/http://upstream.example/v1`, headers: { set: (k: string, v: string) => { store[k] = v; } } },
+            request: { url: `${globalThis.__miniOrigin}/sophialin/http://upstream.example/v1`, headers: { set: (k: string, v: string) => { store[k] = v; } } },
         });
         return store;
     };
@@ -112,18 +112,18 @@ test("#1569 A1: stamps window+output from ctx.model.list (v2.0.x stable seam)", 
     const proxy = await startMiniProxy();
     globalThis.__miniOrigin = proxy.origin;
     try {
-        await withEnv1569({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv1569({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const fake = makeMinimalCtx({
                 model: { list: async () => ({ data: [{ providerID: "prov", id: "gpt-6-sol", limit: { context: 302000, output: 32768 } }] }) },
             });
             const cleanup = await createOpencodeV2Setup({})(fake.ctx as never);
             try {
                 const r1 = await fake.fire({ providerID: "prov", id: "gpt-6-sol" });
-                assert.equal(r1["x-bili-plugin"], "opencode");
+                assert.equal(r1["x-sophialin-plugin"], "opencode");
                 await rtt();
                 const r2 = await fake.fire({ providerID: "prov", id: "gpt-6-sol" });
-                await until(() => r2["x-bili-plugin-context-window"] === "302000");
-                assert.equal(r2["x-bili-plugin-max-output"], "32768");
+                await until(() => r2["x-sophialin-plugin-context-window"] === "302000");
+                assert.equal(r2["x-sophialin-plugin-max-output"], "32768");
             } finally {
                 cleanup();
             }
@@ -137,7 +137,7 @@ test("#1569 A2: stamps window from catalog.provider.list Map records (dev-build 
     const proxy = await startMiniProxy();
     globalThis.__miniOrigin = proxy.origin;
     try {
-        await withEnv1569({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv1569({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const fake = makeMinimalCtx({
                 catalog: {
                     provider: {
@@ -150,7 +150,7 @@ test("#1569 A2: stamps window from catalog.provider.list Map records (dev-build 
                 await fake.fire({ providerID: "prov", id: "m1" });
                 await rtt();
                 const r2 = await fake.fire({ providerID: "prov", id: "m1" });
-                await until(() => r2["x-bili-plugin-context-window"] === "111000");
+                await until(() => r2["x-sophialin-plugin-context-window"] === "111000");
             } finally {
                 cleanup();
             }
@@ -164,7 +164,7 @@ test("#1569 A3: stamps window from catalog.provider.list plain-object records (R
     const proxy = await startMiniProxy();
     globalThis.__miniOrigin = proxy.origin;
     try {
-        await withEnv1569({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv1569({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const fake = makeMinimalCtx({
                 catalog: {
                     provider: {
@@ -177,7 +177,7 @@ test("#1569 A3: stamps window from catalog.provider.list plain-object records (R
                 await fake.fire({ providerID: "p2", id: "m2" });
                 await rtt();
                 const r2 = await fake.fire({ providerID: "p2", id: "m2" });
-                await until(() => r2["x-bili-plugin-context-window"] === "222000");
+                await until(() => r2["x-sophialin-plugin-context-window"] === "222000");
             } finally {
                 cleanup();
             }
@@ -191,7 +191,7 @@ test("#1569 A4: legacy catalog.model.list seam still works (build parity)", asyn
     const proxy = await startMiniProxy();
     globalThis.__miniOrigin = proxy.origin;
     try {
-        await withEnv1569({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv1569({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const fake = makeMinimalCtx({
                 catalog: { model: { list: async () => ({ data: [{ providerID: "qwen", id: "m1", limit: { context: 262144 } }] }) } },
             });
@@ -200,7 +200,7 @@ test("#1569 A4: legacy catalog.model.list seam still works (build parity)", asyn
                 await fake.fire({ providerID: "qwen", id: "m1" });
                 await rtt();
                 const r2 = await fake.fire({ providerID: "qwen", id: "m1" });
-                await until(() => r2["x-bili-plugin-context-window"] === "262144");
+                await until(() => r2["x-sophialin-plugin-context-window"] === "262144");
             } finally {
                 cleanup();
             }
@@ -217,7 +217,7 @@ test("#1569 A5: every seam empty → header unstamped + exactly ONE console.warn
     const origWarn = console.warn;
     console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(" ")); };
     try {
-        await withEnv1569({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv1569({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const fake = makeMinimalCtx({
                 model: { list: async () => ({ data: [] }) },
                 catalog: {
@@ -230,8 +230,8 @@ test("#1569 A5: every seam empty → header unstamped + exactly ONE console.warn
                 await fake.fire({ providerID: "prov", id: "missing" });
                 const r2 = await fake.fire({ providerID: "prov", id: "missing" });
                 await new Promise((r) => setTimeout(r, 50));
-                assert.equal(r2["x-bili-plugin-context-window"], undefined, "no window header when no seam yields a limit");
-                const mine = warnings.filter((w) => w.includes("x-bili-plugin-context-window goes unstamped"));
+                assert.equal(r2["x-sophialin-plugin-context-window"], undefined, "no window header when no seam yields a limit");
+                const mine = warnings.filter((w) => w.includes("x-sophialin-plugin-context-window goes unstamped"));
                 assert.equal(mine.length, 1, `exactly one degradation warning, got: ${JSON.stringify(warnings)}`);
                 assert.match(mine[0], /opencode\.json limit\.context is NOT reaching the proxy/);
             } finally {
@@ -248,7 +248,7 @@ test("#1569 A6: malformed entries ignored; rejecting seams inert-safe", async ()
     const proxy = await startMiniProxy();
     globalThis.__miniOrigin = proxy.origin;
     try {
-        await withEnv1569({ BILLION_CONTEXT_PROXY: undefined, BILLION_CONTEXT_PLUGIN: undefined }, async () => {
+        await withEnv1569({ SOPHIALIN_CONTEXT_PROXY: undefined, SOPHIALIN_CONTEXT_PLUGIN: undefined }, async () => {
             const fake = makeMinimalCtx({
                 model: {
                     list: async () => ({
@@ -266,7 +266,7 @@ test("#1569 A6: malformed entries ignored; rejecting seams inert-safe", async ()
                 await fake.fire({ providerID: "p", id: "m3" });
                 await rtt();
                 const r2 = await fake.fire({ providerID: "p", id: "m3" });
-                await until(() => r2["x-bili-plugin-context-window"] === "999999");
+                await until(() => r2["x-sophialin-plugin-context-window"] === "999999");
             } finally {
                 cleanup();
             }
@@ -388,7 +388,7 @@ async function runAnchorCase(sessionId: string, reportUsage: boolean): Promise<{
     } as ProxyOptions);
     await once(proxy, "listening");
     try {
-        const url = `http://127.0.0.1:${proxy.address().port}/bili/http://127.0.0.1:${upstreamPort}/v1/messages`;
+        const url = `http://127.0.0.1:${proxy.address().port}/sophialin/http://127.0.0.1:${upstreamPort}/v1/messages`;
         const headers = { "content-type": "application/json", "x-acp-session": sessionId };
         const base = baseConversation();
 

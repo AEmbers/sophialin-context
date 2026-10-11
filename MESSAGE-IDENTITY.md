@@ -1,6 +1,6 @@
 # Message identity: content hashes as the cross-turn join key
 
-Design record for how billion-context identifies an individual message across
+Design record for how sophialin-context identifies an individual message across
 turns, and why identity is derived from message **content** rather than an
 id assigned at ingress and persisted by the host. Written after the #1496
 review; sibling document to `SESSION-IDENTITY.md` (which settles the same
@@ -136,7 +136,7 @@ never stripped, #1039) and re-derives identity from bytes.
 DeepSeek-class gateways require the client to pass back the reasoning items
 the gateway itself emitted ("the reasoning content from the previous turn must
 be passed back in thinking mode"). This is the only mandated content
-round-trip in the fleet, and bili's handling shows the pattern: it is treated
+round-trip in the fleet, and sophialin's handling shows the pattern: it is treated
 as a **repairable shape constraint**, not identity — #762 injected blank
 `reasoning_content` on the chat wire, #1479/#1482 extend the repair to the
 Responses wire and to loop retry paths, all gated on `isStrictReasoningEcho`

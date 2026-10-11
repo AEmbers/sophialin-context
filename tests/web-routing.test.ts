@@ -26,15 +26,15 @@ test("embedded Web client is valid JavaScript", () => {
 test("Web UI exposes upstream controls without inline handlers", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-web-routing-${process.pid}-${Date.now()}`);
-    const biliConfig = path.join(root, "billion-context.json");
+    const root = path.join(tmpdir(), `sophialin-web-routing-${process.pid}-${Date.now()}`);
+    const sophialinConfig = path.join(root, "sophialin-context.json");
     mkdirSync(root, { recursive: true });
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
 
     const previous = {
-        config: process.env.BILI_CONFIG_FILE,
+        config: process.env.SOPHIALIN_CONFIG_FILE,
     };
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const opts: ProxyOptions = {
         port: 0,
         host: "127.0.0.1",
@@ -59,7 +59,7 @@ test("Web UI exposes upstream controls without inline handlers", async () => {
     const port = (proxy.address() as { port: number }).port;
     const base = `http://127.0.0.1:${port}`;
     try {
-        const ui = await (await fetch(`${base}/__bili/`)).text();
+        const ui = await (await fetch(`${base}/__sophialin/`)).text();
         assert.match(ui, /Codex（ChatGPT 登录）/);
         assert.match(ui, /上游网络/);
         assert.match(ui, /Fork me on GitHub/);
@@ -76,37 +76,37 @@ test("Web UI exposes upstream controls without inline handlers", async () => {
         assert.match(ui, /复制 CA 路径/);
         assert.ok(ui.includes(caPathEsc), "ZCode card shows the machine's real CA path");
         assert.match(ui, /data-copy="[^"]*root-ca\.pem"/);
-        assert.doesNotMatch(ui, /~\/\.local\/share\/billion-context\/ca\/root-ca\.pem/);
+        assert.doesNotMatch(ui, /~\/\.local\/share\/sophialin-context\/ca\/root-ca\.pem/);
 
-        const saveProxy = await fetch(`${base}/__bili/config`, {
+        const saveProxy = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ upstreamProxyMode: "manual", upstreamProxy: "http://127.0.0.1:9999" }),
         });
         assert.equal(saveProxy.status, 200);
-        const config = await (await fetch(`${base}/__bili/config`)).json() as { upstreamProxy: string; upstreamProxyMode: string };
+        const config = await (await fetch(`${base}/__sophialin/config`)).json() as { upstreamProxy: string; upstreamProxyMode: string };
         assert.equal(config.upstreamProxy, "http://127.0.0.1:9999");
         assert.equal(config.upstreamProxyMode, "manual");
-        const upstream = await (await fetch(`${base}/__bili/upstream`)).json() as { proxy: string; source: string };
+        const upstream = await (await fetch(`${base}/__sophialin/upstream`)).json() as { proxy: string; source: string };
         assert.equal(upstream.proxy, "http://127.0.0.1:9999/");
         assert.equal(upstream.source, "web-manual");
 
     } finally {
         await close(proxy);
-        if (previous.config === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = previous.config;
+        if (previous.config === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = previous.config;
         rmrf(root);
     }
 });
 
-test("PUT /__bili/config with providers takes effect without a separate reload call", async () => {
+test("PUT /__sophialin/config with providers takes effect without a separate reload call", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-put-providers-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-put-providers-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const sophialinConfig = path.join(root, "sophialin-context.json");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const opts: ProxyOptions = {
         port: 0,
         host: "127.0.0.1",
@@ -132,17 +132,17 @@ test("PUT /__bili/config with providers takes effect without a separate reload c
     const base = `http://127.0.0.1:${port}`;
     try {
         const providers = { "https://api.example.com/v1": { models: { "gpt-test": { context: 123456 } } } };
-        const put = await fetch(`${base}/__bili/config`, {
+        const put = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ providers }),
         });
         assert.equal(put.status, 200);
-        const after = await (await fetch(`${base}/__bili/config`)).json() as { providers: Record<string, unknown> };
+        const after = await (await fetch(`${base}/__sophialin/config`)).json() as { providers: Record<string, unknown> };
         assert.deepEqual(after.providers, providers, "providers saved and visible after PUT without /reload");
     } finally {
         await close(proxy);
-        if (prevConfig === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = prevConfig;
+        if (prevConfig === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         rmrf(root);
     }
 });
@@ -217,15 +217,15 @@ test("parseCompressSettings accepts tuned fields and rejects malformed ones", ()
     assert.equal(parseCompressSettings({ injectNudge: 1 }), undefined);
 });
 
-test("#154: PUT /__bili/config with compress hot-applies the global compress block", async () => {
+test("#154: PUT /__sophialin/config with compress hot-applies the global compress block", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-put-compress-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-put-compress-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const sophialinConfig = path.join(root, "sophialin-context.json");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const opts: ProxyOptions = {
         port: 0,
         host: "127.0.0.1",
@@ -250,16 +250,16 @@ test("#154: PUT /__bili/config with compress hot-applies the global compress blo
     const port = (proxy.address() as { port: number }).port;
     const base = `http://127.0.0.1:${port}`;
     try {
-        const ui = await (await fetch(`${base}/__bili/`)).text();
+        const ui = await (await fetch(`${base}/__sophialin/`)).text();
         // #1426: single raw config-file editor replaced the per-section JSON boxes
         assert.match(ui, /cfg-file-edit/);
         assert.match(ui, /<textarea/);
         assert.match(ui, /save-file/);
 
-        const before = await (await fetch(`${base}/__bili/config`)).json() as { compress: unknown };
+        const before = await (await fetch(`${base}/__sophialin/config`)).json() as { compress: unknown };
         assert.equal(before.compress, null);
 
-        const bad = await fetch(`${base}/__bili/config`, {
+        const bad = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ compress: { nudgeGrowthTokens: "fast" } }),
@@ -267,27 +267,27 @@ test("#154: PUT /__bili/config with compress hot-applies the global compress blo
         assert.equal(bad.status, 400);
 
         const tuned = { modelContextLimit: 200_000, maxContextLimit: "75%", preserveRecentMessages: 4 };
-        const put = await fetch(`${base}/__bili/config`, {
+        const put = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ compress: tuned }),
         });
         assert.equal(put.status, 200);
 
-        const after = await (await fetch(`${base}/__bili/config`)).json() as { compress: typeof tuned };
+        const after = await (await fetch(`${base}/__sophialin/config`)).json() as { compress: typeof tuned };
         assert.deepEqual(after.compress, tuned);
 
-        const cleared = await fetch(`${base}/__bili/config`, {
+        const cleared = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ compress: null }),
         });
         assert.equal(cleared.status, 200);
-        const final = await (await fetch(`${base}/__bili/config`)).json() as { compress: unknown };
+        const final = await (await fetch(`${base}/__sophialin/config`)).json() as { compress: unknown };
         assert.equal(final.compress, null);
     } finally {
         await close(proxy);
-        if (prevConfig === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = prevConfig;
+        if (prevConfig === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         rmrf(root);
     }
 });
@@ -301,13 +301,13 @@ test("#154: PUT /__bili/config with compress hot-applies the global compress blo
 test("compress round-trip preserves injectTool/injectNudge injection toggles", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-put-toggles-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-put-toggles-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
+    const sophialinConfig = path.join(root, "sophialin-context.json");
     const toggles = { injectTool: false, nudgeGrowthTokens: 4000 };
-    writeFileSync(biliConfig, JSON.stringify({ providers: {}, compress: toggles }) + "\n", "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    writeFileSync(sophialinConfig, JSON.stringify({ providers: {}, compress: toggles }) + "\n", "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const opts: ProxyOptions = {
         port: 0,
         host: "127.0.0.1",
@@ -334,37 +334,37 @@ test("compress round-trip preserves injectTool/injectNudge injection toggles", a
     try {
         // UI flow: GET shows the file block (incl. the toggles); echoing the
         // displayed value back via PUT must leave the file unchanged.
-        const before = await (await fetch(`${base}/__bili/config`)).json() as { compress: Record<string, unknown> };
+        const before = await (await fetch(`${base}/__sophialin/config`)).json() as { compress: Record<string, unknown> };
         assert.deepEqual(before.compress, toggles);
-        const put = await fetch(`${base}/__bili/config`, {
+        const put = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ compress: before.compress }),
         });
         assert.equal(put.status, 200);
-        const fileAfter = JSON.parse(readFileSync(biliConfig, "utf8")) as { compress: unknown };
+        const fileAfter = JSON.parse(readFileSync(sophialinConfig, "utf8")) as { compress: unknown };
         assert.deepEqual(fileAfter.compress, toggles, "unchanged web save must not strip injectTool from the file");
-        const after = await (await fetch(`${base}/__bili/config`)).json() as { compress: unknown };
+        const after = await (await fetch(`${base}/__sophialin/config`)).json() as { compress: unknown };
         assert.deepEqual(after.compress, toggles);
     } finally {
         await close(proxy);
-        if (prevConfig === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = prevConfig;
+        if (prevConfig === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         rmrf(root);
     }
 });
 
-test("PUT /__bili/config refuses to overwrite a config file that does not parse", async () => {
+test("PUT /__sophialin/config refuses to overwrite a config file that does not parse", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-put-broken-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-put-broken-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
+    const sophialinConfig = path.join(root, "sophialin-context.json");
     // Hand-edited file with a trailing comma — JSON.parse fails, the loader
     // sees {}. A PUT must NOT rebuild from {} (that would silently drop the
     // user's modelContextLimit etc.); it must 409 until the syntax is fixed.
-    writeFileSync(biliConfig, '{"providers":{},"modelContextLimit":333000,}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    writeFileSync(sophialinConfig, '{"providers":{},"modelContextLimit":333000,}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
     const opts: ProxyOptions = {
         port: 0,
         host: "127.0.0.1",
@@ -389,11 +389,11 @@ test("PUT /__bili/config refuses to overwrite a config file that does not parse"
     const port = (proxy.address() as { port: number }).port;
     const base = `http://127.0.0.1:${port}`;
     try {
-        const get1 = await (await fetch(`${base}/__bili/config`)).json() as { parseError?: string };
+        const get1 = await (await fetch(`${base}/__sophialin/config`)).json() as { parseError?: string };
         assert.ok(get1.parseError, "GET surfaces parseError for a broken file");
         assert.match(get1.parseError, /not valid JSON/);
 
-        const put = await fetch(`${base}/__bili/config`, {
+        const put = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ providers: {} }),
@@ -402,24 +402,24 @@ test("PUT /__bili/config refuses to overwrite a config file that does not parse"
         const err = await put.json() as { error: string };
         assert.match(err.error, /not valid JSON/);
         // File untouched on disk.
-        assert.match(readFileSync(biliConfig, "utf8"), /modelContextLimit/);
+        assert.match(readFileSync(sophialinConfig, "utf8"), /modelContextLimit/);
 
         // User fixes the syntax by hand → PUT works again and preserves fields.
-        writeFileSync(biliConfig, '{"providers":{},"modelContextLimit":333000}\n', "utf8");
-        const put2 = await fetch(`${base}/__bili/config`, {
+        writeFileSync(sophialinConfig, '{"providers":{},"modelContextLimit":333000}\n', "utf8");
+        const put2 = await fetch(`${base}/__sophialin/config`, {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ providers: { "https://api.example.com": {} } }),
         });
         assert.equal(put2.status, 200);
-        const after = readFileSync(biliConfig, "utf8");
+        const after = readFileSync(sophialinConfig, "utf8");
         assert.match(after, /modelContextLimit/, "pre-existing fields survive the PUT");
-        const get2 = await (await fetch(`${base}/__bili/config`)).json() as { parseError?: string; providers: Record<string, unknown> };
+        const get2 = await (await fetch(`${base}/__sophialin/config`)).json() as { parseError?: string; providers: Record<string, unknown> };
         assert.equal(get2.parseError, undefined);
         assert.ok(get2.providers["https://api.example.com"]);
     } finally {
         await close(proxy);
-        if (prevConfig === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = prevConfig;
+        if (prevConfig === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         rmrf(root);
     }
 });

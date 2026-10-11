@@ -9,7 +9,7 @@
  *  NOW, not history.
  *
  *  The web UI renders whatever is here as a global banner via the existing
- *  /__bili/overview poll; nothing else consumes this table. */
+ *  /__sophialin/overview poll; nothing else consumes this table. */
 
 import { classifyUpstreamFailure, UPSTREAM_FAIL_HINTS, type UpstreamFailureKind } from "./upstream-fail.js";
 
@@ -25,7 +25,7 @@ export interface UpstreamAlert {
 }
 
 /** v1 scope (#1682): only "fundamentally cannot connect" transport failures.
- *  - client-abort: the downstream client went away — not a bili-side problem;
+ *  - client-abort: the downstream client went away — not a sophialin-side problem;
  *  - upstream-timeout: fired AFTER connect (headers/body idle budget) — the
  *    request may have reached the upstream, so "cannot reach" would be a lie;
  *  - unknown: unclassified — better silent than a misleading red banner. */

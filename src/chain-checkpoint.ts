@@ -3,18 +3,18 @@ import type { WireProtocol } from "./util.js";
 
 // #1357/#1395/#1421 — Chain Checkpoint (first-processor-wins idempotent interop).
 // A request-level checkpoint marks a request that already passed through a
-// bili pipeline; downstream bili instances recognize it and forward silently
+// sophialin pipeline; downstream sophialin instances recognize it and forward silently
 // instead of re-running kernel/injection. This module is STEP 2+3: recognition
 // (parser, per-wire carrier contract, JCS digest, verdicts) plus generation +
 // enforcement (stampOutbound; server.ts maps verdicts to forward-or-process).
 //
 // IDENTIFICATION-CONTRACT FREEZE (#1397 step 2): the parser, the JCS digest
 // scheme, and the verdict matrix are frozen — they define what every future
-// bili trusts. Step 3 (#1421) changed only WHERE the carrier sits (the
+// sophialin trusts. Step 3 (#1421) changed only WHERE the carrier sits (the
 // stamp/strip shapes below), never WHAT a checkpoint is.
 //
 // Carrier contract (#1395 decision (a), ownership-based): a checkpoint lives
-// ONLY in a bili-owned trailing control slot — the trailing run of user-role
+// ONLY in a sophialin-owned trailing control slot — the trailing run of user-role
 // entries after the last non-user entry. Content the model or user can
 // generate themselves elsewhere is never a carrier; there is deliberately no
 // global magic-string scanning anywhere else in the body. Matching is always
@@ -31,7 +31,7 @@ import type { WireProtocol } from "./util.js";
 //               tolerates same-side runs, but gateways/intermediaries are not
 //               all that lenient — never emit them.
 //   google      merge into the LAST CONTENT'S PARTS (mandatory, mirrors
-//               appendGoogleNudge): bili's own pipeline enforces alternation
+//               appendGoogleNudge): sophialin's own pipeline enforces alternation
 //               (coreToGoogle fuses same-side runs), so the append form died
 //               inside our own proxy before any upstream saw it.
 //   openai      standalone trailing user MESSAGE (append).
@@ -46,7 +46,7 @@ import type { WireProtocol } from "./util.js";
 //   valid            ≥1 known-version candidate whose digest matches and is fresh
 //                    → first-processor-wins: forward verbatim, pipeline skipped
 //   recent-mismatch  no digest match, but a well-formed FRESH checkpoint (a
-//                    different bili processed this body) → forward verbatim + warn
+//                    different sophialin processed this body) → forward verbatim + warn
 //   stale            digest match with out-of-window/future timestamp (replay or
 //                    clock skew → forward verbatim + warn), OR no-match stale-only
 //                    (→ strip the stale carrier(s) and process normally)
@@ -54,7 +54,7 @@ import type { WireProtocol } from "./util.js";
 //                    beyond skew only, or unknown version only → never trusted,
 //                    process normally
 //   none             no checkpoint signal at all
-export const CHAIN_TAG = "bili-chain";
+export const CHAIN_TAG = "sophialin-chain";
 export const SUPPORTED_CHECKPOINT_VERSION = 1;
 export const DEFAULT_MAX_FUTURE_SKEW_MS = 2 * 60 * 1000;
 export const DEFAULT_RECENT_CHECKPOINT_WINDOW_MS = 10 * 60 * 1000;
@@ -62,7 +62,7 @@ export const DEFAULT_RECENT_CHECKPOINT_WINDOW_MS = 10 * 60 * 1000;
 // ≤~120 with short ids); the cap only bounds malformed-tag scanning cost.
 const MAX_CHECKPOINT_CHARS = 512;
 
-export const TAG_OPEN = "\x3cbili-chain ";
+export const TAG_OPEN = "\x3csophialin-chain ";
 const TAG_CLOSE = "/\x3e";
 
 export interface ChainCheckpoint {
@@ -297,7 +297,7 @@ export function extractChainCarriers(parsed: unknown, wire: WireProtocol): Chain
 // after it) is invisible to it, rides the rebuild to the model as an ordinary
 // message, and stacks monotonically forever. This strip removes well-formed
 // whole-part carriers from ANY position in the body, on the normal-processing
-// path only (the verbatim-forward verdicts never reach it — chained-bili
+// path only (the verbatim-forward verdicts never reach it — chained-sophialin
 // bodies are untouched). Same strictness as recognition: whole-PART exact
 // match via parseChainCheckpoint; tag-shaped text embedded inside prose is NOT
 // a carrier and is left alone (#1039/#1395 boundary). Roles: user + assistant
@@ -559,7 +559,7 @@ export function insertCheckpointCarrier(parsed: unknown, wire: WireProtocol, tag
 /** Step-3 generation (#1421): stamp a parsed outbound body with a fresh
  *  request-level checkpoint for this instance. The digest covers the stamped
  *  body minus its own carrier (computeCheckpointDigest round-trip property),
- *  so any downstream bili verifying the same bytes recomputes the same value.
+ *  so any downstream sophialin verifying the same bytes recomputes the same value.
  *  requestId derives from the digest — deterministic, constant-size, and it
  *  correlates the stamp with the exact body it covers. */
 export function stampOutbound(parsed: unknown, wire: WireProtocol, processor: string, nowMs: number = Date.now()): unknown | null {
@@ -597,8 +597,8 @@ function envMs(name: string, fallback: number): number {
 
 export function evaluateChain(parsed: unknown, wire: WireProtocol, opts: ChainEvaluationOptions = {}): ChainCheckpointContext {
     const nowMs = opts.nowMs ?? Date.now();
-    const maxFutureSkewMs = opts.maxFutureSkewMs ?? envMs("BILI_CHAIN_MAX_FUTURE_SKEW_MS", DEFAULT_MAX_FUTURE_SKEW_MS);
-    const recentWindowMs = opts.recentWindowMs ?? envMs("BILI_CHAIN_RECENT_WINDOW_MS", DEFAULT_RECENT_CHECKPOINT_WINDOW_MS);
+    const maxFutureSkewMs = opts.maxFutureSkewMs ?? envMs("SOPHIALIN_CHAIN_MAX_FUTURE_SKEW_MS", DEFAULT_MAX_FUTURE_SKEW_MS);
+    const recentWindowMs = opts.recentWindowMs ?? envMs("SOPHIALIN_CHAIN_RECENT_WINDOW_MS", DEFAULT_RECENT_CHECKPOINT_WINDOW_MS);
     const { candidates, malformed, stripped } = extractChainCarriers(parsed, wire);
     if (candidates.length === 0) {
         return { candidates, malformed, verdict: malformed > 0 ? "invalid" : "none" };

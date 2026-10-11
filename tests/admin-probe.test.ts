@@ -14,33 +14,33 @@ import { _setForTest as setRegistryForTest } from "../src/registry.ts";
 import { rmrf } from "./tmp-rm.ts";
 
 /** #1073: forward-proxy-style (absolute-form) management probes addressed to
- *  bili instances must return real health state instead of being tunneled and
+ *  sophialin instances must return real health state instead of being tunneled and
  *  403'd by the target's own admin gate — while every #409 security property
  *  (self-layer denial, remote-peer marker, hostname marker) stays intact. */
 
 test("selfAdminProbePath: self-addressed management probes only", () => {
     const P = 8787;
     // Self shapes qualify (IP literals, v6, hex-mapped, unspecified, localhost).
-    assert.equal(selfAdminProbePath(`http://127.0.0.1:${P}/__bili/health`, P), "/__bili/health");
-    assert.equal(selfAdminProbePath(`http://127.0.0.1:${P}/__bili/config?x=1`, P), "/__bili/config?x=1", "query preserved");
+    assert.equal(selfAdminProbePath(`http://127.0.0.1:${P}/__sophialin/health`, P), "/__sophialin/health");
+    assert.equal(selfAdminProbePath(`http://127.0.0.1:${P}/__sophialin/config?x=1`, P), "/__sophialin/config?x=1", "query preserved");
     assert.equal(selfAdminProbePath(`http://localhost:${P}/__acp/status`, P), "/__acp/status");
-    assert.equal(selfAdminProbePath(`http://[::1]:${P}/__bili/`, P), "/__bili/");
-    assert.equal(selfAdminProbePath(`http://[::ffff:127.0.0.1]:${P}/__bili/health`, P), "/__bili/health", "hex-mapped loopback folds to 127.0.0.1");
-    assert.equal(selfAdminProbePath(`http://0.0.0.0:${P}/__bili/health`, P), "/__bili/health");
+    assert.equal(selfAdminProbePath(`http://[::1]:${P}/__sophialin/`, P), "/__sophialin/");
+    assert.equal(selfAdminProbePath(`http://[::ffff:127.0.0.1]:${P}/__sophialin/health`, P), "/__sophialin/health", "hex-mapped loopback folds to 127.0.0.1");
+    assert.equal(selfAdminProbePath(`http://0.0.0.0:${P}/__sophialin/health`, P), "/__sophialin/health");
     assert.equal(selfAdminProbePath(`http://[::]:${P}/__acp/x`, P), "/__acp/x", "v6 unspecified in brackets");
     // Not self: different port (the cross-instance shape) or non-local host.
-    assert.equal(selfAdminProbePath(`http://127.0.0.1:${P + 1}/__bili/health`, P), undefined, "different port is not self");
-    assert.equal(selfAdminProbePath(`http://8.8.8.8:${P}/__bili/health`, P), undefined, "public IP is not self");
-    assert.equal(selfAdminProbePath(`http://otherhost.invalid:${P}/__bili/health`, P), undefined, "foreign names stay conservative");
+    assert.equal(selfAdminProbePath(`http://127.0.0.1:${P + 1}/__sophialin/health`, P), undefined, "different port is not self");
+    assert.equal(selfAdminProbePath(`http://8.8.8.8:${P}/__sophialin/health`, P), undefined, "public IP is not self");
+    assert.equal(selfAdminProbePath(`http://otherhost.invalid:${P}/__sophialin/health`, P), undefined, "foreign names stay conservative");
     // Self host but non-management path keeps the loud self-layer 403 (#562).
     assert.equal(selfAdminProbePath(`http://127.0.0.1:${P}/v1/chat/completions`, P), undefined);
     assert.equal(selfAdminProbePath(`http://127.0.0.1:${P}/__notadmin/`, P), undefined);
     // Not absolute-form at all.
-    assert.equal(selfAdminProbePath("/__bili/health", P), undefined);
+    assert.equal(selfAdminProbePath("/__sophialin/health", P), undefined);
     // Malformed input never throws.
     assert.equal(selfAdminProbePath("http://[::1:", P), undefined);
-    assert.equal(selfAdminProbePath("http://127.0.0.1:/__bili/", P), undefined);
-    assert.equal(selfAdminProbePath(`http://127.0.0.1:${P}/__bili/health`, undefined), undefined, "no local port — cannot decide");
+    assert.equal(selfAdminProbePath("http://127.0.0.1:/__sophialin/", P), undefined);
+    assert.equal(selfAdminProbePath(`http://127.0.0.1:${P}/__sophialin/health`, undefined), undefined, "no local port — cannot decide");
 });
 
 // ---------------------------------------------------------------------------
@@ -125,20 +125,20 @@ async function makeBili(): Promise<http.Server> {
 test("integration: absolute-form management probes answer with real health state (#1073)", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
-    const root = path.join(tmpdir(), `bili-admin-probe-${process.pid}-${Date.now()}`);
+    const root = path.join(tmpdir(), `sophialin-admin-probe-${process.pid}-${Date.now()}`);
     mkdirSync(root, { recursive: true });
-    const biliConfig = path.join(root, "billion-context.json");
-    writeFileSync(biliConfig, '{"providers":{}}\n', "utf8");
-    const prevConfig = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = biliConfig;
+    const sophialinConfig = path.join(root, "sophialin-context.json");
+    writeFileSync(sophialinConfig, '{"providers":{}}\n', "utf8");
+    const prevConfig = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = sophialinConfig;
 
     const p1 = await makeBili();
     const p2 = await makeBili();
     const port1 = (p1.address() as { port: number }).port;
     const port2 = (p2.address() as { port: number }).port;
     try {
-        const health1 = await get(port1, "/__bili/health");
-        const health2 = await get(port2, "/__bili/health");
+        const health1 = await get(port1, "/__sophialin/health");
+        const health2 = await get(port2, "/__sophialin/health");
         assert.equal(health1.status, 200);
         assert.equal(health2.status, 200);
         const id1 = JSON.parse(health1.body).instanceId;
@@ -146,28 +146,28 @@ test("integration: absolute-form management probes answer with real health state
         assert.notEqual(id1, id2, "two distinct instances");
 
         // SELF shape: prober configured with P1's own port as its proxy asks
-        // for http://127.0.0.1:<P1>/__bili/health. Pre-fix: tunneled onto
-        // itself → 403 "the bili tunnel may not target the proxy itself".
-        const selfProbe = await absoluteGet(port1, `http://127.0.0.1:${port1}/__bili/health`, `127.0.0.1:${port1}`);
+        // for http://127.0.0.1:<P1>/__sophialin/health. Pre-fix: tunneled onto
+        // itself → 403 "the sophialin tunnel may not target the proxy itself".
+        const selfProbe = await absoluteGet(port1, `http://127.0.0.1:${port1}/__sophialin/health`, `127.0.0.1:${port1}`);
         assert.equal(selfProbe.status, 200, `self-addressed probe must be served locally (got ${selfProbe.status}: ${selfProbe.body})`);
         assert.equal(JSON.parse(selfProbe.body).instanceId, id1, "answered by the probed instance itself");
         assert.equal(JSON.parse(selfProbe.body).ok, true);
 
         // CROSS-INSTANCE shape: the incident's traffic — connection lands on P1,
         // absolute target points at sibling P2. Pre-fix: P1 relayed WITH the
-        // x-bili-tunnel marker → P2's admin gate 403 "management endpoints are
-        // not reachable through the bili tunnel" (×2372 in the wild).
-        const crossProbe = await absoluteGet(port1, `http://127.0.0.1:${port2}/__bili/health`, `127.0.0.1:${port2}`);
+        // x-sophialin-tunnel marker → P2's admin gate 403 "management endpoints are
+        // not reachable through the sophialin tunnel" (×2372 in the wild).
+        const crossProbe = await absoluteGet(port1, `http://127.0.0.1:${port2}/__sophialin/health`, `127.0.0.1:${port2}`);
         assert.equal(crossProbe.status, 200, `loopback→loopback sibling probe must pass unmarked (got ${crossProbe.status}: ${crossProbe.body})`);
         assert.equal(JSON.parse(crossProbe.body).instanceId, id2, "reached the TARGET instance, not the relay");
 
         // SECURITY REGRESSION: hostname destination is not an IP literal → the
         // marker stays stamped (DNS-rebinding conservatism) → target still 403s.
-        const byName = await absoluteGet(port1, `http://localhost:${port2}/__bili/health`, `localhost:${port2}`);
+        const byName = await absoluteGet(port1, `http://localhost:${port2}/__sophialin/health`, `localhost:${port2}`);
         assert.equal(byName.status, 403, "hostname-targeted cross-instance probe keeps the tunnel marker");
-        assert.match(byName.body, /management endpoints are not reachable through the bili tunnel/);
+        assert.match(byName.body, /management endpoints are not reachable through the sophialin tunnel/);
     } finally {
-        process.env.BILI_CONFIG_FILE = prevConfig;
+        process.env.SOPHIALIN_CONFIG_FILE = prevConfig;
         p1.closeAllConnections?.();
         await close(p1);
         p2.closeAllConnections?.();

@@ -8,7 +8,7 @@
 //      the host-prefixed name codex puts on the wire);
 //   2. the proxy RECORDS that outbound tool_use as a routing witness
 //      (#1685) and forwards the call to the client untouched;
-//   3. the host executes it through the MCP shim → POST /__bili/plugin/tool
+//   3. the host executes it through the MCP shim → POST /__sophialin/plugin/tool
 //      — in this test ALWAYS id-less, so with a second active conversation
 //      the only possible route is the witness ring (rung 1); arbitration
 //      (rung 3) would refuse-to-guess (rung 4) and the test fails loudly;
@@ -236,7 +236,7 @@ async function readResponsesStream(res: Response): Promise<StreamResult> {
 
 type HistoryItem = Record<string, unknown>;
 
-test("plugin-lane grow-and-compress: MCP host loop folds via /__bili/plugin/tool and keeps upstream bounded", async () => {
+test("plugin-lane grow-and-compress: MCP host loop folds via /__sophialin/plugin/tool and keeps upstream bounded", async () => {
     _setStoreForTest(new SessionStore({ enabled: false }));
     setRegistryForTest({});
     _resetPluginStateForTest();
@@ -275,16 +275,16 @@ test("plugin-lane grow-and-compress: MCP host loop folds via /__bili/plugin/tool
     const proxy = await startServer(opts);
     await listen(proxy);
     const proxyPort = (proxy.address() as { port: number }).port;
-    const url = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${bridge.port}/v1/responses`;
+    const url = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${bridge.port}/v1/responses`;
 
     async function modelRequest(conv: string, input: HistoryItem[]): Promise<StreamResult> {
         const res = await fetch(url, {
             method: "POST",
             headers: {
                 "content-type": "application/json",
-                "x-bili-plugin": "codex-e2e",
-                "x-bili-plugin-conversation": conv,
-                "x-bili-plugin-model": "gpt-test",
+                "x-sophialin-plugin": "codex-e2e",
+                "x-sophialin-plugin-conversation": conv,
+                "x-sophialin-plugin-model": "gpt-test",
             },
             body: JSON.stringify({
                 model: "gpt-test",
@@ -329,7 +329,7 @@ test("plugin-lane grow-and-compress: MCP host loop folds via /__bili/plugin/tool
             if (out.fnCall) {
                 // Host executes the MCP tool: id-less POST — witness must route.
                 assert.equal(out.fnCall.name, "mcp__bili__compress", "unexpected tool name");
-                const toolRes = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/tool`, {
+                const toolRes = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/tool`, {
                     method: "POST",
                     headers: { "content-type": "application/json" },
                     body: JSON.stringify({ tool: "compress", args: JSON.parse(out.fnCall.arguments) as Record<string, unknown> }),

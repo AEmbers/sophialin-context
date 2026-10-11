@@ -22,12 +22,12 @@ import { safePrefix } from "./text-safe.js";
 
 /** Bounded retention for large-decompress temp files. Each decompress with
  *  body > 10000 writes one file under tmpdir(); the reaper unlinks oldest past
- *  BILI_DECOMPRESS_TMP_CAP (default 50) and beforeExit cleans all. */
+ *  SOPHIALIN_DECOMPRESS_TMP_CAP (default 50) and beforeExit cleans all. */
 type TrackedTempFile = { path: string; mtimeMs: number };
 const trackedTempFiles: TrackedTempFile[] = [];
 
 function getDecompressTmpCap(): number {
-    const raw = process.env.BILI_DECOMPRESS_TMP_CAP;
+    const raw = process.env.SOPHIALIN_DECOMPRESS_TMP_CAP;
     const parsed = raw ? Number.parseInt(raw, 10) : NaN;
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 50;
 }
@@ -607,7 +607,7 @@ export function executeSearchContext(
         steering = buildSteering(scored.filter((s) => returned.has(s.block)), state, plan.session);
     }
     const note = foreignSessionId
-        ? `\n\n[Read-only search of historical session ${foreignSessionId}. Block ids are per-session namespaces — decompress acts on the current session only. For bulk content use bili export ${foreignSessionId} [--full].]`
+        ? `\n\n[Read-only search of historical session ${foreignSessionId}. Block ids are per-session namespaces — decompress acts on the current session only. For bulk content use sophialin export ${foreignSessionId} [--full].]`
         : "";
     return `Found ${blocks.length} block(s) for "${query}"${scope}:\n\n${lines.join("\n\n")}${steering}${note}`;
 }

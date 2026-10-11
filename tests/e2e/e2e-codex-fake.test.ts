@@ -16,7 +16,7 @@ const WORK_ROOT = path.join(process.cwd(), "tmp");
 fs.mkdirSync(WORK_ROOT, { recursive: true });
 // codex discovers AGENTS.md by walking UP from its spawn cwd (#815): keep the
 // cwd outside the repo tree or the whole repo doc leaks into every request.
-const CWD_ROOT = path.join(os.tmpdir(), "billion-context-e2e");
+const CWD_ROOT = path.join(os.tmpdir(), "sophialin-context-e2e");
 fs.mkdirSync(CWD_ROOT, { recursive: true });
 
 function repoDocLeak(dir: string): string | null {
@@ -76,7 +76,7 @@ function freePort(): Promise<number> {
 }
 
 function windowEnv(contextWindow: number): Record<string, string> {
-	return { BILI_LAUNCHER_MODEL_WINDOWS: JSON.stringify({ [MODEL]: contextWindow }) };
+	return { SOPHIALIN_LAUNCHER_MODEL_WINDOWS: JSON.stringify({ [MODEL]: contextWindow }) };
 }
 
 type Ctx = {
@@ -123,28 +123,28 @@ async function startCtx(contextWindow: number): Promise<Ctx> {
 		"",
 		"[model_providers.e2e]",
 		'name = "OpenAI"',
-		`base_url = "http://127.0.0.1:${ctx.port}/bili/http://127.0.0.1:${ctx.fakePort}/v1"`,
+		`base_url = "http://127.0.0.1:${ctx.port}/sophialin/http://127.0.0.1:${ctx.fakePort}/v1"`,
 		'wire_api = "responses"',
 		'env_key = "E2E_UPSTREAM_KEY"',
 		"",
 	].join("\n"));
 
 	await assertPortDead(ctx.port); // #1689: prove still free right before the child binds it
-	const logPath = path.join(work, "bili.log");
+	const logPath = path.join(work, "sophialin.log");
 	const proxy = spawn(process.execPath, [DIST, "start", "--port", String(ctx.port), "--no-auto-update"], {
 		env: {
 			...process.env,
 			XDG_CONFIG_HOME: ctx.xdg.config,
 			XDG_CACHE_HOME: ctx.xdg.cache,
 			XDG_STATE_HOME: ctx.xdg.state,
-			BILLION_CONTEXT_NO_AUTO_UPDATE: "1",
+			SOPHIALIN_CONTEXT_NO_AUTO_UPDATE: "1",
 			...windowEnv(contextWindow),
 		},
 		stdio: ["ignore", "ignore", "pipe"],
 	});
 	ctx.proxyPid = proxy.pid;
 	proxy.stderr!.on("data", (c: Buffer) => { try { fs.appendFileSync(logPath, c); } catch { /* noop */ } });
-	await waitFor(`http://127.0.0.1:${ctx.port}/__bili/health`, 30_000, "bili proxy");
+	await waitFor(`http://127.0.0.1:${ctx.port}/__sophialin/health`, 30_000, "sophialin proxy");
 	return ctx;
 }
 
@@ -170,9 +170,9 @@ function teardown(ctx: Ctx): void {
 
 function logs(ctx: Ctx): string {
 	const parts: string[] = [];
-	const stateLog = path.join(ctx.xdg.state, "billion-context", "bili.log");
+	const stateLog = path.join(ctx.xdg.state, "sophialin-context", "sophialin.log");
 	if (fs.existsSync(stateLog)) parts.push(fs.readFileSync(stateLog, "utf8"));
-	try { parts.push(fs.readFileSync(path.join(ctx.work, "bili.log"), "utf8")); } catch { /* noop */ }
+	try { parts.push(fs.readFileSync(path.join(ctx.work, "sophialin.log"), "utf8")); } catch { /* noop */ }
 	return parts.join("");
 }
 

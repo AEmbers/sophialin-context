@@ -18,7 +18,7 @@ import { ensureProxyRunning, type SpawnChild, type SpawnFn } from "../src/launch
 // developer's real state dir.
 
 function zoneFile(): string {
-    const dir = mkdtempSync(path.join(tmpdir(), "bili-port-zone-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "sophialin-port-zone-"));
     return path.join(dir, "port-zone.json");
 }
 
@@ -73,10 +73,10 @@ test("writeZonePort: rejects invalid ports and never throws", () => {
     }
 });
 
-test("lanePreferredPort: sticky record beats the base; base honors BILI_ZONE_PORT", () => {
+test("lanePreferredPort: sticky record beats the base; base honors SOPHIALIN_ZONE_PORT", () => {
     const file = zoneFile();
     try {
-        assert.equal(lanePreferredPort("zcode", { BILI_ZONE_PORT: "20000" }), 20000, "env override of the base");
+        assert.equal(lanePreferredPort("zcode", { SOPHIALIN_ZONE_PORT: "20000" }), 20000, "env override of the base");
         writeZonePort("zcode", 18788, file);
         // sticky lives in the DEFAULT state file — patch readZonePort's view by
         // pointing the default path at the temp file via the module seam: the
@@ -89,15 +89,15 @@ test("lanePreferredPort: sticky record beats the base; base honors BILI_ZONE_POR
     }
 });
 
-test("resolveZonePortBase: BILI_ZONE_PORT validated 1..65535, junk falls back to the default", () => {
+test("resolveZonePortBase: SOPHIALIN_ZONE_PORT validated 1..65535, junk falls back to the default", () => {
     assert.equal(ZONE_PORT_BASE, 18787, "the zone base sits below the Linux ephemeral range (32768-60999)");
     assert.equal(resolveZonePortBase({}), ZONE_PORT_BASE);
-    assert.equal(resolveZonePortBase({ BILI_ZONE_PORT: "20000" }), 20000);
-    assert.equal(resolveZonePortBase({ BILI_ZONE_PORT: "1" }), 1);
-    assert.equal(resolveZonePortBase({ BILI_ZONE_PORT: "65535" }), 65535);
-    assert.equal(resolveZonePortBase({ BILI_ZONE_PORT: "0" }), ZONE_PORT_BASE);
-    assert.equal(resolveZonePortBase({ BILI_ZONE_PORT: "65536" }), ZONE_PORT_BASE);
-    assert.equal(resolveZonePortBase({ BILI_ZONE_PORT: "not-a-port" }), ZONE_PORT_BASE);
+    assert.equal(resolveZonePortBase({ SOPHIALIN_ZONE_PORT: "20000" }), 20000);
+    assert.equal(resolveZonePortBase({ SOPHIALIN_ZONE_PORT: "1" }), 1);
+    assert.equal(resolveZonePortBase({ SOPHIALIN_ZONE_PORT: "65535" }), 65535);
+    assert.equal(resolveZonePortBase({ SOPHIALIN_ZONE_PORT: "0" }), ZONE_PORT_BASE);
+    assert.equal(resolveZonePortBase({ SOPHIALIN_ZONE_PORT: "65536" }), ZONE_PORT_BASE);
+    assert.equal(resolveZonePortBase({ SOPHIALIN_ZONE_PORT: "not-a-port" }), ZONE_PORT_BASE);
 });
 
 test("portZoneFilePath: lives in the state dir", () => {
@@ -117,7 +117,7 @@ test("portZoneFilePath: lives in the state dir", () => {
 // (#707) and probes <state>/instances — point the state dir at a throwaway so
 // these tests never touch the real one (same posture as launcher.test.ts).
 const prevZoneTestXdgState = process.env.XDG_STATE_HOME;
-process.env.XDG_STATE_HOME = mkdtempSync(path.join(tmpdir(), "bili-zone-test-state-"));
+process.env.XDG_STATE_HOME = mkdtempSync(path.join(tmpdir(), "sophialin-zone-test-state-"));
 after(() => {
     if (prevZoneTestXdgState === undefined) delete process.env.XDG_STATE_HOME;
     else process.env.XDG_STATE_HOME = prevZoneTestXdgState;
@@ -125,7 +125,7 @@ after(() => {
 
 // A script fixture whose content hash matches the instances the sim records —
 // instanceCompatible demands the spawn script's fingerprint to match.
-const ZONE_FP_SCRIPT = path.join(tmpdir(), `bili-zone-fp-${process.pid}.js`);
+const ZONE_FP_SCRIPT = path.join(tmpdir(), `sophialin-zone-fp-${process.pid}.js`);
 writeFileSync(ZONE_FP_SCRIPT, "// zone sequence fingerprint fixture\n");
 const ZONE_FP_HASH = createHash("sha256").update(readFileSync(ZONE_FP_SCRIPT)).digest("hex");
 
@@ -176,7 +176,7 @@ function makeZoneSim(zoneFile: string, lane: string) {
         let bind = want;
         while (sim.squatted.has(bind) || (sim.live !== undefined && bind === sim.live.port)) bind++;
         const childPid = ++sim.pidSeq;
-        const token = options.env?.BILI_LAUNCH_TOKEN ?? `sim-token-${childPid}`;
+        const token = options.env?.SOPHIALIN_LAUNCH_TOKEN ?? `sim-token-${childPid}`;
         // inst.pid must be a LIVE pid — probeLiveInstances drops records whose
         // owner process is gone; the test process stands in for the daemon's.
         sim.live = recordedZoneInstance({
@@ -213,7 +213,7 @@ function makeZoneSim(zoneFile: string, lane: string) {
 const spawnPortArg = (spawn: { args: string[] }): string => spawn.args[spawn.args.indexOf("--port") + 1];
 
 function zoneDir(): { dir: string; zoneFile: string } {
-    const dir = mkdtempSync(path.join(tmpdir(), "bili-zone-seq-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "sophialin-zone-seq-"));
     return { dir, zoneFile: path.join(dir, "port-zone.json") };
 }
 
@@ -291,7 +291,7 @@ test("zone sequence: an explicit strictPort pin is exact and stays out of the st
         );
         assert.equal(sim.spawns.length, 1);
         assert.equal(spawnPortArg(sim.spawns[0]), String(pin), "the exact pin is the spawn port");
-        assert.equal(sim.spawns[0].env.BILI_STRICT_PORT, "1", "strictness crosses the process boundary");
+        assert.equal(sim.spawns[0].env.SOPHIALIN_STRICT_PORT, "1", "strictness crosses the process boundary");
         assert.equal(h.port, pin);
         assert.deepEqual(sim.settles, [], "explicit pins never settle a zone record");
         assert.equal(readZonePort("zcode", zoneFile), undefined);

@@ -1,5 +1,5 @@
 /**
- * Pure selection engine behind GET /__bili/logs (web log view).
+ * Pure selection engine behind GET /__sophialin/logs (web log view).
  *
  * History: the view used to be a bare substring filter — every line not
  * literally containing the query vanished, along with surrounding context,

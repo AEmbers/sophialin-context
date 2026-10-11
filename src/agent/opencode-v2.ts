@@ -32,7 +32,7 @@
 // - @opencode/cli 2.0.18 (probed live during #1569 triage): Context exposes
 //   model/provider domains and NO ctx.catalog key at all — the
 //   catalog.model.list seam below is dead on every stable build, which is why
-//   x-bili-plugin-context-window never got stamped and the proxy silently
+//   x-sophialin-plugin-context-window never got stamped and the proxy silently
 //   fell back to registry windows (#1569). The live seam is ctx.model.list()
 //   → { location, data: ModelInfo[] } with ModelInfo.limit = { context,
 //   output } sourced from opencode.json's provider model config; the old
@@ -48,7 +48,7 @@
 // openai tool list, src/compress-tool.ts) because reload-based refresh is not
 // available on all observed surfaces.
 
-import { BILI_COMPRESS_OPENAI_TOOLS, ABSORB_TOOL_OPENAI } from "../compress-tool.js";
+import { SOPHIALIN_COMPRESS_OPENAI_TOOLS, ABSORB_TOOL_OPENAI } from "../compress-tool.js";
 import { fetchProxyVersion, fetchStatus, fitNoticeDescription, forwardTool, postIdentityRegister, proxyBaseFromEnv, proxyBaseFromUrl, reportCompactionBoundary, reportRuntimeInfoOnChange, V2_SYNTHETIC_TEXT } from "./shared.js";
 
 // OpenCode V2 TUI renders a synthetic message as a visible Notice row only when its display text fits the
@@ -132,9 +132,9 @@ export interface V2PluginContext {
 const WINDOW_REFRESH_MS = 60000;
 
 // Kill switch = fully inert (same semantics as detectProxyBase): gates header stamping, tool forwarding, compaction reporting.
-const pluginDisabled = (): boolean => process.env.BILLION_CONTEXT_PLUGIN === "0";
+const pluginDisabled = (): boolean => process.env.SOPHIALIN_CONTEXT_PLUGIN === "0";
 
-const V2_BILI_TOOLS = [...BILI_COMPRESS_OPENAI_TOOLS, ABSORB_TOOL_OPENAI].map((t) => ({
+const V2_BILI_TOOLS = [...SOPHIALIN_COMPRESS_OPENAI_TOOLS, ABSORB_TOOL_OPENAI].map((t) => ({
     name: t.function.name,
     description: t.function.description,
     input: t.function.parameters,
@@ -173,13 +173,13 @@ function refreshWindows(ctx: V2PluginContext, state: V2State): void {
         if (map.size > 0) state.windows = map;
         if (outMap.size > 0) state.outputs = outMap;
         // #1569: degradation must not be silent — without a usable limit the
-        // x-bili-plugin-context-window header goes unstamped and the proxy
+        // x-sophialin-plugin-context-window header goes unstamped and the proxy
         // sizes against registry/configured windows instead of the host's own
         // opencode.json config. Say so once per plugin instance (skipped while
         // an earlier harvest still supplies a window).
         if (--pending === 0 && map.size === 0 && !state.windows && !state.windowsWarned) {
             state.windowsWarned = true;
-            console.warn("[bili-opencode] no usable model context limits found (tried ctx.model.list + ctx.catalog seams) — x-bili-plugin-context-window goes unstamped and the bili proxy falls back to registry/configured windows; opencode.json limit.context is NOT reaching the proxy");
+            console.warn("[sophialin-opencode] no usable model context limits found (tried ctx.model.list + ctx.catalog seams) — x-sophialin-plugin-context-window goes unstamped and the sophialin proxy falls back to registry/configured windows; opencode.json limit.context is NOT reaching the proxy");
         }
     };
     const safeModelList = (fn?: () => Promise<{ data?: V2CatalogModelEntry[] }> | undefined): Promise<{ data?: V2CatalogModelEntry[] }> => {
@@ -287,26 +287,26 @@ export function createOpencodeV2Setup(options: OpencodeV2SetupOptions = {}): (ct
             const headers = e.request?.headers;
             const sid = typeof e.sessionID === "string" ? e.sessionID : "";
             if (!headers || typeof headers.set !== "function" || !sid || !state.proxyBase) return;
-            headers.set("x-bili-plugin-conversation", sid);
-            headers.set("x-bili-plugin", "opencode");
+            headers.set("x-sophialin-plugin-conversation", sid);
+            headers.set("x-sophialin-plugin", "opencode");
             // #1102: one session id per persona (subagents get child ids) —
             // instruction drift (AGENTS.md reconcile) must not fork the
             // compression session.
-            headers.set("x-bili-plugin-instructions-mutable", "1");
+            headers.set("x-sophialin-plugin-instructions-mutable", "1");
             // #1699: forward the host's per-request persona so the proxy can classify
             // side requests by intent — opencode v2 title-gen carries no max_tokens, so
             // the budget heuristic alone can never see it. Stamped for every non-empty
             // id; the proxy acts only on known side-request agents (main ids are inert).
             const agentId = typeof e.agent === "string" ? e.agent.trim() : "";
-            if (agentId.length > 0) headers.set("x-bili-plugin-agent", agentId);
+            if (agentId.length > 0) headers.set("x-sophialin-plugin-agent", agentId);
             const model = e.model;
             if (model && typeof model.providerID === "string" && typeof model.id === "string") {
                 const key = `${model.providerID}/${model.id}`;
                 const window = state.windows?.get(key);
-                if (window !== undefined) headers.set("x-bili-plugin-context-window", String(window));
+                if (window !== undefined) headers.set("x-sophialin-plugin-context-window", String(window));
                 const output = state.outputs?.get(key);
-                if (output !== undefined) headers.set("x-bili-plugin-max-output", String(output));
-                headers.set("x-bili-plugin-model", model.id);
+                if (output !== undefined) headers.set("x-sophialin-plugin-max-output", String(output));
+                headers.set("x-sophialin-plugin-model", model.id);
                 reportRuntimeInfoOnChange(state.proxyBase, { agent: "opencode", model: model.id, contextWindow: window, maxOutput: output, source: "client-config" });
             }
             reportDerived(sid);
@@ -341,9 +341,9 @@ export function createOpencodeV2Setup(options: OpencodeV2SetupOptions = {}): (ct
                     input: t.input,
                     options: { codemode: false, permission: "allow" },
                     execute: async (args, tctx) => {
-                        if (pluginDisabled()) return { content: "bili: disabled (BILLION_CONTEXT_PLUGIN=0)" };
+                        if (pluginDisabled()) return { content: "sophialin: disabled (SOPHIALIN_CONTEXT_PLUGIN=0)" };
                         const base = state.proxyBase ?? proxyBaseFromEnv();
-                        if (!base) return { content: "bili: no proxy detected (launch opencode through `bili opencode`, or point the provider baseURL at the bili proxy)" };
+                        if (!base) return { content: "sophialin: no proxy detected (launch opencode through `sophialin opencode`, or point the provider baseURL at the sophialin proxy)" };
                         try {
                             // Panel-first for acp_status: the proxy's status
                             // endpoint renders the same rich panel the /acp
@@ -362,7 +362,7 @@ export function createOpencodeV2Setup(options: OpencodeV2SetupOptions = {}): (ct
                         } catch (err) {
                             const msg = err instanceof Error ? err.message : String(err);
                             if (msg.includes("no model request has arrived with this conversation id yet")) {
-                                return { content: "bili: no ACP state for this session yet — no model request has been routed through the proxy. Tell the user to send one normal message first; ACP activates automatically once model traffic flows through the proxy (verify the provider baseURL goes through bili, or launch via `bili opencode` / the installed plugin)." };
+                                return { content: "sophialin: no ACP state for this session yet — no model request has been routed through the proxy. Tell the user to send one normal message first; ACP activates automatically once model traffic flows through the proxy (verify the provider baseURL goes through sophialin, or launch via `sophialin opencode` / the installed plugin)." };
                             }
                             return { content: msg };
                         }
@@ -379,21 +379,21 @@ export function createOpencodeV2Setup(options: OpencodeV2SetupOptions = {}): (ct
             const commandReg = await ctx.command?.transform?.((editor) => {
                 editor.add({
                     name: "acp",
-                    description: "Show ACP status (billion-context proxy)",
+                    description: "Show ACP status (sophialin-context proxy)",
                     execute: async (input) => {
                         const sid = typeof input.sessionID === "string" ? input.sessionID : "";
                         if (!sid) {
-                            console.warn("[bili-opencode] /acp invoked without a sessionID; cannot render ACP status");
+                            console.warn("[sophialin-opencode] /acp invoked without a sessionID; cannot render ACP status");
                             return;
                         }
                         let text: string;
                         let webUrl: string | undefined;
                         if (pluginDisabled()) {
-                            text = "bili: disabled (BILLION_CONTEXT_PLUGIN=0)";
+                            text = "sophialin: disabled (SOPHIALIN_CONTEXT_PLUGIN=0)";
                         } else {
                             const base = state.proxyBase ?? proxyBaseFromEnv();
                             if (!base) {
-                                text = "bili: no proxy detected (set BILLION_CONTEXT_PROXY or point the provider at the proxy's /bili/ URL, then run /acp again)";
+                                text = "sophialin: no proxy detected (set SOPHIALIN_CONTEXT_PROXY or point the provider at the proxy's /sophialin/ URL, then run /acp again)";
                             } else {
                                 try {
                                     const status = await fetchStatus(base, sid);
@@ -408,24 +408,24 @@ export function createOpencodeV2Setup(options: OpencodeV2SetupOptions = {}): (ct
                                             version = undefined;
                                         }
                                         text = version !== undefined
-                                            ? `billion-context@${version} — proxy connected, no ACP session yet. Send a model request, then run /acp again.`
-                                            : "bili: no ACP session yet (send a model request first, then run /acp)";
+                                            ? `sophialin-context@${version} — proxy connected, no ACP session yet. Send a model request, then run /acp again.`
+                                            : "sophialin: no ACP session yet (send a model request first, then run /acp)";
                                     } else if (!status) {
                                         // fetchStatus soft-fails to undefined both when the proxy 404s an absent or
                                         // never-seen conversation and when the proxy is unreachable. Probe the
                                         // manifest to claim "connected" only when it answers.
                                         const version = await fetchProxyVersion(base).catch(() => undefined);
                                         text = version !== undefined
-                                            ? `billion-context@${version} — proxy connected, no ACP session yet. Send a model request, then run /acp again.`
-                                            : "bili: cannot reach the bili proxy (run `bili start`, then run /acp again)";
+                                            ? `sophialin-context@${version} — proxy connected, no ACP session yet. Send a model request, then run /acp again.`
+                                            : "sophialin: cannot reach the sophialin proxy (run `sophialin start`, then run /acp again)";
                                     } else {
                                         const errText = status?.error;
                                         text = typeof errText === "string" && errText.length > 0
-                                            ? `bili: proxy returned no status panel (${errText})`
-                                            : "bili: proxy returned no status panel";
+                                            ? `sophialin: proxy returned no status panel (${errText})`
+                                            : "sophialin: proxy returned no status panel";
                                     }
                                 } catch (err) {
-                                    text = `bili: /acp failed (${err instanceof Error ? err.message : String(err)})`;
+                                    text = `sophialin: /acp failed (${err instanceof Error ? err.message : String(err)})`;
                                 }
                             }
                         }
@@ -438,7 +438,7 @@ export function createOpencodeV2Setup(options: OpencodeV2SetupOptions = {}): (ct
                             const description = fitNoticeDescription(text, V2_SYNTHETIC_VISIBLE_MAX, "panel", webUrl);
                             await ctx.session?.synthetic?.({ sessionID: sid, text: V2_SYNTHETIC_TEXT, description, resume: false });
                         } catch (err) {
-                            console.error(`[bili-opencode] /acp render failed: ${err instanceof Error ? err.message : String(err)}`);
+                            console.error(`[sophialin-opencode] /acp render failed: ${err instanceof Error ? err.message : String(err)}`);
                         }
                     },
                 });
@@ -452,26 +452,26 @@ export function createOpencodeV2Setup(options: OpencodeV2SetupOptions = {}): (ct
                     execute: async (input) => {
                         const sid = typeof input.sessionID === "string" ? input.sessionID : "";
                         if (!sid) {
-                            console.warn("[bili-opencode] /acp-cache invoked without a sessionID; cannot render the cache report");
+                            console.warn("[sophialin-opencode] /acp-cache invoked without a sessionID; cannot render the cache report");
                             return;
                         }
                         let text: string;
                         if (pluginDisabled()) {
-                            text = "bili: disabled (BILLION_CONTEXT_PLUGIN=0)";
+                            text = "sophialin: disabled (SOPHIALIN_CONTEXT_PLUGIN=0)";
                         } else {
                             const base = state.proxyBase ?? proxyBaseFromEnv();
                             const argsText = typeof input.arguments === "string" ? input.arguments : "";
                             const toolArgs = /(^|\s)(--)?full(\s|$)/.test(argsText) ? { detail: "full" as const } : {};
                             if (!base) {
-                                text = "bili: no proxy detected (set BILLION_CONTEXT_PROXY or point the provider at the proxy's /bili/ URL, then run /acp-cache again)";
+                                text = "sophialin: no proxy detected (set SOPHIALIN_CONTEXT_PROXY or point the provider at the proxy's /sophialin/ URL, then run /acp-cache again)";
                             } else {
                                 try {
                                     text = await forwardTool(base, sid, "acp_cache", toolArgs);
                                 } catch (err) {
                                     const msg = err instanceof Error ? err.message : String(err);
                                     text = msg.includes("no model request has arrived")
-                                        ? "bili: no ACP session yet for this conversation (send a model request first, then run /acp-cache)"
-                                        : `bili: cache report failed (${msg})`;
+                                        ? "sophialin: no ACP session yet for this conversation (send a model request first, then run /acp-cache)"
+                                        : `sophialin: cache report failed (${msg})`;
                                 }
                             }
                         }
@@ -479,14 +479,14 @@ export function createOpencodeV2Setup(options: OpencodeV2SetupOptions = {}): (ct
                             const description = fitNoticeDescription(text, V2_CACHE_REPORT_VISIBLE_MAX, "report");
                             await ctx.session?.synthetic?.({ sessionID: sid, text: V2_SYNTHETIC_TEXT, description, resume: false });
                         } catch (err) {
-                            console.error(`[bili-opencode] /acp-cache render failed: ${err instanceof Error ? err.message : String(err)}`);
+                            console.error(`[sophialin-opencode] /acp-cache render failed: ${err instanceof Error ? err.message : String(err)}`);
                         }
                     },
                 });
             });
             if (commandReg) registrations.push(commandReg);
         } catch (err) {
-            console.warn(`[bili-opencode] /acp command registration unavailable; continuing without it: ${err instanceof Error ? err.message : String(err)}`);
+            console.warn(`[sophialin-opencode] /acp command registration unavailable; continuing without it: ${err instanceof Error ? err.message : String(err)}`);
         }
 
         const subscription = ctx.event?.subscribe?.({ signal: ac.signal });

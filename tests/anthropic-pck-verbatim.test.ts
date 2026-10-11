@@ -163,7 +163,7 @@ test("#1403 T1: side request (max_tokens<=200) verbatim forward strips stamped p
     try {
         await withProxy(upstream, makeOpts(`http://127.0.0.1:${(upstream.address() as { port: number }).port}`, { log: true }), async (pport, uport) => {
             const sid = randomUUID();
-            const out = await post(pport, `/bili/http://127.0.0.1:${uport}/v1/messages`, anthropicBody(sid, 100, "tiny"), { "x-acp-session": sid });
+            const out = await post(pport, `/sophialin/http://127.0.0.1:${uport}/v1/messages`, anthropicBody(sid, 100, "tiny"), { "x-acp-session": sid });
             assert.equal(out.status, 200, `strict upstream must never see prompt_cache_key; got ${out.status}: ${out.body.slice(0, 200)}`);
             assert.equal(captured.length, 1);
             assert.ok(!captured[0]!.body.includes("prompt_cache_key"), "side-request forward must strip the stamped field");
@@ -180,7 +180,7 @@ test("#1403 T1: side request (max_tokens<=200) verbatim forward strips stamped p
 });
 
 test("#1403/#1357 T2: advisory processing of foreign ACP artifacts strips stamped prompt_cache_key", async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "bili-pck-chain-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "sophialin-pck-chain-"));
     const store = new SessionStore({ dir, debounceMs: 5, enabled: true });
     _setStoreForTest(store);
     _resetSessionsForTest();
@@ -196,7 +196,7 @@ test("#1403/#1357 T2: advisory processing of foreign ACP artifacts strips stampe
     try {
         await withProxy(upstream, makeOpts(`http://127.0.0.1:${(upstream.address() as { port: number }).port}`, { log: true }), async (pport, uport) => {
             const sid = randomUUID();
-            const out = await post(pport, `/bili/http://127.0.0.1:${uport}/v1/messages`, anthropicBody(sid, 1024, `keep ${tag}`), { "x-acp-session": sid });
+            const out = await post(pport, `/sophialin/http://127.0.0.1:${uport}/v1/messages`, anthropicBody(sid, 1024, `keep ${tag}`), { "x-acp-session": sid });
             assert.equal(out.status, 200, `strict upstream must never see prompt_cache_key; got ${out.status}: ${out.body.slice(0, 200)}`);
             assert.equal(captured.length, 1);
             assert.ok(!captured[0]!.body.includes("prompt_cache_key"), "advisory processing must still strip the stamped field");
@@ -230,7 +230,7 @@ test("#1403 T3: global passthrough (--passthrough) final-fallback forward strips
     try {
         await withProxy(upstream, makeOpts(`http://127.0.0.1:${(upstream.address() as { port: number }).port}`, { passthrough: true }), async (pport, uport) => {
             const sid = randomUUID();
-            const out = await post(pport, `/bili/http://127.0.0.1:${uport}/v1/messages`, anthropicBody(sid, 1024, "hi"), { "x-acp-session": sid });
+            const out = await post(pport, `/sophialin/http://127.0.0.1:${uport}/v1/messages`, anthropicBody(sid, 1024, "hi"), { "x-acp-session": sid });
             assert.equal(out.status, 200, `strict upstream must never see prompt_cache_key; got ${out.status}: ${out.body.slice(0, 200)}`);
             assert.ok(!captured[0]!.body.includes("prompt_cache_key"), "global-passthrough forward must strip the stamped field");
         });
@@ -241,7 +241,7 @@ test("#1403 T3: global passthrough (--passthrough) final-fallback forward strips
 });
 
 test("#1403 T4: passthrough-mark and plugin-bypass header forwards strip stamped prompt_cache_key", async () => {
-    const headers: Record<string, string>[] = [{ "x-bili-passthrough": "1" }, { "x-bili-plugin-bypass": "1" }];
+    const headers: Record<string, string>[] = [{ "x-sophialin-passthrough": "1" }, { "x-sophialin-plugin-bypass": "1" }];
     for (const extra of headers) {
         freshState();
         const captured: Captured[] = [];
@@ -251,7 +251,7 @@ test("#1403 T4: passthrough-mark and plugin-bypass header forwards strip stamped
         try {
             await withProxy(upstream, makeOpts(`http://127.0.0.1:${(upstream.address() as { port: number }).port}`), async (pport, uport) => {
                 const sid = randomUUID();
-                const out = await post(pport, `/bili/http://127.0.0.1:${uport}/v1/messages`, anthropicBody(sid, 1024, "hi"), { "x-acp-session": sid, ...extra });
+                const out = await post(pport, `/sophialin/http://127.0.0.1:${uport}/v1/messages`, anthropicBody(sid, 1024, "hi"), { "x-acp-session": sid, ...extra });
                 assert.equal(out.status, 200, `${Object.keys(extra)[0]}: strict upstream must never see prompt_cache_key; got ${out.status}: ${out.body.slice(0, 200)}`);
                 assert.ok(!captured[0]!.body.includes("prompt_cache_key"), `${Object.keys(extra)[0]}: forward must strip the stamped field`);
             });
@@ -272,7 +272,7 @@ test("#1403 T5: non-conversation relay (#1284) strips stamped prompt_cache_key",
         await withProxy(upstream, makeOpts(`http://127.0.0.1:${(upstream.address() as { port: number }).port}`), async (pport, uport) => {
             const sid = randomUUID();
             const relayBody = JSON.stringify({ model: "claude-test", max_tokens: 1024, prompt_cache_key: sid });
-            const out = await post(pport, `/bili/http://127.0.0.1:${uport}/v1/messages`, relayBody, { "x-acp-session": sid });
+            const out = await post(pport, `/sophialin/http://127.0.0.1:${uport}/v1/messages`, relayBody, { "x-acp-session": sid });
             assert.equal(out.status, 200, `strict upstream must never see prompt_cache_key; got ${out.status}: ${out.body.slice(0, 200)}`);
             assert.ok(!captured[0]!.body.includes("prompt_cache_key"), "relay forward must strip the stamped field");
         });

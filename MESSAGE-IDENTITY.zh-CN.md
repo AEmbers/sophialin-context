@@ -1,6 +1,6 @@
 # 消息身份:内容哈希作为跨轮 join key
 
-设计记录:billion-context 如何跨轮识别单条消息,以及为什么身份由消息**内容**派生、而不是在入口打一个由宿主持久化的 id。成文于 #1496 复核之后;与 `SESSION-IDENTITY.zh-CN.md`(会话粒度的同题文档)成对。实现锚点:`acp-kernel/src/wire/message-id.ts`(`deriveMessageId`)、`acp-kernel/src/refs.ts`(`assignRefs`)、`acp-kernel/src/prune.ts`(`isCovered`/`baseIdOf`)。
+设计记录:sophialin-context 如何跨轮识别单条消息,以及为什么身份由消息**内容**派生、而不是在入口打一个由宿主持久化的 id。成文于 #1496 复核之后;与 `SESSION-IDENTITY.zh-CN.md`(会话粒度的同题文档)成对。实现锚点:`acp-kernel/src/wire/message-id.ts`(`deriveMessageId`)、`acp-kernel/src/refs.ts`(`assignRefs`)、`acp-kernel/src/prune.ts`(`isCovered`/`baseIdOf`)。
 
 ## 问题是 join key,不是 id
 
@@ -69,7 +69,7 @@ sha256;`assignRefs` 再 first-wins 挂 ref(`if (map.byRaw[message.id]) continue`
 
 ## 上游唯一强制往返的地方:strict-echo reasoning
 
-DeepSeek 类网关要求客户端传回网关自己发出的 reasoning("the reasoning content from the previous turn must be passed back in thinking mode")。这是全舰队唯一被强制的内容往返,而 bili 的处理方式展示了模式:当**可修复的形状约束**处理,不进身份——#762 在 chat wire 注入空 `reasoning_content`,#1479/#1482 把修复扩展到 Responses wire 和循环重试路径,全部门控在 `isStrictReasoningEcho`(学到的 400 标记或 deepseek 系),非思考会话字节恒等。身份账本从不参与。
+DeepSeek 类网关要求客户端传回网关自己发出的 reasoning("the reasoning content from the previous turn must be passed back in thinking mode")。这是全舰队唯一被强制的内容往返,而 sophialin 的处理方式展示了模式:当**可修复的形状约束**处理,不进身份——#762 在 chat wire 注入空 `reasoning_content`,#1479/#1482 把修复扩展到 Responses wire 和循环重试路径,全部门控在 `isStrictReasoningEcho`(学到的 400 标记或 deepseek 系),非思考会话字节恒等。身份账本从不参与。
 
 ## 被否决的备选
 

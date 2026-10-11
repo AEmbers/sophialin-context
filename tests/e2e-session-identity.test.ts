@@ -143,7 +143,7 @@ interface StatsSession {
 }
 
 async function getSessions(h: Harness): Promise<StatsSession[]> {
-    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__bili/stats`);
+    const resp = await fetch(`http://127.0.0.1:${h.proxyPort}/__sophialin/stats`);
     assert.equal(resp.status, 200);
     const json = (await resp.json()) as { sessions: StatsSession[] };
     return json.sessions;
@@ -156,7 +156,7 @@ async function post(h: Harness, upstreamIdx: number, path: string, body: Record<
 
 async function postRaw(h: Harness, upstreamIdx: number, path: string, body: Record<string, unknown>, headers: Record<string, string> = {}): Promise<Response> {
     const up = h.upstreams[upstreamIdx]!;
-    return fetch(`http://127.0.0.1:${h.proxyPort}/bili/http://127.0.0.1:${up.port}${path}`, {
+    return fetch(`http://127.0.0.1:${h.proxyPort}/sophialin/http://127.0.0.1:${up.port}${path}`, {
         method: "POST",
         headers: { "content-type": "application/json", ...headers },
         body: JSON.stringify(body),

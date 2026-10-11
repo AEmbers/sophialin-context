@@ -62,6 +62,7 @@ export function mergeCompress(
     const ccrLevels = [global?.ccr, provider?.ccr, model?.ccr].filter(Boolean) as NonNullable<CompressSettings["ccr"]>[];
     const searchLevels = [global?.search, provider?.search, model?.search].filter(Boolean) as NonNullable<CompressSettings["search"]>[];
     const imageCompressionLevels = [global?.imageCompression, provider?.imageCompression, model?.imageCompression].filter(Boolean) as NonNullable<CompressSettings["imageCompression"]>[];
+    const imageOffloadLevels = [global?.imageOffload, provider?.imageOffload, model?.imageOffload].filter(Boolean) as NonNullable<CompressSettings["imageOffload"]>[];
     const reasoningLevels = [global?.reasoning, provider?.reasoning, model?.reasoning].filter(Boolean) as NonNullable<CompressSettings["reasoning"]>[];
     const reasoningGuardLevels = [global?.reasoningGuard, provider?.reasoningGuard, model?.reasoningGuard].filter(Boolean) as NonNullable<CompressSettings["reasoningGuard"]>[];
     const outputSteeringLevels = [global?.outputSteering, provider?.outputSteering, model?.outputSteering].filter(Boolean) as NonNullable<CompressSettings["outputSteering"]>[];
@@ -86,6 +87,7 @@ export function mergeCompress(
         ccr: ccrLevels.length > 0 ? Object.assign({}, ...ccrLevels) : undefined,
         search: searchLevels.length > 0 ? Object.assign({}, ...searchLevels) : undefined,
         imageCompression: imageCompressionLevels.length > 0 ? Object.assign({}, ...imageCompressionLevels) : undefined,
+        imageOffload: imageOffloadLevels.length > 0 ? Object.assign({}, ...imageOffloadLevels) : undefined,
         rules: pick("rules"),
 
 stripImages: pick("stripImages"),
@@ -189,7 +191,7 @@ export interface SurfaceResolution {
 }
 
 /** Resolve the pack surface for one request: `promptPack` names a pack in the
- *  kernel's resolver chain [project `./.billion-context/packs` > user
+ *  kernel's resolver chain [project `./.sophialin-context/packs` > user
  *  `<configDir>/packs` > builtin registry]. Unknown names fall back to the
  *  identity surface ({} — kernel defaults everywhere) with a one-time-per-name
  *  warning, so a typo never degrades the compression prompts. Directory
@@ -202,7 +204,7 @@ export function resolveCompressSurfaceDetailed(
     if (typeof name !== "string" || name === "default" || !isValidPackName(name)) return { surface: {}, packName: "default" };
     const resolver = createPackResolver(
         defaultPackSources({
-            projectDir: dirs?.projectDir ?? path.join(process.cwd(), ".billion-context", "packs"),
+            projectDir: dirs?.projectDir ?? path.join(process.cwd(), ".sophialin-context", "packs"),
             userDirs: dirs?.userDirs ?? [path.join(configDir(), "packs")],
         }),
     );
@@ -346,7 +348,7 @@ export function applyCompressSettings(base: Config, limit: number, s: CompressSe
     if (s.ccr !== undefined) {
         const d = DEFAULT_CCR_CONFIG;
         // Spread the kernel defaults first so new kernel-side keys (e.g.
-        // retrieveInlineTokens, GHSA jc6g v2) carry through without a bili-side
+        // retrieveInlineTokens, GHSA jc6g v2) carry through without a sophialin-side
         // edit every time the kernel grows one.
         ccr = {
             ...d,

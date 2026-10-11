@@ -8,8 +8,8 @@ process.env.NODE_ENV = "test";
 import { defaultConfig } from "acp-kernel";
 import { startServer, type ProxyOptions } from "../src/server.ts";
 
-// #1637: bili's Anthropic lane never emitted cache_control breakpoints, so
-// Anthropic-style upstreams (explicit caching) never cached anything bili
+// #1637: sophialin's Anthropic lane never emitted cache_control breakpoints, so
+// Anthropic-style upstreams (explicit caching) never cached anything sophialin
 // sent — relays that breakpoint only the system block left the whole history
 // re-billing at full price every request (#1631). The fix stamps CUMULATIVE
 // incremental breakpoints (the Anthropic-recommended cadence): the system
@@ -103,7 +103,7 @@ interface Msg {
 
 async function postModel(rig: Rig, sessionId: string, messages: Msg[], extraHeaders: Record<string, string> = {}, upstreamPortHint?: number, tools?: unknown[]): Promise<Response> {
     const port = upstreamPortHint ?? rig.portHint();
-    return fetch(`http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${port}/v1/messages`, {
+    return fetch(`http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${port}/v1/messages`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-session-affinity": sessionId, ...extraHeaders },
         body: JSON.stringify({ model: "l1637-model", max_tokens: 8192, stream: true, messages, ...(tools ? { tools } : {}) }),
@@ -193,7 +193,7 @@ test("#1637: incremental cadence — turn 2 keeps turn 1's marker for one extra 
     }
 });
 
-test("#1637: client-managed cache_control wins — bili adds no breakpoints", async () => {
+test("#1637: client-managed cache_control wins — sophialin adds no breakpoints", async () => {
     const rig = await startRig();
     try {
         const history: Msg[] = [
@@ -206,19 +206,19 @@ test("#1637: client-managed cache_control wins — bili adds no breakpoints", as
 
         const b1 = parseBody(rig.upstreamBodies[0]);
         const marks = markedCount(rig.upstreamBodies[0]);
-        // exactly the client's own one; bili contributed none
+        // exactly the client's own one; sophialin contributed none
         assert.equal(marks.messages.length, 1, "only the client's own breakpoint present");
         const clientMsg = b1.messages.find((m) => Array.isArray(m.content) && m.content.some((c) => (c.text ?? "").includes("client manages caching")));
         assert.ok(clientMsg, "client's marked message forwarded");
-        assert.equal(marks.system, 0, "bili did not breakpoint the system either");
+        assert.equal(marks.system, 0, "sophialin did not breakpoint the system either");
     } finally {
         await rig.closeAll();
     }
 });
 
-test("#1637: BILI_NO_CACHE_CONTROL=1 disables all stamping", async () => {
-    const prev = process.env.BILI_NO_CACHE_CONTROL;
-    process.env.BILI_NO_CACHE_CONTROL = "1";
+test("#1637: SOPHIALIN_NO_CACHE_CONTROL=1 disables all stamping", async () => {
+    const prev = process.env.SOPHIALIN_NO_CACHE_CONTROL;
+    process.env.SOPHIALIN_NO_CACHE_CONTROL = "1";
     const rig = await startRig();
     try {
         await postModel(rig, "sess-1637-d", [{ role: "user", content: "hello" }]);
@@ -227,12 +227,12 @@ test("#1637: BILI_NO_CACHE_CONTROL=1 disables all stamping", async () => {
         assert.equal(marks.system + marks.messages.length, 0, "no breakpoints anywhere");
     } finally {
         await rig.closeAll();
-        if (prev === undefined) delete process.env.BILI_NO_CACHE_CONTROL;
-        else process.env.BILI_NO_CACHE_CONTROL = prev;
+        if (prev === undefined) delete process.env.SOPHIALIN_NO_CACHE_CONTROL;
+        else process.env.SOPHIALIN_NO_CACHE_CONTROL = prev;
     }
 });
 
-test("#1639: client cache_control on TOOLS only also suppresses bili's stamps (WC-010 combined budget)", async () => {
+test("#1639: client cache_control on TOOLS only also suppresses sophialin's stamps (WC-010 combined budget)", async () => {
     const rig = await startRig();
     try {
         const history: Msg[] = [
@@ -246,8 +246,8 @@ test("#1639: client cache_control on TOOLS only also suppresses bili's stamps (W
 
         const b1 = parseBody(rig.upstreamBodies[0]);
         const marks = markedCount(rig.upstreamBodies[0]);
-        assert.equal(marks.messages.length, 0, "bili added no message breakpoints");
-        assert.equal(marks.system, 0, "bili did not breakpoint the system");
+        assert.equal(marks.messages.length, 0, "sophialin added no message breakpoints");
+        assert.equal(marks.system, 0, "sophialin did not breakpoint the system");
         const toolMarks = (b1.tools ?? []).filter((t) => t.cache_control).length;
         assert.equal(toolMarks, 1, "client's tools breakpoint preserved verbatim");
     } finally {
@@ -266,7 +266,7 @@ test("#1637: cap 3 — marks stop advancing once the budget is full and existing
                 // request-scoped chain checkpoint (#1395) rides the last block
                 out.push(m.content.map((b) => b.text ?? "").join("")
                     .split("\x3c/acp\x3e").pop()!
-                    .replace(/\x3cbili-chain v="1"[^]*\/\x3e/, "")
+                    .replace(/\x3csophialin-chain v="1"[^]*\/\x3e/, "")
                     .trim());
             }
         }

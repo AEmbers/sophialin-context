@@ -1,33 +1,33 @@
-// `bili plugin install|remove|list <agent>`: deploys the thin agent plugin
+// `sophialin plugin install|remove|list <agent>`: deploys the thin agent plugin
 // (dist/agent/pi.js|omp.js) or the MCP shell (dist/mcp.js) into each host's
-// native config, pointing at THIS billion-context install's absolute path —
+// native config, pointing at THIS sophialin-context install's absolute path —
 // plugin and proxy always share one version. Every writer backs the target
 // file up first and is idempotent. Config locations:
 //   pi       ~/.pi/agent/settings.json   packages: [<abs package root>]
 //   omp      ~/.omp/agent/config.yml     extensions: [<abs>/dist/agent/omp-native.js]
 //   claude   `claude mcp add` (user scope; writes ~/.claude.json)
-//   codex    ~/.codex/config.toml        [mcp_servers.bili]
+//   codex    ~/.codex/config.toml        [mcp_servers.sophialin]
 //   opencode <cfg>/opencode.json{c}|config.json (highest-precedence existing; #927)
-//            mcp.bili + native plugin dir + compaction.auto=false
-//          (plugin entry #925: bare "billion-context" for npm installs — opencode
+//            mcp.sophialin + native plugin dir + compaction.auto=false
+//          (plugin entry #925: bare "sophialin-context" for npm installs — opencode
 //           loads it via exports["./server"] and manages install/upgrade itself;
 //           local shim dir for checkout/dev installs, which are not portable)
 //   dsh      no file of its own — drives dsh's own plugin channel per profile
 //            (`dsh plugin --profile <name> add|remove`, #966); profile copies
 //            follow global self-updates via dsh-channel.refreshDshProfileBundles
-//   kimi     $KIMI_CODE_HOME/plugins/managed/billion-context/kimi.plugin.json
+//   kimi     $KIMI_CODE_HOME/plugins/managed/sophialin-context/kimi.plugin.json
 //            + installed.json record (stdio MCP + SessionStart hook; config.toml
 //            routing happens per-session, see src/kimi/)
-//   hermes   ~/.hermes/plugins/billion-context/{plugin.yaml,__init__.py,bili.json}
+//   hermes   ~/.hermes/plugins/sophialin-context/{plugin.yaml,__init__.py,sophialin.json}
 //            (#958: Python plugin — hermes's CLI agent plugin API is Python-only;
 //            it self-spawns/attaches a proxy and routes traffic via HTTPS_PROXY +
-//            SSL_CERT_FILE (combined CA bundle), the same wire path as `bili hermes`;
+//            SSL_CERT_FILE (combined CA bundle), the same wire path as `sophialin hermes`;
 //            enablement is delegated to `hermes plugins enable`)
 //   zcode    ~/.zcode/cli/config.json  hooks.enabled + SessionStart hook +
-//            mcp.servers.bili (stdio MCP); provider-store routing happens
+//            mcp.servers.sophialin (stdio MCP); provider-store routing happens
 //            per-session, see src/zcode/ (no URL frozen at install time)
 // Installers throw on failure (bad/locked config, missing host CLI); the CLI
-// layer catches, prints `bili plugin: <msg>` and exits 1.
+// layer catches, prints `sophialin plugin: <msg>` and exits 1.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -94,13 +94,13 @@ function homeFile(rel: string, envOverride?: string): string {
     return path.join(base, rel);
 }
 
-// #1002: backup = the state before bili's LATEST write, but only when the
-// file changed since bili's previous write — i.e. re-snapshot USER edits,
-// never bili's own consecutive writes. That keeps the restore-on-remove
+// #1002: backup = the state before sophialin's LATEST write, but only when the
+// file changed since sophialin's previous write — i.e. re-snapshot USER edits,
+// never sophialin's own consecutive writes. That keeps the restore-on-remove
 // chain intact (install → upgrade → remove still restores the user's
-// pre-install value instead of bili's own output) while fixing the
-// stale-forever backup: after any user edit, the next bili write re-snapshots.
-// `<file>.bili-last` carries the hash of what bili last wrote; "unchanged"
+// pre-install value instead of sophialin's own output) while fixing the
+// stale-forever backup: after any user edit, the next sophialin write re-snapshots.
+// `<file>.sophialin-last` carries the hash of what sophialin last wrote; "unchanged"
 // means the on-disk bytes still hash to that value.
 function hashText(text: string): string {
     return crypto.createHash("sha256").update(text).digest("hex");
@@ -108,7 +108,7 @@ function hashText(text: string): string {
 
 function backupBeforeWrite(file: string): void {
     if (!fs.existsSync(file)) return;
-    const bak = `${file}.bili-bak`;
+    const bak = `${file}.sophialin-bak`;
     let cur: string;
     try {
         cur = hashText(fs.readFileSync(file, "utf8"));
@@ -117,21 +117,21 @@ function backupBeforeWrite(file: string): void {
     }
     let prev: string | undefined;
     try {
-        prev = fs.readFileSync(`${file}.bili-last`, "utf8").trim();
+        prev = fs.readFileSync(`${file}.sophialin-last`, "utf8").trim();
     } catch {}
     if (prev === cur && fs.existsSync(bak)) return;
     fs.copyFileSync(file, bak);
 }
 
-// One writer discipline for every config write bili performs: snapshot per
+// One writer discipline for every config write sophialin performs: snapshot per
 // backupBeforeWrite above, write, then record what we wrote so the NEXT
-// write can tell bili's own output apart from a user edit.
+// write can tell sophialin's own output apart from a user edit.
 function writeConfigText(file: string, text: string): void {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     backupBeforeWrite(file);
     fs.writeFileSync(file, text);
     try {
-        fs.writeFileSync(`${file}.bili-last`, `${hashText(text)}\n`);
+        fs.writeFileSync(`${file}.sophialin-last`, `${hashText(text)}\n`);
     } catch {}
 }
 
@@ -147,7 +147,7 @@ function readJson(file: string): Record<string, unknown> {
     try {
         parsed = JSON.parse(text);
     } catch (err) {
-        throw new Error(`${file}: not valid JSON (${err instanceof Error ? err.message : String(err)}) — fix it or restore ${path.basename(file)}.bili-bak first; refusing to overwrite`);
+        throw new Error(`${file}: not valid JSON (${err instanceof Error ? err.message : String(err)}) — fix it or restore ${path.basename(file)}.sophialin-bak first; refusing to overwrite`);
     }
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
         throw new Error(`${file}: expected a JSON object at top level, refusing to overwrite`);
@@ -161,7 +161,7 @@ function writeJson(file: string, data: unknown): void {
 
 function requireDistFile(file: string): void {
     if (!fs.existsSync(file)) {
-        process.stderr.write(`bili plugin: warning: ${file} does not exist yet (run \`npm run build\` in ${selfPackageRoot()}) — the entry will be dead until built\n`);
+        process.stderr.write(`sophialin plugin: warning: ${file} does not exist yet (run \`npm run build\` in ${selfPackageRoot()}) — the entry will be dead until built\n`);
     }
 }
 
@@ -171,29 +171,47 @@ function piSettingsFile(): string {
     return path.join(resolvePiHome(process.env), "settings.json");
 }
 
+// FROZEN legacy package names. `billion-context` is this package's own npm
+// name before the rename and `billion-context-pi` is the separate 0.1.x client
+// extension; both spellings are already published identifiers sitting in real
+// users' settings.json files, so they can never be renamed — an upgraded
+// machine still carries `npm:billion-context(-pi)`, and a matcher that only
+// knows the new spelling would leave that stale entry live, i.e. two plugins
+// compressing the same request. Every matcher below therefore accepts either
+// generation. (Same rule as isLegacyBcpEntry in agent/native-bootstrap.ts.)
+const PI_PKG = "sophialin-context|billion-context";
+const PI_RE = {
+    npm: new RegExp(`^npm:(?:${PI_PKG})(-pi)?(@|$)`),
+    nodeModules: new RegExp(`(^|[/\\\\])node_modules[/\\\\](?:${PI_PKG})(-pi)?([/\\\\]|$)`),
+    bare: new RegExp(`(^|[/\\\\])(?:${PI_PKG})(-pi)?$`),
+    npmSelf: new RegExp(`^npm:(?:${PI_PKG})(@|$)`),
+    nodeModulesSelf: new RegExp(`(^|[/\\\\])node_modules[/\\\\](?:${PI_PKG})([/\\\\]|$)`),
+    bareSelf: new RegExp(`(^|[/\\\\])(?:${PI_PKG})$`),
+};
+
 // A packages entry is "ours" if it points at THIS install's package root,
-// any other billion-context install (npm: form, node_modules path, or a
+// any other sophialin-context install (npm: form, node_modules path, or a
 // dev checkout dir — separators in either style for Windows), or the legacy
 // billion-context-pi package (0.1.x shipped as a separate package before the
-// plugin moved into billion-context itself). install() replaces every match
-// so exactly one bili plugin is live after `bili plugin install pi`.
+// plugin moved into sophialin-context itself). install() replaces every match
+// so exactly one sophialin plugin is live after `sophialin plugin install pi`.
 export function isPiEntry(entry: string, root: string): boolean {
     return entry === root
-        || /^npm:billion-context(-pi)?(@|$)/.test(entry)
-        || /(^|[/\\])node_modules[/\\]billion-context(-pi)?([\/\\]|$)/.test(entry)
-        || /(^|[/\\])billion-context(-pi)?$/.test(entry);
+        || PI_RE.npm.test(entry)
+        || PI_RE.nodeModules.test(entry)
+        || PI_RE.bare.test(entry);
 }
 
-// Entries that load THIS package's pi plugin (billion-context proper).
+// Entries that load THIS package's pi plugin (sophialin-context proper).
 // Legacy `billion-context-pi` entries are deliberately excluded: that is a
 // separate older package — usually not installed, and it self-disables under
-// BILLION_CONTEXT_PROXY — so treating it as "installed" wrongly suppressed
+// SOPHIALIN_CONTEXT_PROXY — so treating it as "installed" wrongly suppressed
 // the launcher's `-e` fallback and left pi with no plugin at all.
 export function isBiliPiEntry(entry: string, root: string): boolean {
     return entry === root
-        || /^npm:billion-context(@|$)/.test(entry)
-        || /(^|[/\\])node_modules[/\\]billion-context([\/\\]|$)/.test(entry)
-        || /(^|[/\\])billion-context$/.test(entry);
+        || PI_RE.npmSelf.test(entry)
+        || PI_RE.nodeModulesSelf.test(entry)
+        || PI_RE.bareSelf.test(entry);
 }
 
 // #925 pi form of the npm-standard entry: for npm installs (package root
@@ -202,7 +220,7 @@ export function isBiliPiEntry(entry: string, root: string): boolean {
 // loader resolve() installs missing npm sources), `pi update` upgrades it,
 // and the config survives node prefix moves across machines. A dev/checkout
 // install keeps the abs root (pi loads local package dirs directly).
-export const PI_NPM_ENTRY = "npm:billion-context";
+export const PI_NPM_ENTRY = "npm:sophialin-context";
 
 export function piEntryFor(root: string): string {
     return isNpmInstallForm(root) ? PI_NPM_ENTRY : root;
@@ -257,7 +275,7 @@ function piStatus(): string {
 
 // — omp ———————————————————————————————————————————————————————————————
 
-// An extensions entry that loads the bili omp plugin (any install): a path
+// An extensions entry that loads the sophialin omp plugin (any install): a path
 // ending in dist/agent/omp.js (thin launcher-mode form) or
 // dist/agent/omp-native.js (self-spawning native form, #957). Shared by
 // install/remove/status and the launcher's loader check so all four agree on
@@ -291,18 +309,18 @@ function ompExtensionItemLines(text: string): number[] {
 }
 
 // The config.yml the plugin commands read/write. When PI_CODING_AGENT_DIR
-// points at a bili overlay (<home>-bili, created by `bili omp`), redirect to
+// points at a sophialin overlay (<home>-sophialin, created by `sophialin omp`), redirect to
 // the real home: the overlay's config.yml may be a stale copy (a merge
-// conflict leaves a .bili-conflict instead of the live file), so editing it
+// conflict leaves a .sophialin-conflict instead of the live file), so editing it
 // would silently miss the real config. A note is printed so the user sees
 // which file was actually touched.
 function ompConfigFile(): string {
     const raw = process.env.PI_CODING_AGENT_DIR?.trim();
     if (raw && raw.length > 0) {
-        if (raw.endsWith("-bili") && raw.length > "-bili".length) {
-            const realHome = raw.slice(0, -"-bili".length);
+        if (raw.endsWith("-sophialin") && raw.length > "-sophialin".length) {
+            const realHome = raw.slice(0, -"-sophialin".length);
             process.stderr.write(
-                `bili plugin: PI_CODING_AGENT_DIR points at the bili overlay ${raw} — operating on the real omp home ${realHome} instead\n`,
+                `sophialin plugin: PI_CODING_AGENT_DIR points at the sophialin overlay ${raw} — operating on the real omp home ${realHome} instead\n`,
             );
             return path.join(realHome, "config.yml");
         }
@@ -319,7 +337,7 @@ function ompEntryValue(line: string): string {
     return line.replace(/#.*$/, "").trim().replace(/^-\s*/, "").replace(/^["']|["']$/g, "").trim();
 }
 
-// A bili omp entry that actually loads: matches our entry shape AND the target
+// A sophialin omp entry that actually loads: matches our entry shape AND the target
 // file exists on disk (stale entries from a moved install don't count).
 function ompEntryLoadable(value: string): boolean {
     return OMP_ENTRY_RE.test(value) && fs.existsSync(value);
@@ -345,8 +363,8 @@ function ompInstall(): string {
     requireDistFile(entry);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     let text = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
-    // Exactly one bili owner after install (#957): a lone native entry → done.
-    // Any other bili entry — pre-#957 thin dist/agent/omp.js installs or stale
+    // Exactly one sophialin owner after install (#957): a lone native entry → done.
+    // Any other sophialin entry — pre-#957 thin dist/agent/omp.js installs or stale
     // duplicates — is dropped and replaced by the insert below, so an old
     // install upgrades to native mode on re-install.
     let replaced: string[] = [];
@@ -398,7 +416,7 @@ function ompInstall(): string {
     backupBeforeWrite(file);
     fs.writeFileSync(file, out);
     try {
-        fs.writeFileSync(`${file}.bili-last`, `${hashText(out)}\n`);
+        fs.writeFileSync(`${file}.sophialin-last`, `${hashText(out)}\n`);
     } catch {}
     const note = replaced.length > 0 ? ` (replaced ${replaced.join(", ")})` : "";
     return `omp: installed -> ${file} extensions += ${entry}${note}`;
@@ -418,7 +436,7 @@ function ompStatus(): string {
     return broken ? "broken" : "not installed";
 }
 
-/** True when the given omp home's config.yml carries a bili plugin entry
+/** True when the given omp home's config.yml carries a sophialin plugin entry
  *  whose target file still exists on disk. The launcher uses this to decide
  *  whether `-e dist/agent/omp.js` is needed (omp does NOT ship the plugin):
  *  a loadable entry means omp already loads it — adding `-e` too would
@@ -456,13 +474,13 @@ export function claudeSettingsFile(env: NodeJS.ProcessEnv = process.env): string
 // #1146: /acp-cache for claude. Claude Code has no in-process command API —
 // the host's user-level MARKDOWN slash command (<configdir>/commands/<name>.md)
 // is the only seam, and it is model-mediated: the file's body expands into a
-// prompt that drives the bili acp_cache MCP tool, whose output the model pastes
+// prompt that drives the sophialin acp_cache MCP tool, whose output the model pastes
 // back. Ownership is content-based (like the codex block): install never
 // clobbers a foreign/edited file, remove deletes only our exact template.
 export const CLAUDE_ACP_CACHE_COMMAND = `---
-description: billion-context prompt-cache reconciliation report (same as the acp_cache tool)
+description: sophialin-context prompt-cache reconciliation report (same as the acp_cache tool)
 ---
-Run the \`acp_cache\` tool provided by the \`bili\` MCP server now. If the arguments below contain the word "full", call it with detail:"full"; otherwise call it with no arguments. Then paste the tool's complete output verbatim in a fenced code block — do not summarize, translate, reorder, or omit anything. If the tool is unavailable, reply exactly: bili: acp_cache tool not available (is the bili MCP server registered?)
+Run the \`acp_cache\` tool provided by the \`sophialin\` MCP server now. If the arguments below contain the word "full", call it with detail:"full"; otherwise call it with no arguments. Then paste the tool's complete output verbatim in a fenced code block — do not summarize, translate, reorder, or omit anything. If the tool is unavailable, reply exactly: sophialin: acp_cache tool not available (is the sophialin MCP server registered?)
 
 Arguments: $ARGUMENTS
 `;
@@ -473,12 +491,12 @@ export function claudeAcpCacheCommandFile(env: NodeJS.ProcessEnv = process.env):
     return path.join(path.dirname(claudeSettingsFile(env)), "commands", "acp-cache.md");
 }
 
-/** True for an ANTHROPIC_BASE_URL value written by a bili managed block:
- *  loopback /bili/-wrapped upstream. Any port matches — an older install's
+/** True for an ANTHROPIC_BASE_URL value written by a sophialin managed block:
+ *  loopback /sophialin/-wrapped upstream. Any port matches — an older install's
  *  port differs from the current one, and both are ours to rewrite. */
 export function isBiliClaudeBaseUrl(value: unknown): boolean {
     if (typeof value !== "string") return false;
-    return /^http:\/\/127\.0\.0\.1:\d{1,5}\/bili\/https?:\/\//.test(value);
+    return /^http:\/\/127\.0\.0\.1:\d{1,5}\/sophialin\/https?:\/\//.test(value);
 }
 
 export function claudeNativeBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
@@ -489,31 +507,31 @@ export function claudeNativeBaseUrl(env: NodeJS.ProcessEnv = process.env): strin
 /** #1660: the wrapped base URL for an arbitrary live origin — the
  *  SessionStart hook's drift-repair path (the managed block must follow the
  *  lane's zone-drifted port). `upstream`, when given, overrides the default
- *  resolution (BILI_CLAUDE_UPSTREAM > https://api.anthropic.com) — pass the
+ *  resolution (SOPHIALIN_CLAUDE_UPSTREAM > https://api.anthropic.com) — pass the
  *  UNWRAPPED value of the current settings URL to preserve a relay an
  *  earlier install baked in. */
 export function claudeNativeBaseUrlForOrigin(origin: string, upstream: string | undefined, env: NodeJS.ProcessEnv = process.env): string {
-    const relay = env.BILI_CLAUDE_UPSTREAM?.trim();
+    const relay = env.SOPHIALIN_CLAUDE_UPSTREAM?.trim();
     const base = (upstream !== undefined && upstream.length > 0
         ? upstream
         : relay && relay.length > 0
           ? relay
           : "https://api.anthropic.com").replace(/\/+$/, "");
-    const prefix = origin.replace(/\/+$/, "") + "/bili/";
+    const prefix = origin.replace(/\/+$/, "") + "/sophialin/";
     return base.startsWith(prefix) ? base : prefix + base;
 }
 
-/** The inverse of the wrap: strip a bili wrapper (any loopback port) from a
+/** The inverse of the wrap: strip a sophialin wrapper (any loopback port) from a
  *  base URL. Returns undefined for anything not written by us. */
 export function unwrapBiliBaseUrl(value: string): string | undefined {
-    const m = /^http:\/\/127\.0\.0\.1:\d{1,5}\/bili\/(https?:\/\/.+)$/.exec(value);
+    const m = /^http:\/\/127\.0\.0\.1:\d{1,5}\/sophialin\/(https?:\/\/.+)$/.exec(value);
     return m ? m[1] : undefined;
 }
 
 /** #1660: SessionStart drift-repair — repin the managed block's
  *  ANTHROPIC_BASE_URL to `origin` (the lane's live zone port, which the +1
  *  ladder may have drifted off the last install's baked port). The wrapped
- *  upstream is PRESERVED from the current value unless BILI_CLAUDE_UPSTREAM
+ *  upstream is PRESERVED from the current value unless SOPHIALIN_CLAUDE_UPSTREAM
  *  overrides it; a foreign ANTHROPIC_BASE_URL is never touched (same rule as
  *  install). Also upserts the SessionStart hook, keeping a stale command
  *  fresh across upgrades. Returns the change notes for the hook's log;
@@ -541,16 +559,16 @@ export function applyClaudeManagedBlock(settings: Record<string, unknown>, opts:
     if (cur === undefined || cur === null || isBiliClaudeBaseUrl(cur)) {
         if (cur !== opts.baseUrl) {
             env.ANTHROPIC_BASE_URL = opts.baseUrl;
-            notes.push("env.ANTHROPIC_BASE_URL pinned to the bili proxy");
+            notes.push("env.ANTHROPIC_BASE_URL pinned to the sophialin proxy");
         }
     } else {
-        notes.push(`env.ANTHROPIC_BASE_URL left untouched (foreign value ${JSON.stringify(cur)} — unset it or set BILI_CLAUDE_UPSTREAM, then reinstall)`);
+        notes.push(`env.ANTHROPIC_BASE_URL left untouched (foreign value ${JSON.stringify(cur)} — unset it or set SOPHIALIN_CLAUDE_UPSTREAM, then reinstall)`);
     }
     const dac = env.DISABLE_AUTO_COMPACT;
     if (dac === undefined || dac === null || dac === "1") {
         if (dac !== "1") {
             env.DISABLE_AUTO_COMPACT = "1";
-            notes.push("env.DISABLE_AUTO_COMPACT=1 (bili owns compression; manual /compact survives)");
+            notes.push("env.DISABLE_AUTO_COMPACT=1 (sophialin owns compression; manual /compact survives)");
         }
     } else {
         notes.push(`env.DISABLE_AUTO_COMPACT left untouched (foreign value ${JSON.stringify(dac)})`);
@@ -563,7 +581,7 @@ export function applyClaudeManagedBlock(settings: Record<string, unknown>, opts:
         sessionStart.push({ hooks: [{ type: "command", command: opts.hookCommand }] });
         hooks.SessionStart = sessionStart;
         data.hooks = hooks;
-        notes.push("hooks.SessionStart += bili proxy bootstrap");
+        notes.push("hooks.SessionStart += sophialin proxy bootstrap");
     } else if (refreshOurHookCommands(sessionStart, opts.hookCommand)) {
         data.hooks = hooks;
         notes.push("hooks.SessionStart refreshed to the current hook command");
@@ -578,7 +596,7 @@ function isOurHookCommand(command: unknown): command is string {
 }
 
 /** Rewrite every hook command we own to `command`, in place; true if any
- *  changed. The entry above is appended only when no bili entry is present,
+ *  changed. The entry above is appended only when no sophialin entry is present,
  *  so without this a settings file written by an older release keeps its old
  *  command forever — and a command a client shell cannot run hangs every
  *  session with no log to say why. */
@@ -608,7 +626,7 @@ export function isOursSessionStartEntry(entry: unknown): boolean {
 
 /** Pure strip of the managed block (remove path) — returns the cleaned copy
  *  and what was removed. DISABLE_AUTO_COMPACT is dropped only when it is the
- *  value we wrote ("1"); a .bili-bak with a pre-install value restores it in
+ *  value we wrote ("1"); a .sophialin-bak with a pre-install value restores it in
  *  the caller. Exported for tests. */
 export function stripClaudeManagedBlock(settings: Record<string, unknown>): { data: Record<string, unknown>; removed: string[] } {
     const data = structuredClone(settings);
@@ -639,7 +657,7 @@ export function stripClaudeManagedBlock(settings: Record<string, unknown>): { da
 }
 
 /** True when the managed settings block (the static ANTHROPIC_BASE_URL) is
- *  present — the `bili claude` launcher consults this to override the static
+ *  present — the `sophialin claude` launcher consults this to override the static
  *  URL with its own ephemeral proxy (coexistence, #964 item 5). */
 export function claudeNativeInstalled(env: NodeJS.ProcessEnv = process.env): boolean {
     try {
@@ -690,8 +708,8 @@ function defaultWhereRunner(name: string): { stdout: string | null } {
 }
 
 function claudeInstall(): string {
-    if (process.env.BILI_NATIVE_CLAUDE === "0") {
-        throw new Error("claude: install refused — BILI_NATIVE_CLAUDE=0 is set (clear it to install the native posture)");
+    if (process.env.SOPHIALIN_NATIVE_CLAUDE === "0") {
+        throw new Error("claude: install refused — SOPHIALIN_NATIVE_CLAUDE=0 is set (clear it to install the native posture)");
     }
     const root = selfPackageRoot();
     const mcpJs = path.join(root, "dist", "mcp.js");
@@ -701,7 +719,7 @@ function claudeInstall(): string {
 
     // Managed block first: the static URL + bootstrap hook + compaction off.
     // #964/#1660: the baked URL uses the explicit override
-    // (BILI_CLAUDE_NATIVE_PORT / claude.nativePort) when set — which also
+    // (SOPHIALIN_CLAUDE_NATIVE_PORT / claude.nativePort) when set — which also
     // makes every later hook launch strict-port — else the current zone
     // preference (sticky record > 18787 base). An explicit env-driven port
     // can no longer desync from the hook: both resolve through
@@ -723,7 +741,7 @@ function claudeInstall(): string {
     const stableOrigin = `http://127.0.0.1:${nativePort}`;
     const claude = resolveClaudeCli(process.env.CLAUDE?.trim() || "claude");
     try {
-        runClaudeCli(claude, ["mcp", "add", "bili", "--scope", "user", "-e", `BILI_MCP_PROXY=${stableOrigin}`, "--", process.execPath, mcpJs]);
+        runClaudeCli(claude, ["mcp", "add", "sophialin", "--scope", "user", "-e", `SOPHIALIN_MCP_PROXY=${stableOrigin}`, "--", process.execPath, mcpJs]);
     } catch (err) {
         const stderr = err instanceof Error && "stderr" in err ? String((err as { stderr?: Buffer | string }).stderr ?? "") : "";
         throw new Error(`claude: MCP registration failed (${stderr.trim() || (err instanceof Error ? err.message : String(err))}) — is the claude CLI on PATH? (the managed settings block at ${file} was written; rerun after fixing the CLI to complete the MCP face)`);
@@ -754,7 +772,7 @@ function claudeRemove(): string {
     if (removed.length > 0) {
         // Restore a pre-install DISABLE_AUTO_COMPACT when the backup holds
         // one (writeJson snapshotted the pristine file on first install).
-        const bak = `${file}.bili-bak`;
+        const bak = `${file}.sophialin-bak`;
         try {
             if (fs.existsSync(bak)) {
                 const bakData = readJson(bak) as { env?: Record<string, unknown> };
@@ -774,7 +792,7 @@ function claudeRemove(): string {
     if (claudeMcpInstalled()) {
         const claude = resolveClaudeCli(process.env.CLAUDE?.trim() || "claude");
         try {
-            runClaudeCli(claude, ["mcp", "remove", "bili", "--scope", "user"]);
+            runClaudeCli(claude, ["mcp", "remove", "sophialin", "--scope", "user"]);
             parts.push("MCP face removed");
         } catch (err) {
             throw new Error(`claude: MCP removal failed (${err instanceof Error ? err.message : String(err)})${parts.length > 0 ? ` — ${parts.join("; ")} succeeded first` : ""}`);
@@ -799,7 +817,7 @@ function claudeRemove(): string {
 
 function claudeMcpInstalled(): boolean {
     const data = readJson(claudeMcpJson()) as { mcpServers?: Record<string, unknown> };
-    return isPlainMcpObject(data.mcpServers) && "bili" in data.mcpServers;
+    return isPlainMcpObject(data.mcpServers) && "sophialin" in data.mcpServers;
 }
 
 function claudeStatus(): string {
@@ -835,8 +853,8 @@ function codexBlock(): string {
     // #1660: no baked origin — the MCP shell discovers the live proxy at
     // startup (env > live instance file > 8787 user-zone default), so the
     // block never goes stale when the proxy's port drifts or the machine
-    // reboots. BILI_MCP_PROXY in the user's environment still wins.
-    return `\n[mcp_servers.bili]\ncommand = ${JSON.stringify(process.execPath)}\nargs = [${JSON.stringify(path.join(selfPackageRoot(), "dist", "mcp.js"))}]\n`;
+    // reboots. SOPHIALIN_MCP_PROXY in the user's environment still wins.
+    return `\n[mcp_servers.sophialin]\ncommand = ${JSON.stringify(process.execPath)}\nargs = [${JSON.stringify(path.join(selfPackageRoot(), "dist", "mcp.js"))}]\n`;
 }
 
 function malformedCodexArgs(block: string): boolean {
@@ -846,7 +864,7 @@ function malformedCodexArgs(block: string): boolean {
 function codexInstall(): string {
     const file = codexToml();
     const text = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
-    const existing = /^[ \t]*\[mcp_servers\.bili\][ \t]*$/m.exec(text);
+    const existing = /^[ \t]*\[mcp_servers\.sophialin\][ \t]*$/m.exec(text);
     if (existing !== null) {
         // End the block at the next TABLE header line (optional indent + `[`),
         // matching codexRemove. A plain indexOf("\n[") misses an indented next
@@ -861,15 +879,15 @@ function codexInstall(): string {
         const refreshed = text.slice(0, existing.index) + canonical + text.slice(existing.index + block.length);
         writeConfigText(file, refreshed);
         const healed = malformedCodexArgs(block) ? " (repaired args: was not an array)" : "";
-        return `codex: refreshed [mcp_servers.bili] -> ${file}${healed}`;
+        return `codex: refreshed [mcp_servers.sophialin] -> ${file}${healed}`;
     }
     fs.mkdirSync(path.dirname(file), { recursive: true });
     backupBeforeWrite(file);
     fs.writeFileSync(file, text + (text.endsWith("\n") || text.length === 0 ? "" : "\n") + codexBlock());
     try {
-        fs.writeFileSync(`${file}.bili-last`, `${hashText(fs.readFileSync(file, "utf8"))}\n`);
+        fs.writeFileSync(`${file}.sophialin-last`, `${hashText(fs.readFileSync(file, "utf8"))}\n`);
     } catch {}
-    return `codex: installed -> ${file} [mcp_servers.bili]`;
+    return `codex: installed -> ${file} [mcp_servers.sophialin]`;
 }
 
 function codexRemove(): string {
@@ -877,7 +895,7 @@ function codexRemove(): string {
     if (!fs.existsSync(file)) return `codex: not installed (${file})`;
     const text = fs.readFileSync(file, "utf8");
     const start = (() => {
-        const m = /^[ \t]*\[mcp_servers\.bili\][ \t]*$/m.exec(text);
+        const m = /^[ \t]*\[mcp_servers\.sophialin\][ \t]*$/m.exec(text);
         return m === null ? -1 : m.index;
     })();
     if (start < 0) return `codex: not installed (${file})`;
@@ -893,7 +911,7 @@ function codexRemove(): string {
 
 function codexStatus(): string {
     const text = fs.existsSync(codexToml()) ? fs.readFileSync(codexToml(), "utf8") : "";
-    return /^\[mcp_servers\.bili\]\s*$/m.test(text) ? "installed" : "not installed";
+    return /^\[mcp_servers\.sophialin\]\s*$/m.test(text) ? "installed" : "not installed";
 }
 
 // — opencode ————————————————————————————————————————————————————————————
@@ -913,9 +931,9 @@ const PLUGIN_KEYS = ["plugin", "plugins"] as const;
 const ocMajorCache = new Map<string, number>();
 
 /** Host major version via `<command> --version` (probe failure → 1). Same
- *  contract as the launcher's probe; honors the BILI_CLIENT_BIN override. */
+ *  contract as the launcher's probe; honors the SOPHIALIN_CLIENT_BIN override. */
 export function detectOpencodeMajor(): number {
-    const command = process.env.BILI_CLIENT_BIN?.trim() || "opencode";
+    const command = process.env.SOPHIALIN_CLIENT_BIN?.trim() || "opencode";
     const hit = ocMajorCache.get(command);
     if (hit !== undefined) return hit;
     let major = 1;
@@ -962,11 +980,11 @@ export function opencodeTargetFile(): string {
 // entry must be a DIRECTORY whose index.js is the entrypoint (#754 probe). The
 // wrapper directory lives next to the config so it survives config moves.
 function opencodePluginDir(configFile: string): string {
-    return path.join(path.dirname(configFile), "plugins", "billion-context");
+    return path.join(path.dirname(configFile), "plugins", "sophialin-context");
 }
 
 // #809/N4: opencode.json may carry a non-object `mcp` (e.g. a bare string);
-// `"bili" in <non-object>` throws TypeError. Guard so install/remove/status
+// `"sophialin" in <non-object>` throws TypeError. Guard so install/remove/status
 // degrade gracefully instead of crashing (a crashing remove leaves no cleanup).
 function isPlainMcpObject(v: unknown): v is Record<string, unknown> {
     return v !== null && typeof v === "object" && !Array.isArray(v);
@@ -992,7 +1010,7 @@ function parseOpencodeConfig(text: string, file: string): Record<string, unknown
     if (errors.length > 0 || parsed === undefined) {
         const first = errors[0];
         const detail = first ? ` (offset ${first.offset})` : "";
-        throw new Error(`${file}: not valid JSON${detail} — fix it or restore ${path.basename(file)}.bili-bak first; refusing to overwrite`);
+        throw new Error(`${file}: not valid JSON${detail} — fix it or restore ${path.basename(file)}.sophialin-bak first; refusing to overwrite`);
     }
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
         throw new Error(`${file}: expected a JSON object at top level, refusing to overwrite`);
@@ -1005,7 +1023,7 @@ function loadOpencodeConfig(file: string): { original: string; data: Record<stri
     return { original, data: original === "" ? {} : parseOpencodeConfig(original, file) };
 }
 
-// Write back preserving everything bili did not touch: a missing or plain-JSON
+// Write back preserving everything sophialin did not touch: a missing or plain-JSON
 // target is serialized whole (the historical behavior); a JSONC target gets
 // surgical top-level-key edits so comments and formatting elsewhere survive
 // byte-for-byte (#927). A no-op run (nothing touched) leaves the file alone.
@@ -1087,12 +1105,12 @@ function stripLegacyOpencodeAcp(data: Record<string, unknown>, notes: string[], 
         }
     }
     if (removed.length > 0) {
-        notes.push(`replaced opencode-acp plugin entries (${removed.join(", ")}) — single compression owner; restore from the .bili-bak backup if that was intended`);
+        notes.push(`replaced opencode-acp plugin entries (${removed.join(", ")}) — single compression owner; restore from the .sophialin-bak backup if that was intended`);
         notes.push("also check <project>/.opencode/opencode.json — a LOCAL-scope opencode-acp install (opencode plugin opencode-acp) lives there, not in this global config");
     }
 }
 
-// #925: how THIS bili was installed decides which plugin entry install can
+// #925: how THIS sophialin was installed decides which plugin entry install can
 // publish. An npm-form install (package root under node_modules — npm/pnpm/
 // yarn, both path-separator styles) ships its entry through package.json
 // exports["./server"], so opencode loads the bare package name via its own
@@ -1102,7 +1120,7 @@ export function isNpmInstallForm(root: string): boolean {
     return /(^|[/\\])node_modules[/\\]/.test(root);
 }
 
-export const OPENCODE_NPM_ENTRY = "billion-context";
+export const OPENCODE_NPM_ENTRY = "sophialin-context";
 
 const DEV_FORM_NOTE = "dev form: machine-local shim, not portable across machines — an npm install writes the bare package name instead";
 
@@ -1164,22 +1182,22 @@ function opencodeInstall(withMcp = false): string {
     const notes: string[] = [];
     const touched = new Set<string>();
 
-    // #926: the native plugin below registers the bili tools itself (auto
-    // session-bound), so opencode gets NO mcp.bili by default — a frozen
-    // BILI_MCP_PROXY there goes stale the moment the plugin's
+    // #926: the native plugin below registers the sophialin tools itself (auto
+    // session-bound), so opencode gets NO mcp.sophialin by default — a frozen
+    // SOPHIALIN_MCP_PROXY there goes stale the moment the plugin's
     // ephemeral-port proxy restarts. Default heals any entry an older
     // install froze in. --with-mcp opts in; the entry then carries no origin
     // pin (dist/mcp.js discovers the live proxy via the instance file at
-    // call time) unless BILI_MCP_PROXY is set for this install.
+    // call time) unless SOPHIALIN_MCP_PROXY is set for this install.
     if (!withMcp) {
         const rawMcp = data.mcp;
-        if (isPlainMcpObject(rawMcp) && "bili" in rawMcp) {
-            delete rawMcp.bili;
+        if (isPlainMcpObject(rawMcp) && "sophialin" in rawMcp) {
+            delete rawMcp.sophialin;
             if (Object.keys(rawMcp).length === 0) delete data.mcp;
             touched.add("mcp");
-            notes.push("mcp.bili removed (stale second tool face — the native plugin provides the bili tools; install with --with-mcp to keep an MCP face)");
+            notes.push("mcp.sophialin removed (stale second tool face — the native plugin provides the sophialin tools; install with --with-mcp to keep an MCP face)");
         } else {
-            notes.push("mcp.bili not written (the native plugin provides the bili tools; --with-mcp adds an MCP face)");
+            notes.push("mcp.sophialin not written (the native plugin provides the sophialin tools; --with-mcp adds an MCP face)");
         }
     } else {
         try {
@@ -1187,45 +1205,45 @@ function opencodeInstall(withMcp = false): string {
             requireDistFile(mcpJs);
             const rawMcp = data.mcp;
             if (rawMcp != null && !isPlainMcpObject(rawMcp)) {
-                notes.push('mcp.bili skipped ("mcp" is not an object)');
+                notes.push('mcp.sophialin skipped ("mcp" is not an object)');
             } else {
                 const mcp = (rawMcp as Record<string, unknown> | undefined) ?? {};
-                const explicit = process.env.BILI_MCP_PROXY?.trim();
-                const bili = mcp.bili;
-                if (bili !== null && typeof bili === "object" && !Array.isArray(bili)) {
-                    const env = (bili as Record<string, unknown>).environment;
+                const explicit = process.env.SOPHIALIN_MCP_PROXY?.trim();
+                const sophialin = mcp.sophialin;
+                if (sophialin !== null && typeof sophialin === "object" && !Array.isArray(sophialin)) {
+                    const env = (sophialin as Record<string, unknown>).environment;
                     const envObj = env !== null && typeof env === "object" && !Array.isArray(env) ? (env as Record<string, unknown>) : undefined;
-                    if (envObj?.BILI_MCP_PROXY !== undefined && explicit === undefined) {
-                        delete envObj.BILI_MCP_PROXY;
-                        if (Object.keys(envObj).length === 0) delete (bili as Record<string, unknown>).environment;
+                    if (envObj?.SOPHIALIN_MCP_PROXY !== undefined && explicit === undefined) {
+                        delete envObj.SOPHIALIN_MCP_PROXY;
+                        if (Object.keys(envObj).length === 0) delete (sophialin as Record<string, unknown>).environment;
                         touched.add("mcp");
-                        notes.push("mcp.bili present (stale BILI_MCP_PROXY pin removed — live discovery takes over)");
+                        notes.push("mcp.sophialin present (stale SOPHIALIN_MCP_PROXY pin removed — live discovery takes over)");
                     } else {
-                        notes.push("mcp.bili present");
+                        notes.push("mcp.sophialin present");
                     }
                 } else {
                     const entry: Record<string, unknown> = { type: "local", command: [process.execPath, mcpJs], enabled: true };
-                    if (explicit !== undefined) entry.environment = { BILI_MCP_PROXY: explicit };
-                    mcp.bili = entry;
+                    if (explicit !== undefined) entry.environment = { SOPHIALIN_MCP_PROXY: explicit };
+                    mcp.sophialin = entry;
                     data.mcp = mcp;
                     touched.add("mcp");
-                    notes.push(explicit !== undefined ? `mcp.bili written (BILI_MCP_PROXY=${explicit})` : "mcp.bili written (no origin pin — live discovery via instance file)");
+                    notes.push(explicit !== undefined ? `mcp.sophialin written (SOPHIALIN_MCP_PROXY=${explicit})` : "mcp.sophialin written (no origin pin — live discovery via instance file)");
                 }
             }
         } catch (err) {
-            notes.push(`mcp.bili skipped (${err instanceof Error ? err.message : String(err)})`);
+            notes.push(`mcp.sophialin skipped (${err instanceof Error ? err.message : String(err)})`);
         }
     }
 
     // Native plugin (#820/#925): self-spawned proxy + http.request URL rewrite.
-    // Entry form depends on how THIS bili was installed — npm → bare package
+    // Entry form depends on how THIS sophialin was installed — npm → bare package
     // name (exports["./server"], host-managed), checkout/dev → local shim dir.
     const root = selfPackageRoot();
     const agentJs = path.join(root, "dist", "agent", "opencode-native.js");
     requireDistFile(agentJs);
     // Single compression owner FIRST: drop any opencode-acp entry before
     // adding ours, so both never load armed in one host (#918). The write
-    // below snapshots the original config to .bili-bak (first write only).
+    // below snapshots the original config to .sophialin-bak (first write only).
     stripLegacyOpencodeAcp(data, notes, touched);
     // #927 entry key for this host + #925 entry form for this install form.
     notes.push(...applyOpencodePluginEntry({ data, root, shimDir: opencodePluginDir(file), agentJs, key: pickPluginKey(detectOpencodeMajor()), touched }));
@@ -1256,11 +1274,11 @@ function opencodeRemove(): string {
     const touched = new Set<string>();
 
     const mcp = data.mcp;
-    if (isPlainMcpObject(mcp) && "bili" in mcp) {
-        delete mcp.bili;
+    if (isPlainMcpObject(mcp) && "sophialin" in mcp) {
+        delete mcp.sophialin;
         if (Object.keys(mcp).length === 0) delete data.mcp;
         touched.add("mcp");
-        notes.push("mcp.bili removed");
+        notes.push("mcp.sophialin removed");
     }
 
     // #927: clean our entry out of whichever key spelling carries it; the
@@ -1300,7 +1318,7 @@ function opencodeRemove(): string {
     if (notes.length > 0) {
         const cur = data.compaction as Record<string, unknown> | undefined;
         if (cur && cur.auto === false) {
-            const bak = `${file}.bili-bak`;
+            const bak = `${file}.sophialin-bak`;
             if (fs.existsSync(bak)) {
                 try {
                     const bakData = loadOpencodeConfig(bak).data;
@@ -1332,7 +1350,7 @@ function opencodeStatus(): string {
     const mcp = data.mcp;
     const dir = opencodePluginDir(file);
     const listed = PLUGIN_KEYS.some((k) => pluginEntries(data, k).some((p) => p === OPENCODE_NPM_ENTRY || p === dir));
-    return (isPlainMcpObject(mcp) && "bili" in mcp) || listed ? "installed" : "not installed";
+    return (isPlainMcpObject(mcp) && "sophialin" in mcp) || listed ? "installed" : "not installed";
 }
 
 // — dsh ————————————————————————————————————————————————————————————————
@@ -1343,8 +1361,8 @@ function opencodeStatus(): string {
 // one owner of each profile copy, one update path (auto-update re-runs the
 // channel via refreshDshProfileBundles). Pre-unification managed blocks are
 // migrated (stripped) on install/remove: coexistence duplicates the
-// bili-native loader id and hard-fails dsh boot. The spec follows how THIS
-// bili was installed (#925 rule): npm form → bare package name (registry),
+// sophialin-native loader id and hard-fails dsh boot. The spec follows how THIS
+// sophialin was installed (#925 rule): npm form → bare package name (registry),
 // checkout/dev → absolute path (pnpm link:, tracks the live source).
 
 function dshInstall(): string {
@@ -1377,8 +1395,8 @@ function dshRemove(): string {
             notes.push(`${name}: legacy managed block stripped`);
         }
     }
-    if (touched.size === 0) return "nothing to remove — no dsh profile carries billion-context";
-    return `removed bili from ${touched.size} dsh profile(s) under ${path.join(resolveDshHome(process.env), "profiles")} (${notes.join("; ")}) — restart dsh to finish`;
+    if (touched.size === 0) return "nothing to remove — no dsh profile carries sophialin-context";
+    return `removed sophialin from ${touched.size} dsh profile(s) under ${path.join(resolveDshHome(process.env), "profiles")} (${notes.join("; ")}) — restart dsh to finish`;
 }
 
 function dshStatus(): string {
@@ -1387,16 +1405,16 @@ function dshStatus(): string {
     const withBlock = dirs.filter((dir) => dshHasLegacyManagedBlock(dir));
     if (bundle.length === dirs.length && dirs.length > 0) return `installed (dsh bundle in all ${dirs.length} profiles)`;
     if (bundle.length > 0) return `installed as a dsh bundle in ${bundle.length}/${dirs.length} profiles`;
-    if (withBlock.length === dirs.length && dirs.length > 0) return "installed (legacy managed block — rerun 'bili plugin install dsh' to migrate to the dsh bundle channel)";
-    if (withBlock.length > 0) return `legacy managed block in ${withBlock.length}/${dirs.length} profiles — rerun 'bili plugin install dsh' to migrate`;
+    if (withBlock.length === dirs.length && dirs.length > 0) return "installed (legacy managed block — rerun 'sophialin plugin install dsh' to migrate to the dsh bundle channel)";
+    if (withBlock.length > 0) return `legacy managed block in ${withBlock.length}/${dirs.length} profiles — rerun 'sophialin plugin install dsh' to migrate`;
     return "not installed";
 }
 
 /** True when any profile carries the persistent native install — either the
- *  bundle-channel dep or a pre-unification managed block. The `bili dsh`
+ *  bundle-channel dep or a pre-unification managed block. The `sophialin dsh`
  *  launcher consults this before adding its own --patch overlay: cordis
  *  rejects duplicate loader entry ids across layers, so a second
- *  `id: bili-native` insert would hard-fail dsh boot whenever the persistent
+ *  `id: sophialin-native` insert would hard-fail dsh boot whenever the persistent
  *  install is present. */
 export function dshNativeInstalled(env: NodeJS.ProcessEnv = process.env): boolean {
     let dirs: string[];
@@ -1413,12 +1431,12 @@ export function dshNativeInstalled(env: NodeJS.ProcessEnv = process.env): boolea
 // a machine-managed registry (installed.json) and runs the MANAGED COPY at
 // plugins/managed/<id>/, so the installer writes there directly with absolute
 // paths into THIS package's dist — plugin and proxy share one version and
-// `npm i -g billion-context@latest` upgrades both. The plugin declares one
+// `npm i -g sophialin-context@latest` upgrades both. The plugin declares one
 // stdio MCP server (the per-session bootstrap + ACP tool shell) and one
 // SessionStart hook (attach-only fast path); config.toml itself is only
 // touched at session start by those entries, never here.
 
-const KIMI_PLUGIN_ID = "billion-context";
+const KIMI_PLUGIN_ID = "sophialin-context";
 
 function kimiHome(): string {
     return resolveKimiHome(process.env);
@@ -1484,7 +1502,7 @@ export function detectKimiVersion(env: NodeJS.ProcessEnv = process.env): string 
     if (out === undefined) throw new Error("kimi CLI not found on PATH or in $KIMI_CODE_HOME/bin — install Kimi Code first (`npm i -g @moonshot-ai/kimi-code`)");
     const m = /(\d+)\.(\d+)(?:\.(\d+))?/.exec(out);
     if (m && parseInt(m[1], 10) < 2) {
-        throw new Error(`Kimi Code ${m[0]} is too old for native mode (needs >= 2.0.0) — upgrade with \`npm i -g @moonshot-ai/kimi-code@latest\` and retry; \`bili kimi\` launcher mode still works`);
+        throw new Error(`Kimi Code ${m[0]} is too old for native mode (needs >= 2.0.0) — upgrade with \`npm i -g @moonshot-ai/kimi-code@latest\` and retry; \`sophialin kimi\` launcher mode still works`);
     }
     return m ? m[0] : out.trim();
 }
@@ -1501,8 +1519,8 @@ function kimiPluginManifest(root: string): Record<string, unknown> {
     return {
         name: KIMI_PLUGIN_ID,
         version: selfVersion(),
-        description: "billion-context: ACP context-compression proxy (native mode)",
-        mcpServers: { bili: { command: "node", args: [path.join(root, "dist", "kimi", "native-mcp.js")], cwd: "./" } },
+        description: "sophialin-context: ACP context-compression proxy (native mode)",
+        mcpServers: { sophialin: { command: "node", args: [path.join(root, "dist", "kimi", "native-mcp.js")], cwd: "./" } },
         hooks: [{ event: "SessionStart", command: portableHookCommand("node", [path.join(root, "dist", "kimi", "bootstrap-hook.js")]), timeout: 30 }],
     };
 }
@@ -1523,7 +1541,7 @@ function kimiInstall(): string {
     const record: KimiInstalledRecord = { id: KIMI_PLUGIN_ID, root: dir, source: "local-path", enabled: true, installedAt: existing?.installedAt ?? now, updatedAt: now };
     reg.plugins = existing ? reg.plugins.map((p) => (p.id === KIMI_PLUGIN_ID ? record : p)) : [...reg.plugins, record];
     writeJsonAtomic(file, reg);
-    return `wrote the billion-context plugin into ${dir} (kimi ${version}) — start a new Kimi Code session to activate`;
+    return `wrote the sophialin-context plugin into ${dir} (kimi ${version}) — start a new Kimi Code session to activate`;
 }
 
 function kimiRemove(): string {
@@ -1542,7 +1560,7 @@ function kimiRemove(): string {
     const restored = restoreKimiBackup({ log: (msg) => notes.push(msg) });
     if (restored.restored) notes.push("restored config.toml from the pre-install snapshot");
     else unrouteKimi({ log: (msg) => notes.push(msg) });
-    return removed ? `removed the billion-context plugin${notes.length > 0 ? ` (${notes.join("; ")})` : ""} — start a new Kimi Code session to finish` : "not installed";
+    return removed ? `removed the sophialin-context plugin${notes.length > 0 ? ` (${notes.join("; ")})` : ""} — start a new Kimi Code session to finish` : "not installed";
 }
 
 function kimiStatus(): string {
@@ -1552,7 +1570,7 @@ function kimiStatus(): string {
         registered = readKimiInstalledRegistry(kimiRegistryFile()).plugins.some((p) => p.id === KIMI_PLUGIN_ID);
     } catch {}
     if (manifestOk && registered) return "installed";
-    if (manifestOk || registered) return "partially installed — rerun 'bili plugin install kimi' to fix";
+    if (manifestOk || registered) return "partially installed — rerun 'sophialin plugin install kimi' to fix";
     return "not installed";
 }
 
@@ -1560,10 +1578,10 @@ function kimiStatus(): string {
 // Python plugin: hermes's CLI agent plugin API is Python-only, so the lane copies
 // the shipped source verbatim into the user plugin dir instead of pointing at dist.
 // Enablement is delegated to `hermes plugins enable` — hermes owns config.yaml, we
-// never parse it. The bili.json sidecar points the plugin at THIS install's
+// never parse it. The sophialin.json sidecar points the plugin at THIS install's
 // dist/index.js + node runtime, so a global self-update moves both together.
 
-const HERMES_PLUGIN_ID = "billion-context";
+const HERMES_PLUGIN_ID = "sophialin-context";
 // cmd.exe's canonical "command missing" line (its exit code is not reliably
 // 9009 when spawned via CreateProcess — CI-verified).
 const CMD_NOT_FOUND_RE = /is not recognized as an internal or external command/i;
@@ -1610,18 +1628,18 @@ function hermesInstallCore(): void {
     fs.writeFileSync(path.join(dir, "__init__.py"), initSrc);
     fs.writeFileSync(path.join(dir, "plugin.yaml"), yamlSrc.replace(/^version:.*/m, `version: "${selfVersion()}"`));
     const sidecar: HermesSidecar = { proxyScript: path.join(root, "dist", "index.js"), nodePath: process.execPath };
-    fs.writeFileSync(path.join(dir, "bili.json"), `${JSON.stringify(sidecar, null, 2)}\n`);
+    fs.writeFileSync(path.join(dir, "sophialin.json"), `${JSON.stringify(sidecar, null, 2)}\n`);
 }
 
 function hermesInstall(): string {
     hermesInstallCore();
     const dir = hermesPluginDir();
     const enable = runHermesCli(["plugins", "enable", HERMES_PLUGIN_ID]);
-    if (enable.ok) return `wrote the billion-context plugin into ${dir} and enabled it — start a new hermes session to activate`;
+    if (enable.ok) return `wrote the sophialin-context plugin into ${dir} and enabled it — start a new hermes session to activate`;
     const hint = enable.reason === "not-found"
-        ? "the hermes CLI was not found on PATH — enable it manually: hermes plugins enable billion-context"
-        : `enabling via the hermes CLI failed (${enable.reason}) — enable it manually: hermes plugins enable billion-context`;
-    return `wrote the billion-context plugin into ${dir}; ${hint}`;
+        ? "the hermes CLI was not found on PATH — enable it manually: hermes plugins enable sophialin-context"
+        : `enabling via the hermes CLI failed (${enable.reason}) — enable it manually: hermes plugins enable sophialin-context`;
+    return `wrote the sophialin-context plugin into ${dir}; ${hint}`;
 }
 
 function hermesRemove(): string {
@@ -1630,13 +1648,13 @@ function hermesRemove(): string {
     fs.rmSync(dir, { recursive: true, force: true });
     const disable = runHermesCli(["plugins", "disable", HERMES_PLUGIN_ID]);
     return disable.ok
-        ? `removed the billion-context plugin (${dir}) and disabled it — start a new hermes session to finish`
-        : `removed the billion-context plugin (${dir}); if hermes still lists it, disable it manually: hermes plugins disable billion-context`;
+        ? `removed the sophialin-context plugin (${dir}) and disabled it — start a new hermes session to finish`
+        : `removed the sophialin-context plugin (${dir}); if hermes still lists it, disable it manually: hermes plugins disable sophialin-context`;
 }
 
 function hermesStatus(): string {
     const dir = hermesPluginDir();
-    return fs.existsSync(path.join(dir, "__init__.py")) && fs.existsSync(path.join(dir, "bili.json")) ? "installed" : "not installed";
+    return fs.existsSync(path.join(dir, "__init__.py")) && fs.existsSync(path.join(dir, "sophialin.json")) ? "installed" : "not installed";
 }
 
 // — dispatch ————————————————————————————————————————————————————————————
@@ -1674,7 +1692,7 @@ export function isOursZcodeMcpServer(server: unknown): boolean {
 
 /** Managed-block apply for ~/.zcode/cli/config.json (#1145). Pure over the
  *  parsed doc: enables hooks, upserts our SessionStart entry, and owns ONLY
- *  mcp.servers.bili when it already points at our dist — a user's own "bili"
+ *  mcp.servers.sophialin when it already points at our dist — a user's own "sophialin"
  *  server throws instead of being clobbered (§7.3). */
 export function applyZcodeManagedConfig(doc: Record<string, unknown>, opts: { hookEntry: string; mcpEntry: string }): { data: Record<string, unknown>; notes: string[] } {
     const data = structuredClone(doc);
@@ -1687,17 +1705,17 @@ export function applyZcodeManagedConfig(doc: Record<string, unknown>, opts: { ho
     const events = zcodeAsPlain(hooks.events) ?? {};
     const sessionStart = Array.isArray(events.SessionStart) ? [...(events.SessionStart as unknown[])] : [];
     const kept = sessionStart.filter((e) => !isOursZcodeHookEntry(e));
-    if (kept.length !== sessionStart.length) notes.push("replaced a previous bili SessionStart entry");
+    if (kept.length !== sessionStart.length) notes.push("replaced a previous sophialin SessionStart entry");
     kept.push({ hooks: [{ type: "process", command: "node", args: [opts.hookEntry] }] });
     events.SessionStart = kept;
     hooks.events = events;
     data.hooks = hooks;
     const mcp = zcodeAsPlain(data.mcp) ?? {};
     const servers = zcodeAsPlain(mcp.servers) ?? {};
-    if (servers.bili !== undefined && !isOursZcodeMcpServer(servers.bili)) {
-        throw new Error(`${zcodeUserConfigFile()} already defines mcp.servers.bili owned by something else — rename or remove it first; refusing to overwrite`);
+    if (servers.sophialin !== undefined && !isOursZcodeMcpServer(servers.sophialin)) {
+        throw new Error(`${zcodeUserConfigFile()} already defines mcp.servers.sophialin owned by something else — rename or remove it first; refusing to overwrite`);
     }
-    servers.bili = { type: "stdio", command: "node", args: [opts.mcpEntry] };
+    servers.sophialin = { type: "stdio", command: "node", args: [opts.mcpEntry] };
     mcp.servers = servers;
     data.mcp = mcp;
     return { data, notes };
@@ -1723,9 +1741,9 @@ export function stripZcodeManagedConfig(doc: Record<string, unknown>): { data: R
     const mcp = zcodeAsPlain(data.mcp);
     if (mcp) {
         const servers = zcodeAsPlain(mcp.servers);
-        if (servers && servers.bili !== undefined && isOursZcodeMcpServer(servers.bili)) {
-            removed.push("mcp.servers.bili");
-            delete servers.bili;
+        if (servers && servers.sophialin !== undefined && isOursZcodeMcpServer(servers.sophialin)) {
+            removed.push("mcp.servers.sophialin");
+            delete servers.sophialin;
             if (Object.keys(servers).length === 0) delete mcp.servers;
             if (Object.keys(mcp).length === 0) delete data.mcp;
         }
@@ -1742,7 +1760,7 @@ function zcodeInstall(): string {
     const file = zcodeUserConfigFile();
     const { data, notes } = applyZcodeManagedConfig(readJson(file), { hookEntry, mcpEntry });
     writeJson(file, data);
-    return `wrote the billion-context hook+MCP into ${file}${notes.length > 0 ? ` (${notes.join("; ")})` : ""} — start a new ZCode session to activate`;
+    return `wrote the sophialin-context hook+MCP into ${file}${notes.length > 0 ? ` (${notes.join("; ")})` : ""} — start a new ZCode session to activate`;
 }
 
 function zcodeRemove(): string {
@@ -1756,7 +1774,7 @@ function zcodeRemove(): string {
             // are the reason it is on (never drop a user-owned switch).
             let bak: Record<string, unknown> | undefined;
             try {
-                bak = JSON.parse(fs.readFileSync(`${file}.bili-bak`, "utf8")) as Record<string, unknown>;
+                bak = JSON.parse(fs.readFileSync(`${file}.sophialin-bak`, "utf8")) as Record<string, unknown>;
             } catch {}
             const hooks = zcodeAsPlain(data.hooks);
             if (hooks && Object.keys(hooks).length === 1 && hooks.enabled === true) {
@@ -1770,7 +1788,7 @@ function zcodeRemove(): string {
     } catch {}
     const restored = restoreZcodeBackup({ log: (msg) => notes.push(msg) });
     if (!restored.restored) unrouteZcode({ log: () => {} });
-    return notes.length > 0 ? `removed the billion-context zcode lane (${notes.join("; ")}) — start a new ZCode session to finish` : "not installed";
+    return notes.length > 0 ? `removed the sophialin-context zcode lane (${notes.join("; ")}) — start a new ZCode session to finish` : "not installed";
 }
 
 function zcodeStatus(): string {
@@ -1780,9 +1798,9 @@ function zcodeStatus(): string {
         const doc = readJson(zcodeUserConfigFile());
         const sessionStart = zcodeAsPlain(zcodeAsPlain(doc.hooks)?.events)?.SessionStart;
         hasHook = Array.isArray(sessionStart) && (sessionStart as unknown[]).some(isOursZcodeHookEntry);
-        hasMcp = isOursZcodeMcpServer(zcodeAsPlain(zcodeAsPlain(doc.mcp)?.servers)?.bili);
+        hasMcp = isOursZcodeMcpServer(zcodeAsPlain(zcodeAsPlain(doc.mcp)?.servers)?.sophialin);
     } catch {}
-    let status = hasHook && hasMcp ? "installed" : hasHook || hasMcp ? "partially installed — rerun 'bili plugin install zcode' to fix" : "not installed";
+    let status = hasHook && hasMcp ? "installed" : hasHook || hasMcp ? "partially installed — rerun 'sophialin plugin install zcode' to fix" : "not installed";
     try {
         const routed = inspectZcodeRouting(resolveZcodeDataDir(process.env));
         if (routed && routed.wrapped.length > 0) status += ` (routing ${routed.kind} store: ${routed.wrapped.map((w) => w.id).join(", ")})`;
@@ -1792,7 +1810,7 @@ function zcodeStatus(): string {
 
 // — doctor (#1235) —————————————————————————————————————————————————————
 
-/** Structured per-lane presence for `bili doctor`: what the lane's entries
+/** Structured per-lane presence for `sophialin doctor`: what the lane's entries
  *  point at, which on-disk copy it loads, and the copy's version when
  *  resolvable. Read-only. Multi-face probes degrade to partial info on
  *  malformed config; single-source probes (pi/opencode/zcode) propagate the
@@ -1882,9 +1900,9 @@ export function inspectLanePresence(agent: PluginAgent): LanePresence {
         } catch {}
         try {
             const mcpData = readJson(claudeMcpJson()) as { mcpServers?: Record<string, unknown> };
-            const bili = mcpData.mcpServers?.bili;
-            if (bili !== null && typeof bili === "object" && !Array.isArray(bili)) {
-                const s = bili as Record<string, unknown>;
+            const sophialin = mcpData.mcpServers?.sophialin;
+            if (sophialin !== null && typeof sophialin === "object" && !Array.isArray(sophialin)) {
+                const s = sophialin as Record<string, unknown>;
                 out.installed = true;
                 const args = Array.isArray(s.args) ? (s.args as unknown[]).map(String) : [];
                 out.pointers.push([s.command, ...args].filter((x) => typeof x === "string" && x.length > 0).join(" "));
@@ -1905,8 +1923,8 @@ export function inspectLanePresence(agent: PluginAgent): LanePresence {
         } catch {
             return laneAbsent();
         }
-        if (!/^\[mcp_servers\.bili\]\s*$/m.test(text)) return laneAbsent();
-        const start = text.indexOf("[mcp_servers.bili]");
+        if (!/^\[mcp_servers\.sophialin\]\s*$/m.test(text)) return laneAbsent();
+        const start = text.indexOf("[mcp_servers.sophialin]");
         const rest = text.slice(start);
         const nextSection = /^\[[^\]\n]+\]/m.exec(rest.slice(1));
         const block = nextSection !== null ? rest.slice(0, 1 + nextSection.index) : rest;
@@ -1933,7 +1951,7 @@ export function inspectLanePresence(agent: PluginAgent): LanePresence {
         const first = targets[0];
         return {
             installed: true,
-            pointers: [`[mcp_servers.bili] command=${command || "?"} args=[${args.join(", ")}]`],
+            pointers: [`[mcp_servers.sophialin] command=${command || "?"} args=[${args.join(", ")}]`],
             targets,
             form: "managed-block",
             copyVersion: first !== undefined ? pkgVersionAt(rootFromDistFile(first)) : undefined,
@@ -1944,10 +1962,10 @@ export function inspectLanePresence(agent: PluginAgent): LanePresence {
         const { data } = loadOpencodeConfig(file);
         const dir = opencodePluginDir(file);
         const listed = PLUGIN_KEYS.flatMap((k) => pluginEntries(data, k)).filter((p) => p === OPENCODE_NPM_ENTRY || p === dir);
-        const hasMcp = isPlainMcpObject(data.mcp) && "bili" in data.mcp;
+        const hasMcp = isPlainMcpObject(data.mcp) && "sophialin" in data.mcp;
         if (listed.length === 0 && !hasMcp) return laneAbsent();
         const out: LanePresence = { installed: true, pointers: [...listed], targets: [], form: "none" };
-        if (hasMcp) out.pointers.push("mcp.bili");
+        if (hasMcp) out.pointers.push("mcp.sophialin");
         if (listed.includes(OPENCODE_NPM_ENTRY)) {
             out.form = "npm";
         } else if (listed.includes(dir)) {
@@ -1998,7 +2016,7 @@ export function inspectLanePresence(agent: PluginAgent): LanePresence {
         try {
             const man = JSON.parse(fs.readFileSync(manifestFile, "utf8")) as Record<string, unknown>;
             if (typeof man.version === "string") out.copyVersion = man.version;
-            const mcpArgs = zcodeAsPlain(zcodeAsPlain(man.mcpServers)?.bili)?.args;
+            const mcpArgs = zcodeAsPlain(zcodeAsPlain(man.mcpServers)?.sophialin)?.args;
             for (const a of Array.isArray(mcpArgs) ? (mcpArgs as unknown[]).map(String) : []) {
                 if (path.isAbsolute(a)) out.targets.push(a);
             }
@@ -2017,7 +2035,7 @@ export function inspectLanePresence(agent: PluginAgent): LanePresence {
         if (!fs.existsSync(path.join(dir, "__init__.py"))) return laneAbsent();
         const out: LanePresence = { installed: true, pointers: [dir], targets: [], form: "local-path" };
         try {
-            const sidecar = JSON.parse(fs.readFileSync(path.join(dir, "bili.json"), "utf8")) as HermesSidecar;
+            const sidecar = JSON.parse(fs.readFileSync(path.join(dir, "sophialin.json"), "utf8")) as HermesSidecar;
             if (typeof sidecar.proxyScript === "string" && sidecar.proxyScript.length > 0) out.targets.push(sidecar.proxyScript);
         } catch {}
         try {
@@ -2031,7 +2049,7 @@ export function inspectLanePresence(agent: PluginAgent): LanePresence {
     const doc = readJson(zcodeUserConfigFile());
     const sessionStart = zcodeAsPlain(zcodeAsPlain(doc.hooks)?.events)?.SessionStart;
     const hasHook = Array.isArray(sessionStart) && (sessionStart as unknown[]).some(isOursZcodeHookEntry);
-    const mcpBili = zcodeAsPlain(zcodeAsPlain(doc.mcp)?.servers)?.bili;
+    const mcpBili = zcodeAsPlain(zcodeAsPlain(doc.mcp)?.servers)?.sophialin;
     const hasMcp = isOursZcodeMcpServer(mcpBili);
     if (!hasHook && !hasMcp) return laneAbsent();
     const out: LanePresence = { installed: hasHook && hasMcp, pointers: [], targets: [], form: "managed-block" };
@@ -2090,18 +2108,18 @@ export function pluginStatusAll(): Array<{ agent: string; status: string; channe
 // #991 single-writer: every lane's update path, user-facing. Host-managed
 // copies (pi's npm entry, opencode's plugin dir) are only ever updated by
 // their host; dsh profile bundles track the global version; reference lanes
-// (omp/claude/codex/kimi/hermes/zcode) follow the global bili install itself —
-// hermes additionally re-copies its Python files via `bili plugin update hermes`.
+// (omp/claude/codex/kimi/hermes/zcode) follow the global sophialin install itself —
+// hermes additionally re-copies its Python files via `sophialin plugin update hermes`.
 export const UPDATE_CHANNEL: Record<PluginAgent, string> = {
-    pi: "pi update (pi owns the npm:billion-context copy)",
-    omp: "the global bili install (entry points at it)",
-    claude: "the global bili install (hook/MCP point at it)",
-    codex: "the global bili install (the mcp launcher shells out to it)",
+    pi: "pi update (pi owns the npm:sophialin-context copy)",
+    omp: "the global sophialin install (entry points at it)",
+    claude: "the global sophialin install (hook/MCP point at it)",
+    codex: "the global sophialin install (the mcp launcher shells out to it)",
     opencode: "opencode's own plugin manager (opencode owns the copy)",
-    dsh: "the global bili self-update (profile bundles track it)",
-    kimi: "the global bili install (plugin points at its dist)",
-    hermes: "the global bili install (sidecar points at its dist); `bili plugin update hermes` re-copies the plugin",
-    zcode: "the global bili install (hook/MCP point at its dist)",
+    dsh: "the global sophialin self-update (profile bundles track it)",
+    kimi: "the global sophialin install (plugin points at its dist)",
+    hermes: "the global sophialin install (sidecar points at its dist); `sophialin plugin update hermes` re-copies the plugin",
+    zcode: "the global sophialin install (hook/MCP point at its dist)",
 };
 
 export interface PluginUpdateOpts {
@@ -2114,23 +2132,23 @@ export interface PluginUpdateOpts {
     log?: (level: "info" | "warn", msg: string) => void;
 }
 
-/** `bili plugin update [agent]` — bring every lane's bili presence up to
+/** `sophialin plugin update [agent]` — bring every lane's sophialin presence up to
  *  date, each through its OWN owner (#991 single-writer):
  *  - reference lanes (omp/claude/codex/kimi) need nothing per-lane: they
  *    point at the global install, so only the global copy updates;
  *  - host-managed copies (pi npm entry, opencode plugin entry) are never
- *    overwritten by bili — the report says which host command upgrades
+ *    overwritten by sophialin — the report says which host command upgrades
  *    them;
  *  - dsh profile bundles are re-resolved to the latest registry version
  *    through dsh's own plugin channel.
  *  Returns user-facing lines. Network is only touched when a dsh profile
- *  actually depends on bili (version lookup) or globalCheck is provided. */
+ *  actually depends on sophialin (version lookup) or globalCheck is provided. */
 export async function pluginUpdate(agents: readonly PluginAgent[] | undefined, opts: PluginUpdateOpts): Promise<string[]> {
     const log = opts.log ?? (() => {});
     const lines: string[] = [];
     if (opts.globalCheck) {
         await opts.globalCheck();
-        lines.push("global bili copy: update check ran (see log above; it skips copies owned by a host)");
+        lines.push("global sophialin copy: update check ran (see log above; it skips copies owned by a host)");
     }
     for (const agent of agents ?? PLUGIN_AGENTS) {
         try {
@@ -2148,7 +2166,7 @@ async function updateLane(agent: PluginAgent, opts: PluginUpdateOpts, log: (leve
         const list = Array.isArray(packages) ? (packages as unknown[]).map(String) : [];
         const root = selfPackageRoot();
         if (list.some((p) => p === PI_NPM_ENTRY)) {
-            return ["pi: the plugin copy is pi-managed (npm:billion-context) — `pi update` upgrades it; bili never overwrites it (#991)"];
+            return ["pi: the plugin copy is pi-managed (npm:sophialin-context) — `pi update` upgrades it; sophialin never overwrites it (#991)"];
         }
         if (list.some((p) => isPiEntry(p, root))) {
             return ["pi: entry points at this checkout — rebuild the checkout (`npm run build`) to pick up changes"];
@@ -2160,7 +2178,7 @@ async function updateLane(agent: PluginAgent, opts: PluginUpdateOpts, log: (leve
         const { data } = loadOpencodeConfig(file);
         const dir = opencodePluginDir(file);
         if (PLUGIN_KEYS.some((k) => pluginEntries(data, k).some((p) => p === OPENCODE_NPM_ENTRY))) {
-            return ["opencode: the plugin copy is opencode-managed — upgrade/reload it via opencode's plugin manager; bili never overwrites it (#991)"];
+            return ["opencode: the plugin copy is opencode-managed — upgrade/reload it via opencode's plugin manager; sophialin never overwrites it (#991)"];
         }
         if (PLUGIN_KEYS.some((k) => pluginEntries(data, k).some((p) => p === dir))) {
             return ["opencode: plugin points at this checkout — rebuild the checkout (`npm run build`) to pick up changes"];
@@ -2175,7 +2193,7 @@ async function updateLane(agent: PluginAgent, opts: PluginUpdateOpts, log: (leve
             return ["dsh: never initialized on this machine — nothing to update"];
         }
         const targets = dirs.filter((dir) => dshProfileDependsOnBili(dir));
-        if (targets.length === 0) return ["dsh: no profile depends on billion-context — nothing to update"];
+        if (targets.length === 0) return ["dsh: no profile depends on sophialin-context — nothing to update"];
         const latest = await fetchRegistryVersion(opts, opts.packageName);
         if (!latest) return ["dsh: could not resolve the latest version from npm — leaving profile bundles alone"];
         const before = targets.length;
@@ -2185,8 +2203,8 @@ async function updateLane(agent: PluginAgent, opts: PluginUpdateOpts, log: (leve
     if (agent === "hermes") {
         if (hermesStatus() !== "installed") return ["hermes: not installed — nothing to update"];
         hermesInstallCore();
-        return [`hermes: re-copied the plugin into ${hermesPluginDir()} (bili ${selfVersion()}) — restart hermes to pick it up`];
+        return [`hermes: re-copied the plugin into ${hermesPluginDir()} (sophialin ${selfVersion()}) — restart hermes to pick it up`];
     }
     const via = UPDATE_CHANNEL[agent];
-    return [`${agent}: the plugin entry follows the global bili install — it updates together with it (${via})`];
+    return [`${agent}: the plugin entry follows the global sophialin install — it updates together with it (${via})`];
 }

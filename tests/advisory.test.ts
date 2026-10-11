@@ -39,7 +39,7 @@ function makeFixture(): Fixture {
     mkdirSync(path.join(installDir, "dist"), { recursive: true });
     writeFileSync(
         path.join(installDir, "package.json"),
-        JSON.stringify({ name: "billion-context", version: "1.2.3", type: "module", main: "dist/index.js", bin: { bili: "./dist/index.js" } }),
+        JSON.stringify({ name: "sophialin-context", version: "1.2.3", type: "module", main: "dist/index.js", bin: { sophialin: "./dist/index.js" } }),
     );
     writeFileSync(path.join(installDir, "dist", "index.js"), "export const loaded = '1.2.3';\n");
     return {
@@ -63,11 +63,11 @@ function makeFixture(): Fixture {
 }
 
 function pkgJson(version: string): string {
-    return JSON.stringify({ name: "billion-context", version, type: "module", main: "dist/index.js", bin: { bili: "./dist/index.js" } });
+    return JSON.stringify({ name: "sophialin-context", version, type: "module", main: "dist/index.js", bin: { sophialin: "./dist/index.js" } });
 }
 
 function advisoryDoc(entries: AdvisoryEntry[]): Record<string, unknown> {
-    return { name: "billion-context-advisories", version: "0.0.2", billionContextAdvisories: { schema: 1, updated: "2026-09-27", advisories: entries } };
+    return { name: "billion-context-advisories", version: "0.0.2", sophialinContextAdvisories: { schema: 1, updated: "2026-09-27", advisories: entries } };
 }
 
 /** Route global fetch by URL regex; every unmatched URL fails loudly. Returns the fetch count. */
@@ -111,9 +111,9 @@ test("parseAdvisoryDoc: empty advisories list is clean (not an error)", () => {
 test("parseAdvisoryDoc: rejects wrong shape, wrong schema, missing field", () => {
     assert.match(parseAdvisoryDoc(["nope"]).error ?? "", /not a JSON object/);
     assert.match(parseAdvisoryDoc(null).error ?? "", /not a JSON object/);
-    assert.match(parseAdvisoryDoc({}).error ?? "", /missing billionContextAdvisories/);
-    assert.match(parseAdvisoryDoc({ billionContextAdvisories: { schema: 2, advisories: [] } }).error ?? "", /unsupported schema 2/);
-    assert.match(parseAdvisoryDoc({ billionContextAdvisories: { schema: 1 } }).error ?? "", /advisories field is not an array/);
+    assert.match(parseAdvisoryDoc({}).error ?? "", /missing sophialinContextAdvisories/);
+    assert.match(parseAdvisoryDoc({ sophialinContextAdvisories: { schema: 2, advisories: [] } }).error ?? "", /unsupported schema 2/);
+    assert.match(parseAdvisoryDoc({ sophialinContextAdvisories: { schema: 1 } }).error ?? "", /advisories field is not an array/);
 });
 
 test("parseAdvisoryDoc: skips malformed entries, errors when none survive", () => {
@@ -158,11 +158,11 @@ test("runAdvisoryCheck: forces the target version onto an affected install", { t
         await withFetch(
             [
                 { match: /billion-context-advisories/, body: doc },
-                { match: /\/billion-context\/1\.2\.9$/, body: { dist: { tarball: "https://registry.test/pkg-1.2.9.tgz", integrity } } },
+                { match: /\/sophialin-context\/1\.2\.9$/, body: { dist: { tarball: "https://registry.test/pkg-1.2.9.tgz", integrity } } },
                 { match: /pkg-1\.2\.9\.tgz/, body: tgz },
             ],
             async () => {
-                await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
+                await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
             },
         );
         assert.equal(JSON.parse(readFileSync(path.join(fx.installDir, "package.json"), "utf-8")).version, "1.2.9");
@@ -189,11 +189,11 @@ test("runAdvisoryCheck: rollback semantics — target OLDER than the current ver
         await withFetch(
             [
                 { match: /billion-context-advisories/, body: doc },
-                { match: /\/billion-context\/1\.2\.4$/, body: { dist: { tarball: "https://registry.test/pkg-1.2.4.tgz", integrity } } },
+                { match: /\/sophialin-context\/1\.2\.4$/, body: { dist: { tarball: "https://registry.test/pkg-1.2.4.tgz", integrity } } },
                 { match: /pkg-1\.2\.4\.tgz/, body: tgz },
             ],
             async () => {
-                await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.9", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
+                await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.9", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
             },
         );
         assert.equal(JSON.parse(readFileSync(path.join(fx.installDir, "package.json"), "utf-8")).version, "1.2.4");
@@ -213,7 +213,7 @@ test("runAdvisoryCheck: refuses a source checkout, stays active with the reason"
     try {
         const doc = advisoryDoc([{ id: "bc-test-003", affected: ">=1.2.0", target: "1.2.9", reason: "r" }]);
         await withFetch([{ match: /billion-context-advisories/, body: doc }], async () => {
-            await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
+            await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
         });
         assert.equal(JSON.parse(readFileSync(path.join(fx.installDir, "package.json"), "utf-8")).version, "1.2.3", "checkout untouched");
         const st = getAdvisoryState();
@@ -237,7 +237,7 @@ test("runAdvisoryCheck: misconfigured advisory (target == current) fails loudly,
         const doc = advisoryDoc([{ id: "bc-test-004", affected: ">=1.2.0", target: "1.2.3", reason: "r" }]);
         for (let i = 0; i < 2; i++) {
             const calls = await withFetch([{ match: /billion-context-advisories/, body: doc }], async () => {
-                await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
+                await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
             });
             assert.equal(calls, 1, "only the advisory document was fetched");
         }
@@ -268,9 +268,9 @@ test("runAdvisoryCheck: unresolvable target (owner typo) — install untouched, 
         setLogCapture((_level, msg) => { warns.push(msg); });
         const doc = advisoryDoc([{ id: "bc-test-009", affected: ">=1.2.0", target: "9.9.9", reason: "escape-hatch version unpublished (typo)" }]);
         for (let i = 0; i < 2; i++) {
-            // No /billion-context/9.9.9 version-doc route: the registry has no such version.
+            // No /sophialin-context/9.9.9 version-doc route: the registry has no such version.
             await withFetch([{ match: /billion-context-advisories/, body: doc }], async () => {
-                await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
+                await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
             });
         }
         assert.equal(JSON.parse(readFileSync(path.join(fx.installDir, "package.json"), "utf-8")).version, "1.2.3", "install untouched when the target cannot be resolved");
@@ -291,8 +291,8 @@ test("runAdvisoryCheck: unresolvable target (owner typo) — install untouched, 
 
 test("runAdvisoryCheck: refuses host-managed (pnpm store) installs in place, warns once per process", async () => {
     const fx = makeFixture();
-    // pnpm virtual-store layout: .../.pnpm/billion-context@1.2.3/node_modules/billion-context
-    const pnpmDir = path.join(fx.root, "store", ".pnpm", "billion-context@1.2.3", "node_modules", "billion-context");
+    // pnpm virtual-store layout: .../.pnpm/sophialin-context@1.2.3/node_modules/sophialin-context
+    const pnpmDir = path.join(fx.root, "store", ".pnpm", "sophialin-context@1.2.3", "node_modules", "sophialin-context");
     mkdirSync(path.join(pnpmDir, "dist"), { recursive: true });
     writeFileSync(path.join(pnpmDir, "package.json"), pkgJson("1.2.3"));
     writeFileSync(path.join(pnpmDir, "dist", "index.js"), "export const loaded = '1.2.3';\n");
@@ -305,7 +305,7 @@ test("runAdvisoryCheck: refuses host-managed (pnpm store) installs in place, war
         const doc = advisoryDoc([{ id: "bc-test-006", affected: ">=1.2.0", target: "1.2.9", reason: "r" }]);
         for (let i = 0; i < 2; i++) {
             await withFetch([{ match: /billion-context-advisories/, body: doc }], async () => {
-                await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: pnpmDir }, true);
+                await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: pnpmDir }, true);
             });
         }
         assert.equal(JSON.parse(readFileSync(path.join(pnpmDir, "package.json"), "utf-8")).version, "1.2.3", "host-managed copy must stay untouched (#991)");
@@ -329,7 +329,7 @@ test("runAdvisoryCheck: unreachable source fails open (warn, never throw)", asyn
     try {
         const original = globalThis.fetch;
         globalThis.fetch = (() => Promise.reject(new Error("ECONNREFUSED"))) as unknown as typeof fetch;
-        await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
+        await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
         globalThis.fetch = original;
         assert.match(getAdvisoryState().lastError ?? "", /ECONNREFUSED/);
         assert.equal(getAdvisoryState().active, undefined);
@@ -347,9 +347,9 @@ test("runAdvisoryCheck: malformed document is ignored, not fatal", async () => {
     _resetAdvisoryWatcherForTest();
     try {
         await withFetch([{ match: /billion-context-advisories/, body: { schema: 99, advisories: "nope" } }], async () => {
-            await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
+            await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
         });
-        assert.match(getAdvisoryState().lastError ?? "", /missing billionContextAdvisories|malformed|unsupported/);
+        assert.match(getAdvisoryState().lastError ?? "", /missing sophialinContextAdvisories|malformed|unsupported/);
         assert.equal(getAdvisoryState().active, undefined);
     } finally {
         delete process.env.XDG_CACHE_HOME;
@@ -370,8 +370,8 @@ test("runAdvisoryCheck: unthrottled second run skips (cadence respected)", async
             calls++;
             return Promise.resolve(new Response(JSON.stringify(doc)));
         }) as unknown as typeof fetch;
-        await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/x", installDir: fx.installDir }, false);
-        await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/x", installDir: fx.installDir }, false);
+        await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/x", installDir: fx.installDir }, false);
+        await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/x", installDir: fx.installDir }, false);
         globalThis.fetch = original;
         assert.equal(calls, 1, "second non-forced run within the interval must be a no-op");
     } finally {
@@ -389,14 +389,14 @@ test("checkForUpdate: defers to an active advisory instead of fighting it", asyn
     try {
         const doc = advisoryDoc([{ id: "bc-test-005", affected: ">=1.2.0", target: "1.2.9", reason: "r" }]);
         await withFetch([{ match: /billion-context-advisories/, body: doc }], async () => {
-            await runAdvisoryCheck({ packageName: "billion-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
+            await runAdvisoryCheck({ packageName: "sophialin-context", currentVersion: "1.2.3", advisoryUrl: "https://registry.test/billion-context-advisories/latest", installDir: fx.installDir }, true);
         });
         assert.notEqual(getAdvisoryState().active, undefined, "precondition: advisory is active");
         const lines: string[] = [];
         setLogCapture((_level, msg) => { lines.push(msg); });
         try {
             const calls = await withFetch([], async () => {
-                await checkForUpdate({ packageName: "billion-context", currentVersion: "1.2.3", autoUpdate: true, advisoryActive: () => getAdvisoryState().active !== undefined }, false);
+                await checkForUpdate({ packageName: "sophialin-context", currentVersion: "1.2.3", autoUpdate: true, advisoryActive: () => getAdvisoryState().active !== undefined }, false);
             });
             assert.equal(calls, 0, "normal loop must not touch the registry while the advisory owns the install");
         } finally {

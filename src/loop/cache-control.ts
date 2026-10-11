@@ -2,8 +2,8 @@ import type { AnthropicRequestBody } from "acp-kernel/wire";
 
 /**
  * #1637: Anthropic prompt caching is EXPLICIT — content blocks must carry
- * `cache_control` breakpoints or nothing upstream caches. bili used to emit
- * none, so Anthropic-style upstreams never cached anything bili sent, and
+ * `cache_control` breakpoints or nothing upstream caches. sophialin used to emit
+ * none, so Anthropic-style upstreams never cached anything sophialin sent, and
  * relays that breakpoint only the system block left the ENTIRE history
  * re-billing at full price on every request (#1631: cached pinned at the
  * system head, 9–13%, for 40+ requests straight).
@@ -27,7 +27,7 @@ import type { AnthropicRequestBody } from "acp-kernel/wire";
  * from the client's messages, present on system blocks, or on tools entries —
  * the 4-breakpoint budget counts all three) suppresses our stamps entirely
  * (pass no marks / return the system unchanged).
- * BILI_NO_CACHE_CONTROL=1 disables everything.
+ * SOPHIALIN_NO_CACHE_CONTROL=1 disables everything.
  */
 
 const MESSAGE_MARK_CAP = 3;
@@ -40,7 +40,7 @@ export function computeAnthropicMessageMarks(
     session: { metadata: Record<string, unknown> },
 ): AnthropicCacheMarks {
     const marks = new Map<string, { type: "ephemeral" }>();
-    if (process.env.BILI_NO_CACHE_CONTROL) {
+    if (process.env.SOPHIALIN_NO_CACHE_CONTROL) {
         session.metadata["anthropicCacheMarkIds"] = [];
         return marks;
     }
@@ -70,7 +70,7 @@ export function anthropicToolsCarryCacheControl(tools: unknown): boolean {
 }
 
 export function stampAnthropicSystemCacheControl(systemOut: AnthropicRequestBody["system"], ours = true): AnthropicRequestBody["system"] {
-    if (process.env.BILI_NO_CACHE_CONTROL) return systemOut;
+    if (process.env.SOPHIALIN_NO_CACHE_CONTROL) return systemOut;
     if (!ours) return systemOut;
     if (typeof systemOut === "string" && systemOut.length > 0) {
         // Deterministic string→block conversion (semantically identical for

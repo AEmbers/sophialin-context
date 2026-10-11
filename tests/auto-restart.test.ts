@@ -37,7 +37,7 @@ function makeInstall(version: string, entrySource = "export const loaded = 'x';\
     mkdirSync(path.join(dir, "dist"), { recursive: true });
     writeFileSync(
         path.join(dir, "package.json"),
-        JSON.stringify({ name: "billion-context", version, type: "module", main: "dist/index.js", bin: { bili: "./dist/index.js" } }),
+        JSON.stringify({ name: "sophialin-context", version, type: "module", main: "dist/index.js", bin: { sophialin: "./dist/index.js" } }),
     );
     writeFileSync(path.join(dir, "dist", "index.js"), entrySource);
     return dir;
@@ -281,7 +281,7 @@ test("performSelfRestart: durable state flush runs before the replacement spawns
 
 test("readLastRestart: tolerant of missing/corrupt markers", async () => {
     const { mkdir, writeFile, rm } = await import("node:fs/promises");
-    const markerDir = path.join(process.env.XDG_CACHE_HOME ?? "", "billion-context");
+    const markerDir = path.join(process.env.XDG_CACHE_HOME ?? "", "sophialin-context");
     await mkdir(markerDir, { recursive: true });
     // Earlier orchestration tests may have written a marker; start clean.
     await rm(path.join(markerDir, ".auto-restart"), { force: true });

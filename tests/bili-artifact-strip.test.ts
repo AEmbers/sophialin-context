@@ -15,13 +15,13 @@ const L = "\x3c";
 const R = "\x3e";
 const T0 = 1_758_864_000_000;
 const GOOD_DIGEST = "sha256:" + "ab".repeat(32);
-const FIELDS = { v: 1 as const, processor: "bili-a", issuedAt: T0, requestId: "req-1" };
+const FIELDS = { v: 1 as const, processor: "sophialin-a", issuedAt: T0, requestId: "req-1" };
 const tag = (over: Record<string, unknown> = {}): string =>
     renderChainCheckpoint({ ...FIELDS, digest: GOOD_DIGEST, ...over });
 const ESC = "\\u003c";
 const escapedTag = (): string => tag().replace(L, ESC);
-const REORDERED = `${L}bili-chain digest="${GOOD_DIGEST}" request-id="req-1" issued-at="${T0}" processor="bili-a" v="1"/${R}`;
-const NO_DIGEST = `${L}bili-chain v="1" processor="bili-a" issued-at="${T0}" request-id="req-1"/${R}`;
+const REORDERED = `${L}sophialin-chain digest="${GOOD_DIGEST}" request-id="req-1" issued-at="${T0}" processor="sophialin-a" v="1"/${R}`;
+const NO_DIGEST = `${L}sophialin-chain v="1" processor="sophialin-a" issued-at="${T0}" request-id="req-1"/${R}`;
 const TRUNCATED = tag().slice(0, 40);
 const H1 = CODEX_FORGED_HANDOFF_HEADER;
 const H2 = FORGED_SUMMARY_HEADER;
@@ -34,9 +34,9 @@ test("whole-text: well-formed chain carrier is stripped wherever it sits", () =>
 
 test("whole-text: well-formedness matrix (reorder strips, missing digest / truncation keep)", () => {
     assert.equal(stripBiliArtifacts(`x ${REORDERED} y`), "x  y", "attr order is irrelevant to recognition");
-    assert.ok(stripBiliArtifacts(NO_DIGEST).includes("bili-chain"), "missing digest → prose preserved");
-    assert.ok(stripBiliArtifacts(TRUNCATED).includes("bili-chain"), "truncated opening → prose preserved");
-    assert.ok(stripBiliArtifacts(`${L}bili-chain v="99" processor="p" issued-at="${T0}" request-id="r" digest="${GOOD_DIGEST}"${R}`).includes("bili-chain"), "wrong self-close → prose preserved");
+    assert.ok(stripBiliArtifacts(NO_DIGEST).includes("sophialin-chain"), "missing digest → prose preserved");
+    assert.ok(stripBiliArtifacts(TRUNCATED).includes("sophialin-chain"), "truncated opening → prose preserved");
+    assert.ok(stripBiliArtifacts(`${L}sophialin-chain v="99" processor="p" issued-at="${T0}" request-id="r" digest="${GOOD_DIGEST}"${R}`).includes("sophialin-chain"), "wrong self-close → prose preserved");
 });
 
 test("whole-text: \\u003c-escaped chain form is stripped after unescaping", () => {
@@ -69,7 +69,7 @@ test("whole-text: pure prose passes through byte-exact (incl. < tails and [b lin
 test("shared constants: every injector output is recognized by the stripper", () => {
     assert.equal(stripBiliArtifacts(renderForgedSummary({ summary: "body", topic: "Topic X" })), "");
     assert.equal(stripBiliArtifacts(`${H1}\n${H2} — t\nbody`), "");
-    const items = replaceBiliCompactionItems([{ type: "compaction", id: "fc_bili_x", encrypted_content: "bili:acp:summary payload" }] as never[]).items as Array<{ content?: Array<{ text?: string }> }>;
+    const items = replaceBiliCompactionItems([{ type: "compaction", id: "fc_bili_x", encrypted_content: "sophialin:acp:summary payload" }] as never[]).items as Array<{ content?: Array<{ text?: string }> }>;
     const handoff = items[0]?.content?.[0]?.text ?? "";
     assert.ok(handoff.startsWith(H1), "handoff message starts with the shared header constant");
     assert.equal(stripBiliArtifacts(handoff), "", "handoff message text is stripped as a header block");
@@ -89,12 +89,12 @@ test("directionality: request-side stamped carrier survives request-path normali
     assert.equal(JSON.stringify(items), JSON.stringify([inline, solo]), "stamped request items pass through byte-exact");
 });
 
-test("stripAcpTags folds bili artifacts: render tag + marker + chain carrier together", () => {
+test("stripAcpTags folds sophialin artifacts: render tag + marker + chain carrier together", () => {
     const mixed = `${L}acp tokens="1" type="text">m00155${R}/acp ignored\n📦 [ACP] Compressed m00876–m01100 → 1 block(s), ~54K tokens saved.\n${tag()} tail`;
     const out = stripAcpTags(mixed);
     assert.ok(!out.includes("acp tokens"), "render tag gone");
     assert.ok(!out.includes("[ACP]"), "marker line gone");
-    assert.ok(!out.includes("bili-chain"), "chain carrier gone");
+    assert.ok(!out.includes("sophialin-chain"), "chain carrier gone");
     assert.ok(out.trimEnd().endsWith("tail"));
 });
 
@@ -123,7 +123,7 @@ test("streaming: chain carrier stripped at every split point (literal + escaped,
     for (const payload of [tag(), escapedTag(), `pre ${tag()} post`, `pre ${escapedTag()} post`]) {
         for (const n of [1, 2, 3, 5, 7]) {
             const { out, filter } = streamThrough(payload, n);
-            assert.ok(!out.includes("bili-chain") && !out.includes("u003c"), `chunk ${n}: carrier fully stripped, got ${JSON.stringify(out)}`);
+            assert.ok(!out.includes("sophialin-chain") && !out.includes("u003c"), `chunk ${n}: carrier fully stripped, got ${JSON.stringify(out)}`);
             assert.equal(filter.dropped(), true, `chunk ${n}: drop notified`);
         }
         const expected = payload.startsWith("pre ") ? "pre  post" : "";
@@ -151,12 +151,12 @@ test("streaming: pure prose passes byte-exact including tricky boundaries", () =
 
 test("streaming: unterminated opening under budget is held then released as prose on flush", () => {
     const filter = createBiliArtifactFilter();
-    let out = filter.push(`hello ${L}bili-chain v=`);
+    let out = filter.push(`hello ${L}sophialin-chain v=`);
     out += filter.push(`1"`);
     assert.equal(out, "hello ", "open tail withheld while decidable");
     assert.equal(filter.pending(), true);
     out += filter.flush();
-    assert.equal(out, `hello ${L}bili-chain v=1"`, "stream ended: truncated opening released as prose");
+    assert.equal(out, `hello ${L}sophialin-chain v=1"`, "stream ended: truncated opening released as prose");
     assert.equal(filter.dropped(), false, "content preservation — no drop for truncated prose");
     assert.equal(filter.pending(), false);
 });
@@ -166,7 +166,7 @@ test("streaming: over-cap unterminated opening releases as prose (never drops)",
     // an over-cap unterminated tail is by definition not a carrier (truncated
     // echoes, code discussion) and must pass through byte-exact (#1039/#644).
     const filter = createBiliArtifactFilter();
-    const input = `lead ${L}bili-chain ` + "x".repeat(700);
+    const input = `lead ${L}sophialin-chain ` + "x".repeat(700);
     const out = filter.push(input) + filter.flush();
     assert.equal(out, input, "over-cap tail released as prose");
     assert.equal(filter.dropped(), false);

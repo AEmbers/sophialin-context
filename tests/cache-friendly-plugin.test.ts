@@ -23,7 +23,7 @@
 //       volatile tail slots (chain checkpoint / nudge / imgNote / retrieval
 //       note, ≤ 4) may only appear as a contiguous tail run;
 //   P2 fold transitions (client re-sends its compress pair after a
-//       /__bili/plugin/tool fold):
+//       /__sophialin/plugin/tool fold):
 //        P2a the pre-fold span is replaced by exactly the expected carrier
 //            units and nothing else moves or mutates (exact reconstruction);
 //        P2b the in-place carrier is stripped from every post-fold turn
@@ -73,10 +73,10 @@ const LT = "\x3c";
 const GT = "\x3e";
 const OPEN_TAG = LT + "acp ";
 const CLOSE_TAG = LT + "/acp" + GT;
-const CHAIN_PREFIX = LT + "bili-chain v=";
+const CHAIN_PREFIX = LT + "sophialin-chain v=";
 const NUDGE_PREFIX = "This is an efficiency nudge";
 const IMGNOTE_PREFIX = "[Downscaled screenshots:";
-const RETRNOTE_PREFIX = "[billion-context] Earlier acp_retrieve";
+const RETRNOTE_PREFIX = "[sophialin-context] Earlier acp_retrieve";
 const SUM_MARKER = "[Compressed conversation section]";
 const TAG_RE = new RegExp(`^${LT}acp tokens="[0-9]+(\\.[0-9])?K?" type="text"${GT}(m[0-9]+)${CLOSE_TAG}\n`);
 
@@ -462,14 +462,14 @@ async function driveWire(wire: Wire, steps: Step[]): Promise<Canon[]> {
     } as ProxyOptions);
     await once(proxy, "listening");
     const proxyPort = (proxy.address() as { port: number }).port;
-    const base = `http://127.0.0.1:${proxyPort}/bili/http://127.0.0.1:${upstreamPort}${adapter.path}`;
+    const base = `http://127.0.0.1:${proxyPort}/sophialin/http://127.0.0.1:${upstreamPort}${adapter.path}`;
 
     const hist: CItem[] = [];
     try {
         for (const step of steps) {
             for (const it of step.send) hist.push(it);
             if (step.fold) {
-                const r = await fetch(`http://127.0.0.1:${proxyPort}/__bili/plugin/tool`, {
+                const r = await fetch(`http://127.0.0.1:${proxyPort}/__sophialin/plugin/tool`, {
                     method: "POST", headers: { "content-type": "application/json" },
                     body: JSON.stringify({ conversationId: conv, tool: "compress", args: { content: [step.fold] } }),
                 });
@@ -487,7 +487,7 @@ async function driveWire(wire: Wire, steps: Step[]): Promise<Canon[]> {
             }
             const resp = await fetch(base, {
                 method: "POST",
-                headers: { "content-type": "application/json", "x-bili-plugin": "pi-plugin/0.0.1", "x-bili-plugin-conversation": conv },
+                headers: { "content-type": "application/json", "x-sophialin-plugin": "pi-plugin/0.0.1", "x-sophialin-plugin-conversation": conv },
                 body: JSON.stringify(adapter.buildBody(hist)),
             });
             if (resp.status !== 200) {

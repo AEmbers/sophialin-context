@@ -50,7 +50,7 @@ test("flush writes the snapshot file; hydrate reattaches after a restart", () =>
     prefixAffinity.note(aff.sessionId, aff.incomingDepth, aff.tailHash, aff.itemHashes);
     flushPrefixAffinity();
 
-    const file = path.join(tmp, "billion-context", "prefix-affinity.json");
+    const file = path.join(tmp, "sophialin-context", "prefix-affinity.json");
     assert.ok(fs.existsSync(file));
     const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as { version: number; entries: unknown[] };
     assert.equal(parsed.version, 1);
@@ -66,7 +66,7 @@ test("flush writes the snapshot file; hydrate reattaches after a restart", () =>
 
 test("hydrate on a missing or corrupt file is a no-op", () => {
     hydratePrefixAffinity();
-    const file = path.join(tmp, "billion-context", "prefix-affinity.json");
+    const file = path.join(tmp, "sophialin-context", "prefix-affinity.json");
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, "{not json");
     hydratePrefixAffinity();
@@ -83,7 +83,7 @@ test("writeSnapshot unions with on-disk chains instead of clobbering a sibling i
     assert.ok(b && b.sessionId !== a.sessionId);
     sib.note(b.sessionId, b.incomingDepth, b.tailHash, b.itemHashes);
 
-    const file = path.join(tmp, "billion-context", "prefix-affinity.json");
+    const file = path.join(tmp, "sophialin-context", "prefix-affinity.json");
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, JSON.stringify({ version: 1, entries: [...sib.exportSnapshot(), ...prefixAffinity.exportSnapshot()] }));
 
@@ -101,7 +101,7 @@ test("merge keeps the deeper disk copy when our in-memory snapshot is stale (#17
     const mine = prefixAffinity.exportSnapshot()[0];
     assert.ok(mine);
     const deeper = { ...mine, depth: mine.depth + 2, lastSeen: mine.lastSeen + 1000 };
-    const file = path.join(tmp, "billion-context", "prefix-affinity.json");
+    const file = path.join(tmp, "sophialin-context", "prefix-affinity.json");
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, JSON.stringify({ version: 1, entries: [deeper] }));
 
@@ -121,7 +121,7 @@ test("writeSnapshot re-applies the store's bounds to the union (LRU cap; chains 
         pads.push({ sessionId: `pfa-pad-${i}`, depth: 3, tailHash: `t${i}`, itemHashes: ["h"], lastSeen: now - (i + 1) * 1000 });
     }
     pads.push({ sessionId: "pfa-oldest", depth: 3, tailHash: "ta", itemHashes: ["h"], lastSeen: now - 400 * 24 * 60 * 60 * 1000 });
-    const file = path.join(tmp, "billion-context", "prefix-affinity.json");
+    const file = path.join(tmp, "sophialin-context", "prefix-affinity.json");
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, JSON.stringify({ version: 1, entries: pads }));
 
@@ -136,7 +136,7 @@ test("writeSnapshot re-applies the store's bounds to the union (LRU cap; chains 
 
 test("chains are permanent at write time — age alone never prunes (#1724)", () => {
     const now = Date.now();
-    const file = path.join(tmp, "billion-context", "prefix-affinity.json");
+    const file = path.join(tmp, "sophialin-context", "prefix-affinity.json");
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, JSON.stringify({ version: 1, entries: [
         { sessionId: "pfa-year-old", depth: 5, tailHash: "ty", itemHashes: ["h"], lastSeen: now - 400 * 24 * 60 * 60 * 1000 },
@@ -154,7 +154,7 @@ test("a malformed disk entry cannot win a same-depth merge or persist (#1724)", 
     const a = prefixAffinity.resolve(messages(6));
     assert.ok(a);
     prefixAffinity.note(a.sessionId, a.incomingDepth, a.tailHash, a.itemHashes);
-    const file = path.join(tmp, "billion-context", "prefix-affinity.json");
+    const file = path.join(tmp, "sophialin-context", "prefix-affinity.json");
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, JSON.stringify({ version: 1, entries: [{ sessionId: a.sessionId, depth: a.incomingDepth, tailHash: "deadbeef" }] }));
 

@@ -15,6 +15,7 @@ import {
     type ImageFormat,
 } from "acp-kernel";
 import type { BiliMessage } from "acp-kernel/wire";
+import { restoreImageOffload } from "./image-offload.js";
 import { createHash } from "node:crypto";
 import type { CompressSettings } from "./config.js";
 import type { ResolvedImageBilling } from "./image-tokens.js";
@@ -130,10 +131,16 @@ function splitDataUrl(url: string): { mediaType: string; b64: string } | null {
     return { mediaType, b64: url.slice(comma + 1) };
 }
 
-interface ImageSlot {
+export interface ImageSlot {
     b64: string;
     mediaType: string;
     replace(b64: string, mediaType: string): void;
+    /** Offload seam: replace the carrier ITSELF with placeholder text. The wire
+     *  builders re-emit every raw carrier verbatim (acp-kernel
+     *  dist/wire/index.js: anthropic L148/165, openai L443-458, responses
+     *  L891, google rawParts L1253), so mutating the carrier here is the only
+     *  place an image block can be demoted to a text block. */
+    offload(text: string): void;
 }
 
 function anthropicSlots(m: BiliMessage): ImageSlot[] {
@@ -147,6 +154,10 @@ function anthropicSlots(m: BiliMessage): ImageSlot[] {
         replace(b64: string, mediaType: string): void {
             source.data = b64;
             source.media_type = mediaType;
+        },
+        offload(text: string): void {
+            (m as { rawAnthropicBlock: unknown }).rawAnthropicBlock = { type: "text", text };
+            m.text = text;
         },
     }];
 }
@@ -168,6 +179,11 @@ function openaiSlots(m: BiliMessage): ImageSlot[] {
             replace(b64: string, mediaType: string): void {
                 imageUrl.url = `data:${mediaType};base64,${b64}`;
             },
+            offload(text: string): void {
+                p.type = "text";
+                p.text = text;
+                delete p.image_url;
+            },
         });
     };
     if (Array.isArray(m.rawOpenaiContentParts)) {
@@ -180,6 +196,12 @@ function openaiSlots(m: BiliMessage): ImageSlot[] {
                 mediaType: parsed.mediaType,
                 replace(b64: string, mediaType: string): void {
                     (m as { rawOpenaiContent: unknown }).rawOpenaiContent = `data:${mediaType};base64,${b64}`;
+                },
+                offload(text: string): void {
+                    (m as { rawOpenaiContent: unknown }).rawOpenaiContent = { type: "text", text };
+                    delete (m as { imageBase64?: string }).imageBase64;
+                    delete (m as { imageMediaType?: string }).imageMediaType;
+                    m.text = text;
                 },
             });
         }
@@ -204,6 +226,11 @@ function responsesSlots(m: BiliMessage): ImageSlot[] {
             replace(b64: string, mediaType: string): void {
                 p.image_url = `data:${mediaType};base64,${b64}`;
             },
+            offload(text: string): void {
+                p.type = "input_text";
+                p.text = text;
+                delete p.image_url;
+            },
         });
     }
     return out;
@@ -224,14 +251,19 @@ function googleSlots(m: BiliMessage): ImageSlot[] {
                 inline.data = b64;
                 inline.mimeType = mediaType;
             },
+            offload(text: string): void {
+                delete p.inlineData;
+                p.text = text;
+            },
         });
     }
     return out;
 }
 
 /** All image slots carried by one message, deduped by payload fingerprint
- *  (the mirror fields are bookkeeping, never slots). */
-function imageSlots(m: BiliMessage): ImageSlot[] {
+ *  (the mirror fields are bookkeeping, never slots). Exported for the offload
+ *  pass, which walks occurrences oldest-first across messages. */
+export function imageSlots(m: BiliMessage): ImageSlot[] {
     const seen = new Set<string>();
     const out: ImageSlot[] = [];
     for (const slot of [...anthropicSlots(m), ...openaiSlots(m), ...responsesSlots(m), ...googleSlots(m)]) {
@@ -390,6 +422,12 @@ export function executeImageFull(args: Record<string, unknown>, session: Session
         if (!wasRestored) {
             session.stats.imageFullRestores = (session.stats.imageFullRestores ?? 0) + 1;
             invalidateForRef(session, parsed.ref);
+            // DSH-offload compat: if this ref had been dropped by the offload
+            // pass (`isImageFullRestored` now makes that pass skip it), retire
+            // the record so the count and usage suffix stop claiming it.
+            if (restoreImageOffload(session, parsed.ref)) {
+                loggerLog("info", `[acp-image] image_full ${parsed.ref}: re-instated an offloaded occurrence`);
+            }
             loggerLog("info", `[acp-image] image_full ${parsed.ref}: restored to full resolution for the rest of the session`);
         } else {
             loggerLog("info", `[acp-image] image_full ${parsed.ref}: already restored (no-op)`);
@@ -418,6 +456,14 @@ export function imageFullTrailingNote(session: Session | undefined): string | un
 export function imageUsageSuffix(session: Session | undefined): string {
     const tok = session?.stats.imageTokensSaved ?? 0;
     const bytes = session?.stats.imageBytesSaved ?? 0;
-    if (tok <= 0 && bytes <= 0) return "";
-    return ` img-saved=${tok}tok/${Math.round(bytes / 1024)}KB x${session!.stats.imageShrunkCount ?? 0}`;
+    const offloaded = session?.stats.imageOffloadedCount ?? 0;
+    const offloadedBytes = session?.stats.imageBytesOffloaded ?? 0;
+    const parts: string[] = [];
+    if (tok > 0 || bytes > 0) {
+        parts.push(`img-saved=${tok}tok/${Math.round(bytes / 1024)}KB x${session!.stats.imageShrunkCount ?? 0}`);
+    }
+    if (offloaded > 0) {
+        parts.push(`img-offloaded=${Math.round(offloadedBytes / 1024)}KB x${offloaded}`);
+    }
+    return parts.length === 0 ? "" : ` ${parts.join(" ")}`;
 }

@@ -19,7 +19,7 @@ import path from "node:path";
 import { rmrf } from "./tmp-rm.ts";
 
 process.env.NODE_ENV = "test";
-process.env.BILI_PERSIST = "0";
+process.env.SOPHIALIN_PERSIST = "0";
 
 import { defaultConfig } from "acp-kernel";
 import { startServer, type ProxyOptions } from "../src/server.ts";
@@ -171,10 +171,10 @@ async function startRig(mode?: "route-scoped" | "name-divergent" | "enabled-dive
 // test's message refs/content store and the kernel treats re-sent messages as
 // already-known instead of storing them fresh.
 async function postOpenai(rig: Rig, messages: unknown[], convId = "ccr-e2e-conv"): Promise<void> {
-    const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/chat/completions`;
+    const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/chat/completions`;
     const res = await fetch(url, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-bili-plugin": "test-agent", "x-acp-session": convId },
+        headers: { "content-type": "application/json", "x-sophialin-plugin": "test-agent", "x-acp-session": convId },
         // max_tokens must exceed SIDE_REQUEST_MAX_TOKENS or the side-request
         // guard forwards verbatim without touching kernel state (#554).
         body: JSON.stringify({ model: MODEL, max_tokens: 64_000, messages }),
@@ -186,10 +186,10 @@ async function postOpenai(rig: Rig, messages: unknown[], convId = "ccr-e2e-conv"
 // [#1457] Non-throwing variant for failure-injection turns: the proxy passes
 // the upstream status back verbatim, so a 500 must be observable, not fatal.
 async function postRaw(rig: Rig, apiPath: string, body: Record<string, unknown>, convId: string): Promise<{ status: number; text: string }> {
-    const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}${apiPath}`;
+    const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}${apiPath}`;
     const res = await fetch(url, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-bili-plugin": "test-agent", "x-acp-session": convId },
+        headers: { "content-type": "application/json", "x-sophialin-plugin": "test-agent", "x-acp-session": convId },
         body: JSON.stringify(body),
     });
     return { status: res.status, text: await res.text() };
@@ -227,10 +227,10 @@ test("e2e plugin lane: CCR arms, stores+placeholderes, and acp_retrieve rides fu
         assert.ok(ref, "oversized tool result was stored under a ref");
 
         // The agent calls acp_retrieve through the REAL plugin tool endpoint
-        // (`POST /__bili/plugin/tool`, the same dispatch the MCP shim drives) —
+        // (`POST /__sophialin/plugin/tool`, the same dispatch the MCP shim drives) —
         // covers the conversation gate (isProxyToolFor under the armed session)
         // and the ack round-trip, not just the inner executeRetrieve.
-        const toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__bili/plugin/tool`, {
+        const toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: "ccr-e2e-conv", tool: "acp_retrieve", args: { ref } }),
@@ -271,7 +271,7 @@ test("e2e plugin lane: CCR arms, stores+placeholderes, and acp_retrieve rides fu
 test("e2e route-scoped CCR: plugin lane stays verbatim, proxy lane arms", async () => {
     const rig = await startRig("route-scoped");
     try {
-        // Plugin lane (x-bili-plugin header): the oversized tool result must
+        // Plugin lane (x-sophialin-plugin header): the oversized tool result must
         // ride the wire byte-exact — no store, no placeholder, no arming.
         await postOpenai(rig, BASE_MSGS());
         assert.equal(rig.forwards.length, 1, "one outbound forward after the plugin turn");
@@ -282,7 +282,7 @@ test("e2e route-scoped CCR: plugin lane stays verbatim, proxy lane arms", async 
 
         // Proxy lane (no plugin header, fresh conversation id): the
         // route-level merge arms CCR and the proxy injects acp_retrieve.
-        const url = `http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/chat/completions`;
+        const url = `http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/chat/completions`;
         const res = await fetch(url, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "ccr-e2e-conv-proxy" },
@@ -310,7 +310,7 @@ test("e2e #1345 toolName divergence: plugin lane executes the BASE name, proxy l
     const rig = await startRig("name-divergent");
     try {
         // The live manifest advertises only the base name — never the route override.
-        const mfRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__bili/plugin/manifest`);
+        const mfRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__sophialin/plugin/manifest`);
         const mf = JSON.parse(await mfRes.text()) as { toolNames: string[] };
         assert.ok(mf.toolNames.includes("acp_retrieve"), "manifest advertises the base acp_retrieve");
         assert.ok(!mf.toolNames.includes("retrieve_original"), "manifest must not advertise the route-level rename");
@@ -331,7 +331,7 @@ test("e2e #1345 toolName divergence: plugin lane executes the BASE name, proxy l
         assert.ok(ref, "oversized result stored under a ref");
 
         // The registered (base-name) tool works through the plugin endpoint...
-        let toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__bili/plugin/tool`, {
+        let toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: "ccr-e2e-name-conv", tool: "acp_retrieve", args: { ref } }),
@@ -342,7 +342,7 @@ test("e2e #1345 toolName divergence: plugin lane executes the BASE name, proxy l
         assert.ok(toolJson.result!.includes(BIG_TEXT.slice(0, 120)), "base-name retrieve delivers the full text in the tool result");
 
         // ...while the overridden name is unknown to this session.
-        toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__bili/plugin/tool`, {
+        toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: "ccr-e2e-name-conv", tool: "retrieve_original", args: { ref } }),
@@ -351,7 +351,7 @@ test("e2e #1345 toolName divergence: plugin lane executes the BASE name, proxy l
 
         // Proxy lane (no plugin header, fresh conversation): the merged block
         // governs there — per-route renames keep working.
-        const res = await fetch(`http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/chat/completions`, {
+        const res = await fetch(`http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/chat/completions`, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "ccr-e2e-proxy-name" },
             body: JSON.stringify({ model: MODEL, max_tokens: 64_000, messages: BASE_MSGS() }),
@@ -383,7 +383,7 @@ test("e2e #1345 enabled divergence: plugin lane stays ARMED (base governs), prox
         assert.ok(sess && ccrEnabled(sess), "plugin session stays armed from the base config");
         const ref = Object.keys(contentStoreOf(sess!).byRef)[0]!;
         assert.ok(ref, "oversized result stored under a ref");
-        const toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__bili/plugin/tool`, {
+        const toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: "ccr-e2e-enabled-conv", tool: "acp_retrieve", args: { ref } }),
@@ -394,7 +394,7 @@ test("e2e #1345 enabled divergence: plugin lane stays ARMED (base governs), prox
         assert.ok(toolJson.result!.includes(BIG_TEXT.slice(0, 120)), "retrieve delivers the framed original in the tool result");
 
         // Proxy lane: the three-level merge still applies — enabled=false wins.
-        const res = await fetch(`http://127.0.0.1:${rig.proxyPort}/bili/http://127.0.0.1:${rig.upstreamPort}/v1/chat/completions`, {
+        const res = await fetch(`http://127.0.0.1:${rig.proxyPort}/sophialin/http://127.0.0.1:${rig.upstreamPort}/v1/chat/completions`, {
             method: "POST",
             headers: { "content-type": "application/json", "x-acp-session": "ccr-e2e-proxy-enabled" },
             body: JSON.stringify({ model: MODEL, max_tokens: 64_000, messages: BASE_MSGS() }),
@@ -442,8 +442,8 @@ test("#1345 findCcrPluginDivergences: per-field report, silent when base disable
 });
 
 test("#1345 load-time diagnostic: one warn per divergent field at config load", () => {
-    const dir = mkdtempSync(path.join(process.env.TMPDIR ?? ".", "bili-1345-"));
-    const cfgPath = path.join(dir, "billion-context.json");
+    const dir = mkdtempSync(path.join(process.env.TMPDIR ?? ".", "sophialin-1345-"));
+    const cfgPath = path.join(dir, "sophialin-context.json");
     writeFileSync(cfgPath, JSON.stringify({
         providers: {
             [DIV_URL]: {
@@ -453,8 +453,8 @@ test("#1345 load-time diagnostic: one warn per divergent field at config load", 
         },
         compress: { ccr: { enabled: true } },
     }));
-    const prevCfg = process.env.BILI_CONFIG_FILE;
-    process.env.BILI_CONFIG_FILE = cfgPath;
+    const prevCfg = process.env.SOPHIALIN_CONFIG_FILE;
+    process.env.SOPHIALIN_CONFIG_FILE = cfgPath;
     const warns: string[] = [];
     setLogCapture((level, msg) => { if (level === "warn") warns.push(msg); });
     try {
@@ -467,7 +467,7 @@ test("#1345 load-time diagnostic: one warn per divergent field at config load", 
         assert.match(hits[1]!, /plugin sessions use true/);
     } finally {
         setLogCapture(null);
-        if (prevCfg === undefined) delete process.env.BILI_CONFIG_FILE; else process.env.BILI_CONFIG_FILE = prevCfg;
+        if (prevCfg === undefined) delete process.env.SOPHIALIN_CONFIG_FILE; else process.env.SOPHIALIN_CONFIG_FILE = prevCfg;
         rmrf(dir);
     }
 });
@@ -494,7 +494,7 @@ test("e2e #1457 openai plugin lane: delivery is atomic in the tool result — an
         assert.ok(sess && ccrEnabled(sess), "plugin session armed CCR");
         const ref = Object.keys(contentStoreOf(sess!).byRef)[0]!;
 
-        const toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__bili/plugin/tool`, {
+        const toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: CONV, tool: "acp_retrieve", args: { ref } }),
@@ -540,7 +540,7 @@ test("e2e #1457 openai plugin lane: delivery is atomic in the tool result — an
         // Turn 4: the model re-issues acp_retrieve (same plugin-tool dispatch
         // the MCP shim drives) — a fresh atomic delivery in the new tool
         // result. Stored content is never lost: re-retrieval always works.
-        const reToolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__bili/plugin/tool`, {
+        const reToolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: CONV, tool: "acp_retrieve", args: { ref } }),
@@ -574,7 +574,7 @@ test("e2e #1457 anthropic plugin lane: same atomic delivery — failure passes t
         assert.ok(sess && ccrEnabled(sess), "plugin session armed CCR on the anthropic wire");
         const ref = Object.keys(contentStoreOf(sess!).byRef)[0]!;
 
-        const toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__bili/plugin/tool`, {
+        const toolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: CONV, tool: "acp_retrieve", args: { ref } }),
@@ -612,7 +612,7 @@ test("e2e #1457 anthropic plugin lane: same atomic delivery — failure passes t
 
         // The model re-issues acp_retrieve; the new ack is another atomic
         // delivery in its tool-result slot.
-        const reToolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__bili/plugin/tool`, {
+        const reToolRes = await fetch(`http://127.0.0.1:${rig.proxyPort}/__sophialin/plugin/tool`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ conversationId: CONV, tool: "acp_retrieve", args: { ref } }),

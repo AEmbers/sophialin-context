@@ -1,7 +1,7 @@
 import type { BiliMessage } from "acp-kernel/wire";
 
 /** [#651] Drop oversized reasoning (thinking) from closed-round `compress`
- *  tool calls at request time — the billion-context twin of
+ *  tool calls at request time — the sophialin-context twin of
  *  billion-context-pi #336/#339/#348, aligned with opencode-acp #377.
  *  `compress` tool messages are hard-exempt from compression (their tool
  *  results are the anchors that keep block summaries addressable), so the

@@ -12,7 +12,7 @@ import { registerWatcherDefault, type WatcherRegistration } from "../src/launche
 function stubWatcher(status: number): Promise<{ origin: string; close: () => Promise<void>; body: (req: http.IncomingMessage) => Promise<string> }> {
     let lastBody = "";
     const server = http.createServer((req, res) => {
-        if (req.method === "POST" && req.url === "/__bili/watcher") {
+        if (req.method === "POST" && req.url === "/__sophialin/watcher") {
             let b = "";
             req.on("data", (c) => (b += c));
             req.on("end", () => {
@@ -48,7 +48,7 @@ test("registerWatcherDefault: maps HTTP outcomes to ok / refused / failed (#1322
 
     const refused = await stubWatcher(409);
     try {
-        // A daemon proxy (no BILI_PARENT_PID) refuses — that is the #1322 case.
+        // A daemon proxy (no SOPHIALIN_PARENT_PID) refuses — that is the #1322 case.
         assert.equal(await registerWatcherDefault(refused.origin, 4242), "refused");
     } finally {
         await refused.close();
