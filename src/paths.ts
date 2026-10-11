@@ -28,6 +28,41 @@ export function configDir(): string {
     return path.join(xdg("XDG_CONFIG_HOME", ".config"), "sophialin-context");
 }
 
+/** Pre-rename product directory name. This was released, so it is NOT a
+ *  cosmetic string: every install that predates the rename has its config,
+ *  sessions, MITM CA and state under this name, and the new build would look
+ *  like a first run without it. Kept here as the single source for the
+ *  migration in legacy-migrate.ts. */
+export const LEGACY_DIR_NAME = "billion-context";
+
+/** Pre-rename config file name (the rename rule rewrote the whole
+ *  `billion-context.json` literal, so the file is not renamed on disk). */
+export const LEGACY_CONFIG_NAME = "billion-context.json";
+
+function legacyRoot(envVar: string, fallback: string): string {
+    return path.join(xdg(envVar, fallback), LEGACY_DIR_NAME);
+}
+
+/** Pre-rename config dir. */
+export function legacyConfigDir(): string {
+    return legacyRoot("XDG_CONFIG_HOME", ".config");
+}
+
+/** Pre-rename config file path. */
+export function legacyConfigFile(): string {
+    return path.join(legacyConfigDir(), LEGACY_CONFIG_NAME);
+}
+
+/** Pre-rename data dir (persisted sessions, MITM CA). */
+export function legacyDataDir(): string {
+    return legacyRoot("XDG_DATA_HOME", ".local/share");
+}
+
+/** Pre-rename state dir (log, prefix affinity, plugin conversations). */
+export function legacyStateDir(): string {
+    return legacyRoot("XDG_STATE_HOME", ".local/state");
+}
+
 /** Main config file path. */
 export function configFile(): string {
     const env = process.env.SOPHIALIN_CONFIG_FILE;

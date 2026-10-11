@@ -35,6 +35,7 @@ import { runLaunch, runTestPi, isLaunchClient, type ClientName } from "./launche
 import { exportSession } from "./export.js";
 import { renderJson, renderText, runDiff } from "./acp-cache-diff.js";
 import { renderDoctorReport, runDoctor } from "./doctor.js";
+import { runLegacyMigration } from "./legacy-migrate.js";
 import { VERSION, PACKAGE_NAME } from "./version.js";
 
 const HELP = `sophialin ${VERSION} — sophialin-context proxy
@@ -389,6 +390,14 @@ export async function main(): Promise<void> {
         process.stdout.write(VERSION + "\n");
         return;
     }
+    // Adopt a pre-rename install before anything reads config/sessions/state
+    // (see legacy-migrate.ts). Deliberately after the help/version returns so
+    // those stay side-effect free, and before every stateful command — export
+    // and doctor read the same trees as `start`, so migrating only on `start`
+    // would leave them looking at an empty store.
+    runLegacyMigration({
+        adoptConfig: (overrides.SOPHIALIN_CONFIG_FILE ?? process.env.SOPHIALIN_CONFIG_FILE) === undefined,
+    });
     if (command === "acp-cache") {
         try {
             const report = runDiff(acpCacheDir!, { logFile: acpCacheLog, noLog: acpCacheNoLog, session: acpCacheSession });
