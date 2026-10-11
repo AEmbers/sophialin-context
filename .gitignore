@@ -9,6 +9,6 @@ node_modules
 *.log
 .env
 *.tgz
-.bili-coop-build-stamp
+.sophialin-coop-build-stamp
 tmp/
 tests/.pp-stamp-state-*/

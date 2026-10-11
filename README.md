@@ -9,7 +9,7 @@
 <p align="center">
 <a href="https://www.npmjs.com/package/sophialin-context"><img src="https://img.shields.io/npm/v/sophialin-context.svg?style=flat-square" alt="npm"></a>
 <a href="https://github.com/AEmbers/sophialin-context/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/sophialin-context.svg?style=flat-square" alt="license"></a>
-<a href="https://github.com/AEmbers/sophialin-context"><img src="https://img.shields.io/badge/GitHub-ranxianglei%2Fbillion--context-181717?style=flat-square&logo=github" alt="GitHub"></a>
+<a href="https://github.com/AEmbers/sophialin-context"><img src="https://img.shields.io/badge/GitHub-AEmbers%2Fsophialin--context-181717?style=flat-square&logo=github" alt="GitHub"></a>
 </p>
 
 <p align="center">

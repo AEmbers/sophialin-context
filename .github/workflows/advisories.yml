@@ -59,7 +59,7 @@ jobs:
             const { execFileSync } = require('child_process');
             for (const t of targets) {
               try {
-                execFileSync('npm', ['view', 'billion-context@' + t, 'version'], { stdio: 'pipe' });
+                execFileSync('npm', ['view', 'sophialin-context@' + t, 'version'], { stdio: 'pipe' });
               } catch {
                 console.error('advisory target', t, 'does not exist on the npm registry — publish the fix release first');
                 process.exit(1);
