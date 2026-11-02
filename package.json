@@ -51,7 +51,7 @@
     "url": "https://github.com/AEmbers/sophialin-context/issues"
   },
   "dependencies": {
-    "zod": "4.1.8"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
